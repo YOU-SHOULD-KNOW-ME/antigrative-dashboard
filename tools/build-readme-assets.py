@@ -30,17 +30,23 @@ def composer(draw, box, speed=True):
     text(draw,(x+57,y+91),'Gemini Flash High',17,'#c5ccda')
     draw.line([(x+229,y+100),(x+233,y+104),(x+237,y+100)],fill='#9ba6b7',width=1)
     start=x+276
-    if speed:
-        small_icon(draw,start,y+99,'gauge');text(draw,(start+22,y+92),'104.6 tok/s',15,'#d4def5');start+=160
-    small_icon(draw,start,y+99,'clock');text(draw,(start+22,y+92),'5h 83.4%  02:46:18',15,'#bbc7de');start+=224
-    small_icon(draw,start,y+99,'calendar');text(draw,(start+22,y+92),'Wk 61.7%  4d 13:24',15,'#bbc7de')
+    metrics=([('gauge','104.6 tok/s')] if speed else [])+[
+        ('cache','629M tok · Cache 98%'),('clock','5h 83.4%'),('calendar','Wk 61.7%')]
+    for kind,value in metrics:
+        small_icon(draw,start,y+99,kind)
+        text(draw,(start+21,y+92),value,15,'#d4def5' if kind=='gauge' else '#bbc7de')
+        start+=21+round(draw.textlength(value,font=font(15)))+25
     draw.ellipse((x+w-63,y+78,x+w-25,y+116),fill='#394356')
+    text(draw,(x+w-104,y+94),'EN',13,'#9aaac3')
     text(draw,(x+w-54,y+82),'↑',22,'#a5b8df')
 
-def statcard(draw, box, title, rows, balance=None):
+def statcard(draw, box, title, rows, balance=None, header_value=None):
     x,y,w,h=box
     draw.rounded_rectangle((x,y,x+w,y+h),radius=18,fill='#30343d',outline='#454b59')
     text(draw,(x+21,y+18),title,19,'#edf0f6',True)
+    if header_value:
+        right=draw.textlength(header_value,font=font(13))
+        text(draw,(x+w-21-right,y+24),header_value,13,'#e0e7f5',True)
     draw.line((x+20,y+54,x+w-20,y+54),fill='#505560')
     offset=72
     if balance:
@@ -57,7 +63,13 @@ def statcard(draw, box, title, rows, balance=None):
 
 def small_icon(draw,x,y,kind):
     color='#98a5bc'
-    if kind=='calendar':
+    if kind=='cache':
+        draw.ellipse((x,y-3,x+12,y+1),outline=color,width=1)
+        draw.line((x,y-1,x,y+8),fill=color)
+        draw.line((x+12,y-1,x+12,y+8),fill=color)
+        draw.arc((x,y+5,x+12,y+9),0,180,fill=color,width=1)
+        draw.arc((x,y+1,x+12,y+5),0,180,fill=color,width=1)
+    elif kind=='calendar':
         draw.rounded_rectangle((x,y-2,x+12,y+10),radius=2,outline=color,width=1)
         draw.line((x,y+2,x+12,y+2),fill=color)
         draw.line((x+3,y-4,x+3,y),fill=color)
@@ -70,7 +82,7 @@ def small_icon(draw,x,y,kind):
 hero,d=canvas()
 text(d,(86,58),'ANTIGRATIVE DASHBOARD',16,'#94adf9',True)
 text(d,(82,110),'Speed and quota. Right beside your model.',43,'#f1f4fb',True)
-text(d,(86,196),'tok/s · Five-hour quota · Weekly quota · Reset countdowns',24,'#aebbcf')
+text(d,(86,196),'tok/s · Cache hits · Five-hour quota · Weekly quota',24,'#aebbcf')
 composer(d,(85,320,1230))
 for x,title,description in [(86,'Always in view','No separate monitoring panel'),(500,'Hover for details','Keep the input box clean'),(916,'Install. Toggle. Remove.','Verified backups and recovery')]:
     text(d,(x,509),title,23,'#e2e8f4',True)
@@ -81,9 +93,9 @@ hero.save(OUT/'hero.png')
 demo,d=canvas(height=785)
 text(d,(70,47),'Less distraction. More clarity.',32,'#edf2fa',True)
 text(d,(71,99),'Local metrics collection. Illustrative data shown here.',18,'#8e9db4')
-statcard(d,(78,193,386,345),'Session statistics',[
-    ('Model time','2m 18s'),('Tool time','16.4s'),('Average TTFT','2.38s'),
-    ('Session TPS','104.6 tok/s'),('Last request','112.8 tok/s'),('Response / thinking','14,820 / 6,204 tok')])
+statcard(d,(78,193,386,345),'Token usage',[
+    ('Cache hit','98%'),('Uncached input','13,461,223 tok'),
+    ('Cache read','614,457,984 tok'),('Output','725,982 tok')],header_value='628,645,189 tok')
 statcard(d,(503,193,386,345),'Five-hour quota · Gemini',[
     ('Resets in','02:46:18'),('Reset time','Today, 20:28'),('Quota group','Gemini')],balance='83.4%')
 statcard(d,(928,193,386,345),'Weekly quota · Gemini',[

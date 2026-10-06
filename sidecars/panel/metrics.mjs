@@ -15,6 +15,23 @@ export function tokenCount(value) {
   return Number.isSafeInteger(n) && n >= 0 ? n : null;
 }
 
+export function requestCacheMetrics(usage) {
+  const input = tokenCount(usage.inputTokens);
+  if ((usage.cacheReadTokens !== undefined && tokenCount(usage.cacheReadTokens) === null) ||
+      (usage.cacheWriteTokens !== undefined && tokenCount(usage.cacheWriteTokens) === null)) return null;
+  const read = tokenCount(usage.cacheReadTokens) ?? 0;
+  const write = tokenCount(usage.cacheWriteTokens) ?? 0;
+  const provider = String(usage.apiProvider || '');
+  if (input === null || !/GOOGLE_GEMINI|OPENAI|ANTHROPIC/.test(provider)) return null;
+  // Antigravity ModelUsageStats normalizes inputTokens to uncached input,
+  // including Gemini (verified against live records with cacheRead > input).
+  // These are NOT upstream Gemini/OpenAI prompt_tokens. Add the separate
+  // cache read/write counts exactly once for this local interface.
+  const total = input + read + write;
+  if (!Number.isSafeInteger(total) || total <= 0 || read + write > total) return null;
+  return { inputTokens:total, cachedTokens:read, cacheWriteTokens:write, uncachedTokens:total-read-write };
+}
+
 function unionSeconds(intervals) {
   const sorted = intervals.filter(([a, b]) => Number.isFinite(a) && Number.isFinite(b) && b >= a).sort((a, b) => a[0] - b[0]);
   let total = 0, start = null, end = null;
@@ -33,6 +50,7 @@ export function trajectoryMetrics(response) {
   const samples = [], ids = new Set();
   const counts = { input: 0, output: 0, responseOutput: 0, thinkingOutput: 0, cacheRead: 0, cacheWrite: 0 };
   let modelSeconds = 0, ttftSeconds = 0, ttftSamples = 0, missingTiming = 0;
+  const cache = { inputTokens:0, cachedTokens:0, cacheWriteTokens:0, uncachedTokens:0, outputTokens:0, measuredRequests:0, missingRequests:0 };
   for (const [index, generator] of generators.entries()) {
     const chat = generator.chatModel;
     if (!chat?.usage) continue;
@@ -40,6 +58,12 @@ export function trajectoryMetrics(response) {
     const id = usage.messageId || generator.executionId || `index:${index}`;
     if (ids.has(id)) continue;
     ids.add(id);
+    const cached = requestCacheMetrics(usage);
+    if(cached) {
+      for(const key of ['inputTokens','cachedTokens','cacheWriteTokens','uncachedTokens'])cache[key]+=cached[key];
+      cache.outputTokens+=tokenCount(usage.outputTokens)??0;
+      cache.measuredRequests++;
+    } else cache.missingRequests++;
     const output = tokenCount(usage.outputTokens);
     const visible = tokenCount(usage.responseOutputTokens);
     const thinking = tokenCount(usage.thinkingOutputTokens);
@@ -74,6 +98,7 @@ export function trajectoryMetrics(response) {
     conversationId: trajectory.cascadeId || null,
     steps: Number(response.numTotalSteps ?? steps.length), rounds: steps.filter(s => /USER_INPUT/.test(String(s.type))).length,
     requests: ids.size, measuredRequests: samples.length, missingTiming, counts,
+    cache:{...cache,totalTokens:cache.inputTokens+cache.outputTokens,hitRate:cache.inputTokens>0?cache.cachedTokens/cache.inputTokens:null,complete:cache.missingRequests===0},
     tps: streamingSeconds > 0 ? sampledTokens / streamingSeconds : null, latestTps: latest?.tps ?? null,
     rateBasis: samples.length && samples.every(s => s.basis === 'response') ? 'response' : 'all-output',
     streamingSeconds, modelSeconds, toolSeconds, ttftSeconds: ttftSamples ? ttftSeconds / ttftSamples : null,

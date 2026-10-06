@@ -4,10 +4,10 @@
 
 # Antigrative Dashboard
 
-Token throughput, five-hour quota, and weekly quota — in the model selector row.<br>
+Token throughput, cache hits, five-hour quota, and weekly quota — in the model selector row.<br>
 Keep the summary visible. Hover for the details.
 
-[![Version 0.2.0](https://img.shields.io/badge/version-0.2.0-91adff?style=flat-square&labelColor=252936)](CHANGELOG.md)
+[![Version 0.3.0](https://img.shields.io/badge/version-0.3.0-91adff?style=flat-square&labelColor=252936)](CHANGELOG.md)
 [![Windows](https://img.shields.io/badge/host-Windows-83d8b9?style=flat-square&labelColor=252936)](COMPATIBILITY.md)
 [![Antigravity 2.19.1](https://img.shields.io/badge/Antigravity-2.19.1-c5a0ff?style=flat-square&labelColor=252936)](COMPATIBILITY.md)
 [![MIT](https://img.shields.io/badge/license-MIT-d4d9e6?style=flat-square&labelColor=252936)](LICENSE)
@@ -20,7 +20,7 @@ Keep the summary visible. Hover for the details.
 
 <img src="docs/assets/widget.png" width="100%" alt="A compact stats strip in the model selector row, with hover cards for throughput and quota.">
 
-<sub>Artwork uses illustrative data, not real account quotas or conversations. The installed widget reads metrics from your local Antigravity app. Its current in-app labels are Chinese; the English artwork illustrates the layout.</sub>
+<sub>Artwork uses illustrative data, not real account quotas or conversations. The installed widget reads metrics from your local Antigravity app. The widget defaults to English. Use the EN / 中 button to switch languages; your choice is saved.</sub>
 
 **Keep working. The numbers are already there.**
 
@@ -30,6 +30,8 @@ Keep the summary visible. Hover for the details.
 
 ### Small details that matter
 
+- **Token usage, DSH-style.** Compact total tokens and cache hit rate; hover for uncached input, cache reads, output, and optional cache writes.
+- **English or Chinese.** English by default, with one-click switching and a saved preference.
 - **Stable menus.** Quota-group menus stay open across polling cycles while countdowns continue ticking.
 - **Actual account data.** Remaining quota comes from the account API, not an estimate based on text length. Expired windows do not automatically become 100%.
 - **Conversation-aware.** Switch chats without carrying the previous chat's throughput into a new one.
@@ -103,6 +105,8 @@ The stable internal plugin ID remains `antigravity-pulse` for compatibility with
 
 | Metric | Definition |
 | --- | --- |
+| Cache hit | Cached-read tokens divided by uncached input + cache reads + cache writes; token-weighted across requests |
+| Token total | Normalized total input plus output tokens, including thinking output |
 | Session TPS | Sum of response tokens from valid requests divided by their total streaming duration |
 | Last-request TPS | Response tokens divided by streaming duration for the latest valid request |
 | TTFT | Average time to first token; excluded from response streaming TPS |
@@ -112,6 +116,7 @@ The stable internal plugin ID remains `antigravity-pulse` for compatibility with
 | Reset countdown | Account-provided `resetTime` minus the current time |
 
 Request metrics update after requests finish, with a poll about every 2.2 seconds. This is not a per-token instantaneous speed meter. Quotas refresh every 60 seconds; countdowns tick every second.
+Antigravity normalizes `inputTokens` to uncached input even for Gemini; these are not upstream prompt-token counters. Cache writes are not hits. Cache details show unavailable or partial coverage when the provider counters are unsupported.
 Thinking tokens are separate. If a model does not expose response tokens, the detail card explains the all-output fallback. Requests without valid timing do not contribute to TPS. Missing or disconnected data is labeled accordingly.
 
 ## Compatibility
@@ -120,6 +125,10 @@ Verified on **Windows 11 / Antigravity desktop App 2.19.1**. Not an Antigravity 
 Repository presentation is inspired by [DSH Rail Music](https://github.com/YOU-SHOULD-KNOW-ME/dsh-rail-music); installation APIs differ. `dsh plugin add` cannot install this project.
 
 [Full compatibility and recovery details →](COMPATIBILITY.md)
+
+### Language
+
+Click **EN** in the model row to switch to Simplified Chinese; click **中** to return to English. The sidecar panel has the same control. The selection persists in local site storage and updates other open views on the same origin. It changes dashboard labels, not the host app or model name.
 
 ## FAQ
 

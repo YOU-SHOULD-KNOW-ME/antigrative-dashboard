@@ -10,13 +10,17 @@ const store = new MetricsStore();
 const staticFiles = { '/': ['index.html', 'text/html'], '/app.js': ['app.js', 'text/javascript'], '/styles.css': ['styles.css', 'text/css'], '/format.mjs': ['format.mjs', 'text/javascript'] };
 const inlineSource=()=>{
   const file=readFileSync(join(HERE,'..','..','compat','inline-widget.cjs'),'utf8');
-  return `(${file.slice(file.indexOf('module.exports = ')+'module.exports = '.length).trim().replace(/;$/,'')})();`;
+  const i18n=readFileSync(join(HERE,'..','..','compat','i18n.cjs'),'utf8');
+  const extract=s=>s.slice(s.indexOf('module.exports = ')+'module.exports = '.length).trim().replace(/;$/,'');
+  return `window.__agPulseI18nFactory=(${extract(i18n)});(${extract(file)})();`;
 };
+const i18nModule=()=>{const s=readFileSync(join(HERE,'..','..','compat','i18n.cjs'),'utf8');return 'export const createI18n='+s.slice(s.indexOf('module.exports = ')+'module.exports = '.length);};
 
 if (process.env.ANTIGRAVITY_SIDECAR_WEB_PORT) {
   const { SidecarApp, Response } = await loadSidecarSdk();
   const app = new SidecarApp();
   for (const [path, [file, type]] of Object.entries(staticFiles)) app.api(path, () => new Response(readFileSync(join(HERE, file), 'utf8'), { contentType: type }), 'GET');
+  app.page('/i18n.js',i18nModule);
   app.api('/api/metrics', data => store.snapshot({ conversationId: data.conversationId || null, force: data.force === true || data.force === '1' }), 'GET');
   app.run();
 } else {
@@ -36,6 +40,7 @@ if (process.env.ANTIGRAVITY_SIDECAR_WEB_PORT) {
       return;
     }
     if (url.pathname === '/preload.js') { res.writeHead(200, { 'Content-Type': 'text/javascript' }); res.end('// Standalone preview: no host bridge.'); return; }
+    if(url.pathname==='/i18n.js'){res.writeHead(200,{'Content-Type':'text/javascript; charset=utf-8'});res.end(i18nModule());return;}
     if(url.pathname==='/inline-widget.js'){res.writeHead(200,{'Content-Type':'text/javascript; charset=utf-8'});res.end(inlineSource());return;}
     if(url.pathname.startsWith('/toolbar-preview')){res.writeHead(200,{'Content-Type':'text/html; charset=utf-8'});res.end(readFileSync(join(HERE,'toolbar-preview.html')));return;}
     const file = staticFiles[url.pathname];

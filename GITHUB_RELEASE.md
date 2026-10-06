@@ -1,10 +1,10 @@
-# Antigrative Dashboard v0.2.0
+# Antigrative Dashboard v0.3.0
 
-A DSH-inspired inline Antigravity widget for session tok/s, five-hour and weekly quota, and reset countdowns.
+Adds a DSH-style Token usage card with cache hit rate, plus an English-first UI with persistent Simplified Chinese switching. The inline strip now shows total tokens and cache hits alongside tok/s, five-hour quota, and weekly quota.
 
 ## Download and install
 
-Download `antigrative-dashboard-0.2.0.zip`, verify its matching `.zip.sha256` checksum, and extract it to a permanent directory.
+Download `antigrative-dashboard-0.3.0.zip`, verify its matching `.zip.sha256` checksum, and extract it to a permanent directory.
 
 ```powershell
 cd antigrative-dashboard
@@ -21,6 +21,13 @@ python manage.py enable
 python manage.py status
 python manage.py uninstall
 ```
+
+## What changed
+
+- Token total, cache hit percentage, uncached input, cache reads, output, and optional cache writes.
+- Cache totals use Antigravity normalized input counters; writes are not hits.
+- English by default; click EN / 中 to switch languages.
+- Quota reset text and statistics cards switch immediately, without resetting your selected quota group.
 
 ## Compatibility
 

@@ -1,12 +1,20 @@
 {
   "command": "node",
-  "args": ["main.mjs"],
+  "args": [
+    "main.mjs"
+  ],
   "restart_policy": "always",
   "display_name": "Antigrative Dashboard",
-  "description": "输出速率 · 5h 余额 · 周余额",
+  "description": "Throughput, token cache, five-hour and weekly quota",
   "has_web_ui": true,
   "ui_config": {
     "display_name": "Antigrative Dashboard",
-    "views": [{ "path": "/", "entrypoint": "SIDECAR_UI_ENTRYPOINT_AUX_PANE", "title": "Antigrative Dashboard" }]
+    "views": [
+      {
+        "path": "/",
+        "entrypoint": "SIDECAR_UI_ENTRYPOINT_AUX_PANE",
+        "title": "Antigrative Dashboard"
+      }
+    ]
   }
 }

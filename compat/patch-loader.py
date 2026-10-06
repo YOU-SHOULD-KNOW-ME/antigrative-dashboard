@@ -76,7 +76,9 @@ electron_1.contextBridge.exposeInMainWorld("agPulseHost", {{
     utils=bodies['dist/utils.js'].decode('utf-8')
     anchor='    win.webContents.setWindowOpenHandler((details) => {'
     if utils.count(anchor)!=1:raise RuntimeError('Window startup integration is incompatible with this build.')
-    script=json.dumps(f'({function})();',ensure_ascii=True)
+    i18n_source=(HERE/'i18n.cjs').read_text(encoding='utf-8')
+    i18n_function=i18n_source[i18n_source.index(prefix)+len(prefix):].strip().removesuffix(';')
+    script=json.dumps(f'window.__agPulseI18nFactory=({i18n_function});({function})();',ensure_ascii=True)
     hook=f'''    {MARKER}
     win.webContents.on('dom-ready', () => {{
         void win.webContents.executeJavaScript({script}).catch(() => console.warn('[Antigrative Dashboard] Widget startup failed.'));

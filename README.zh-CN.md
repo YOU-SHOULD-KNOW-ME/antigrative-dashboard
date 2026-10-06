@@ -4,10 +4,10 @@
 
 # Antigrative Dashboard
 
-把生成速率、5 小时余额和周余额，放在模型选择的同一行。<br>
+把生成速率、缓存命中率、5 小时余额和周余额，放在模型选择的同一行。<br>
 缩略信息常驻；鼠标悬停，才展开详细统计。
 
-[![Version 0.2.0](https://img.shields.io/badge/version-0.2.0-91adff?style=flat-square&labelColor=252936)](CHANGELOG.md)
+[![Version 0.3.0](https://img.shields.io/badge/version-0.3.0-91adff?style=flat-square&labelColor=252936)](CHANGELOG.md)
 [![Windows](https://img.shields.io/badge/host-Windows-83d8b9?style=flat-square&labelColor=252936)](COMPATIBILITY.md)
 [![Antigravity 2.19.1](https://img.shields.io/badge/Antigravity-2.19.1-c5a0ff?style=flat-square&labelColor=252936)](COMPATIBILITY.md)
 [![MIT](https://img.shields.io/badge/license-MIT-d4d9e6?style=flat-square&labelColor=252936)](LICENSE)
@@ -96,6 +96,12 @@ python manage.py install
 **恢复资料会保留。** 原始归档在 `%LOCALAPPDATA%/AntigravityPulseBackups/<时间戳>/`；卸载保留备份与诊断日志。遇到 App 升级或其他修改时，卸载器拒绝覆盖未知文件，不强行恢复旧版 App。
 
 `python manage.py install --panel-only` 只安装原生 sidecar，不修改加载器。需要账号原生 UI Extensions 已开放；这个模式不能保证出现模型旁的缩略条。
+
+## 语言与缓存
+
+默认英文。状态条的 **EN** 按钮切换中文，**中** 切回英文，选择会保存。缓存卡按 DSH 逻辑显示总 token、缓存命中、未缓存输入、缓存读取与输出；缓存写入非零时显示额外一行。
+
+Antigravity 的 `inputTokens` 是未缓存输入。缓存率 = 缓存读取 ÷（未缓存输入 + 缓存读取 + 缓存写入），不是把缓存写入算作命中。总 token = 总输入 + 输出。
 
 ## 数据如何计算
 

@@ -2,6 +2,12 @@
   "name": "antigravity-pulse-panel",
   "private": true,
   "type": "module",
-  "scripts": { "start": "node main.mjs", "test": "node --test tests/*.test.mjs" },
-  "engines": { "node": ">=20" }
+  "scripts": {
+    "start": "node main.mjs",
+    "test": "node --test tests/*.test.mjs"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "version": "0.3.0"
 }

@@ -9,7 +9,8 @@ compat/patch-loader.py      带备份和校验的版本适配器
 compat/inline-widget.cjs    与模型选择同行的 Shadow DOM 控件
 compat/ipc-host.cjs         主进程到本地 sidecar 的受限桥接
 sidecars/panel/client.mjs   本地 LanguageServer 查询
-sidecars/panel/metrics.mjs  速率、时长与额度转换
+sidecars/panel/metrics.mjs  速率、缓存、时长与额度转换
+compat/i18n.cjs             两种界面共用的英文 / 中文词表
 sidecars/panel/store.mjs    请求合并、短缓存与账户切换
 sidecars/panel/sdk.mjs      已安装 App SDK 的加载兼容
 tests/                     生命周期验证
