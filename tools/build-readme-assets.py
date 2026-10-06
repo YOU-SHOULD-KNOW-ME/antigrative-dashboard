@@ -33,7 +33,7 @@ def composer(draw, box, speed=True):
     if speed:
         small_icon(draw,start,y+99,'gauge');text(draw,(start+22,y+92),'104.6 tok/s',15,'#d4def5');start+=160
     small_icon(draw,start,y+99,'clock');text(draw,(start+22,y+92),'5h 83.4%  02:46:18',15,'#bbc7de');start+=224
-    small_icon(draw,start,y+99,'calendar');text(draw,(start+22,y+92),'周 61.7%  4天 13:24',15,'#bbc7de')
+    small_icon(draw,start,y+99,'calendar');text(draw,(start+22,y+92),'Wk 61.7%  4d 13:24',15,'#bbc7de')
     draw.ellipse((x+w-63,y+78,x+w-25,y+116),fill='#394356')
     text(draw,(x+w-54,y+82),'↑',22,'#a5b8df')
 
@@ -45,7 +45,7 @@ def statcard(draw, box, title, rows, balance=None):
     offset=72
     if balance:
         text(draw,(x+22,y+68),balance,37,'#f1f4fc',True)
-        text(draw,(x+155,y+94),'剩余',14,'#a0abba')
+        text(draw,(x+175,y+94),'remaining',14,'#a0abba')
         draw.rounded_rectangle((x+22,y+129,x+w-22,y+134),radius=2,fill='#4a515e')
         draw.rounded_rectangle((x+22,y+129,x+22+(w-44)*float(balance.rstrip('%'))/100,y+134),radius=2,fill='#91adff')
         offset=153
@@ -69,25 +69,25 @@ def small_icon(draw,x,y,kind):
 
 hero,d=canvas()
 text(d,(86,58),'ANTIGRATIVE DASHBOARD',16,'#94adf9',True)
-text(d,(82,110),'速度与额度，就在模型选择旁。',49,'#f1f4fb',True)
-text(d,(86,196),'tok/s · 5h 余额 · 周余额 · 重置倒计时',24,'#aebbcf')
+text(d,(82,110),'Speed and quota. Right beside your model.',43,'#f1f4fb',True)
+text(d,(86,196),'tok/s · Five-hour quota · Weekly quota · Reset countdowns',24,'#aebbcf')
 composer(d,(85,320,1230))
-for x,title,description in [(86,'常驻缩略信息','无需打开独立面板'),(500,'悬停查看详情','保持输入框整洁'),(916,'可安装 · 可停用 · 可卸载','原始加载器备份与恢复')]:
+for x,title,description in [(86,'Always in view','No separate monitoring panel'),(500,'Hover for details','Keep the input box clean'),(916,'Install. Toggle. Remove.','Verified backups and recovery')]:
     text(d,(x,509),title,23,'#e2e8f4',True)
     text(d,(x,552),description,17,'#909db2')
-text(d,(86,627),'Windows / Antigravity App 2.19.1    ·    MIT    ·    示例数据',14,'#68758e')
+text(d,(86,627),'Windows / Antigravity App 2.19.1    ·    MIT    ·    Illustrative data',14,'#68758e')
 hero.save(OUT/'hero.png')
 
 demo,d=canvas(height=785)
-text(d,(70,47),'少一点打扰，多一点确定。',32,'#edf2fa',True)
-text(d,(71,99),'真实数据采集；这里使用示意数据展示样式。',18,'#8e9db4')
-statcard(d,(78,193,386,345),'会话统计',[
-    ('模型调用用时','2分18秒'),('工具调用用时','16.4秒'),('首 token 平均','2.38秒'),
-    ('会话输出速率','104.6 tok/s'),('最近一次请求','112.8 tok/s'),('正文 / 思考输出','14,820 / 6,204 tok')])
-statcard(d,(503,193,386,345),'5h 额度 · Gemini',[
-    ('重置倒计时','02:46:18'),('重置时间','今天 20:28'),('额度组','Gemini')],balance='83.4%')
-statcard(d,(928,193,386,345),'周额度 · Gemini',[
-    ('重置倒计时','4天 13:24:06'),('重置时间','10/11 15:28'),('额度组','Gemini')],balance='61.7%')
+text(d,(70,47),'Less distraction. More clarity.',32,'#edf2fa',True)
+text(d,(71,99),'Local metrics collection. Illustrative data shown here.',18,'#8e9db4')
+statcard(d,(78,193,386,345),'Session statistics',[
+    ('Model time','2m 18s'),('Tool time','16.4s'),('Average TTFT','2.38s'),
+    ('Session TPS','104.6 tok/s'),('Last request','112.8 tok/s'),('Response / thinking','14,820 / 6,204 tok')])
+statcard(d,(503,193,386,345),'Five-hour quota · Gemini',[
+    ('Resets in','02:46:18'),('Reset time','Today, 20:28'),('Quota group','Gemini')],balance='83.4%')
+statcard(d,(928,193,386,345),'Weekly quota · Gemini',[
+    ('Resets in','4d 13:24:06'),('Reset time','10/11 15:28'),('Quota group','Gemini')],balance='61.7%')
 composer(d,(70,590,1250))
 demo.save(OUT/'widget.png')
 print('Generated illustrative README assets:',OUT)

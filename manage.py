@@ -21,7 +21,7 @@ BACKUPS = LOCAL / 'AntigravityPulseBackups'
 RUNTIME_FILES = ('plugin.json', 'assets', 'sidecars', 'compat')
 DIST_FILES = ('plugin.json', 'assets', 'sidecars', 'compat', 'manage.py', 'install.ps1',
               'uninstall.ps1', 'README.md', 'LICENSE', 'CHANGELOG.md', 'COMPATIBILITY.md', 'docs', 'package.json',
-              '.gitignore', '.github', 'tests', 'tools', 'GITHUB_RELEASE.md')
+              '.gitignore', '.gitattributes', '.github', 'tests', 'tools', 'GITHUB_RELEASE.md', 'README.zh-CN.md')
 IGNORED = {'__pycache__', '.data', 'node_modules', '.git', 'dist'}
 
 def json_read(file, default=None):

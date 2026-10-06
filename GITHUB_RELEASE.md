@@ -1,19 +1,19 @@
 # Antigrative Dashboard v0.2.0
 
-DSH 风格的 Antigravity 输入框小控件：会话 tok/s、5h / 周余额及重置倒计时。
+A DSH-inspired inline Antigravity widget for session tok/s, five-hour and weekly quota, and reset countdowns.
 
-## 下载和安装
+## Download and install
 
-下载 `antigrative-dashboard-0.2.0.zip`，校验对应 `.zip.sha256` 文件，解压到固定目录。
+Download `antigrative-dashboard-0.2.0.zip`, verify its matching `.zip.sha256` checksum, and extract it to a permanent directory.
 
 ```powershell
 cd antigrative-dashboard
 python manage.py install
 ```
 
-完全退出并重新打开 Antigravity。缩略信息位于模型选择同一行；悬停显示详细统计。
+Fully quit and reopen Antigravity. The summary lives beside the model selector; hover for detailed statistics.
 
-## 插拔命令
+## Plug and unplug
 
 ```powershell
 python manage.py disable
@@ -22,8 +22,8 @@ python manage.py status
 python manage.py uninstall
 ```
 
-## 当前兼容范围
+## Compatibility
 
-Windows / Antigravity 桌面 App 2.19.1 / Python 3.10+。内嵌位置使用本地加载器适配并保留完整归档备份；不保证 App 更新后的兼容性。未知归档修改不会被卸载器覆盖。
+Windows / Antigravity desktop App 2.19.1 / Python 3.10+. The inline position requires a local loader adapter with an integrity-checked archive backup. Compatibility after app updates is not guaranteed, and unknown archive changes are never overwritten by the uninstaller.
 
-此发行包不含用户账号、凭据、对话、日志、SDK 缓存或 Antigravity 安装归档。
+This release includes no account credentials, conversations, host logs, SDK cache, or Antigravity application archive.
