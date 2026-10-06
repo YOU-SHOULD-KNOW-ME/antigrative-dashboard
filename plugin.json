@@ -1,0 +1,7 @@
+{
+  "name": "antigravity-pulse",
+  "display_name": "Antigrative Dashboard",
+  "description": "DSH 风格的会话速率、5h 与周额度状态条。使用 Antigravity 实际请求统计和账户额度。",
+  "version": "0.2.0",
+  "logo": "assets/logo.svg"
+}

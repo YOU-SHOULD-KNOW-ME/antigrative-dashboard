@@ -1,0 +1,11 @@
+__pycache__/
+*.py[cod]
+node_modules/
+dist/
+.data/
+*.log
+.env*
+*.asar
+*.original
+settings.json
+patch.json

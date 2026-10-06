@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Antigrative Dashboard</title>
+  <link rel="stylesheet" href="/styles.css">
+  <script src="/preload.js"></script>
+  <script type="module" src="/app.js"></script>
+</head>
+<body>
+  <svg class="icon-definitions" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+    <symbol id="gauge" viewBox="0 0 16 16"><path d="M3 12a6 6 0 1 1 10 0M8 9l3-4"/></symbol>
+    <symbol id="clock" viewBox="0 0 16 16"><circle cx="8" cy="8" r="5.6"/><path d="M8 4.7v3.6l2.3 1.4"/></symbol>
+    <symbol id="calendar" viewBox="0 0 16 16"><rect x="2.5" y="3.5" width="11" height="10" rx="2"/><path d="M5 2v3m6-3v3M3 7h10"/></symbol>
+    <symbol id="refresh" viewBox="0 0 16 16"><path d="M12.8 6a5.1 5.1 0 1 0 .1 4M12.8 2.5V6H9.2"/></symbol>
+    <symbol id="pulse" viewBox="0 0 16 16"><path d="M1 8h4l2-5 3 10 2-5h3"/></symbol>
+  </svg>
+  <main class="widget" aria-label="Antigravity 会话与额度监测">
+    <header class="widget-header">
+      <div class="brand"><svg class="icon"><use href="#pulse"/></svg><span>Antigrative Dashboard</span><span class="connection-dot" id="connection-dot"></span></div>
+      <div class="header-controls">
+        <label class="sr-only" for="quota-group">额度组</label>
+        <select id="quota-group" aria-label="额度组"><option value="">读取额度…</option></select>
+        <button class="icon-button" id="refresh-button" type="button" aria-label="刷新统计" title="刷新统计"><svg class="icon"><use href="#refresh"/></svg></button>
+      </div>
+    </header>
+    <section class="card-stage" aria-label="统计详情">
+      <div class="rest-state"><span id="rest-title">连接 Antigravity…</span><span id="rest-subtitle">悬停状态条，查看详细统计</span></div>
+      <article class="detail-card" id="speed-card" role="region" aria-label="会话统计" hidden>
+        <div class="card-heading"><span><svg class="icon"><use href="#gauge"/></svg>会话统计</span><span class="card-tag" id="request-count">— 次请求</span></div>
+        <dl>
+          <div><dt>模型调用用时</dt><dd id="model-time">—</dd></div>
+          <div><dt>工具调用用时</dt><dd id="tool-time">—</dd></div>
+          <div><dt>首 token 平均（TTFT）</dt><dd id="ttft">—</dd></div>
+          <div class="emphasis"><dt>会话输出速率（TPS）</dt><dd><span id="session-tps">—</span> tok/s</dd></div>
+          <div><dt>最近一次请求</dt><dd><span id="latest-tps">—</span> tok/s</dd></div>
+          <div class="divider"><dt>正文 / 思考输出</dt><dd id="token-detail">—</dd></div>
+        </dl>
+        <p class="card-footnote" id="speed-basis">正文输出 token ÷ 流式生成时长；会话值按总时长加权。</p>
+      </article>
+      <article class="detail-card quota-card" id="five-card" role="region" aria-label="5 小时额度" hidden>
+        <div class="card-heading"><span><svg class="icon"><use href="#clock"/></svg>5h 额度</span><span class="card-tag group-name">—</span></div>
+        <div class="balance"><strong id="five-balance">—</strong><span>剩余</span></div>
+        <div class="quota-track" role="progressbar" aria-label="5 小时剩余额度" id="five-track"><i id="five-fill"></i></div>
+        <dl><div><dt>重置倒计时</dt><dd class="reset-countdown" id="five-countdown">—</dd></div><div><dt>重置时间（北京时间）</dt><dd id="five-reset">—</dd></div></dl>
+        <p class="card-footnote quota-note" id="five-note">从账户真实额度读取。</p>
+      </article>
+      <article class="detail-card quota-card" id="week-card" role="region" aria-label="周额度" hidden>
+        <div class="card-heading"><span><svg class="icon"><use href="#calendar"/></svg>周额度</span><span class="card-tag group-name">—</span></div>
+        <div class="balance"><strong id="week-balance">—</strong><span>剩余</span></div>
+        <div class="quota-track" role="progressbar" aria-label="周剩余额度" id="week-track"><i id="week-fill"></i></div>
+        <dl><div><dt>重置倒计时</dt><dd class="reset-countdown" id="week-countdown">—</dd></div><div><dt>重置时间（北京时间）</dt><dd id="week-reset">—</dd></div></dl>
+        <p class="card-footnote quota-note" id="week-note">从账户真实额度读取。</p>
+      </article>
+    </section>
+    <footer class="status-strip" aria-label="实时统计状态条">
+      <button class="metric-chip speed-chip" type="button" data-card="speed" aria-controls="speed-card" aria-expanded="false">
+        <svg class="icon"><use href="#gauge"/></svg><span class="chip-content"><span class="chip-primary"><span class="session-rounds" id="session-steps">—</span><strong id="strip-tps">—</strong><span class="unit">tok/s</span></span><span class="chip-secondary" id="strip-model">会话统计</span></span>
+      </button>
+      <button class="metric-chip" type="button" data-card="five" aria-controls="five-card" aria-expanded="false">
+        <svg class="icon"><use href="#clock"/></svg><span class="chip-content"><span class="chip-primary">5h <strong id="strip-five">—</strong></span><span class="chip-secondary timer" id="strip-five-timer">—</span></span>
+      </button>
+      <button class="metric-chip" type="button" data-card="week" aria-controls="week-card" aria-expanded="false">
+        <svg class="icon"><use href="#calendar"/></svg><span class="chip-content"><span class="chip-primary">周 <strong id="strip-week">—</strong></span><span class="chip-secondary timer" id="strip-week-timer">—</span></span>
+      </button>
+    </footer>
+    <p class="health-note" id="health-note" role="status">等待首次更新</p>
+  </main>
+</body>
+</html>
