@@ -7,9 +7,9 @@
 把生成速率、缓存命中率、5 小时余额和周余额，放在模型选择的同一行。<br>
 缩略信息常驻；鼠标悬停，才展开详细统计。
 
-[![Version 0.3.0](https://img.shields.io/badge/version-0.3.0-91adff?style=flat-square&labelColor=252936)](CHANGELOG.md)
+[![Version 0.4.0](https://img.shields.io/badge/version-0.4.0-91adff?style=flat-square&labelColor=252936)](CHANGELOG.md)
 [![Windows](https://img.shields.io/badge/host-Windows-83d8b9?style=flat-square&labelColor=252936)](COMPATIBILITY.md)
-[![Antigravity 2.19.1](https://img.shields.io/badge/Antigravity-2.19.1-c5a0ff?style=flat-square&labelColor=252936)](COMPATIBILITY.md)
+[![Antigravity 2.21.1](https://img.shields.io/badge/Antigravity-2.21.1-c5a0ff?style=flat-square&labelColor=252936)](COMPATIBILITY.md)
 [![MIT](https://img.shields.io/badge/license-MIT-d4d9e6?style=flat-square&labelColor=252936)](LICENSE)
 
 [看看效果](#看看效果) · [开始安装](#安装) · [启用与停用](#可插拔) · [兼容性](#兼容性) · [常见问题](#常见问题)
@@ -33,15 +33,16 @@
 - **菜单保持稳定。** 打开额度组菜单时，轮询不会重建控件或关闭菜单，倒计时继续更新。
 - **用真实数据。** 余额读取账户接口，不根据生成字数推测，不将重置到期自动改成 100%。
 - **切换对话。** 统计跟随当前会话，新对话不沿用上一段对话的速率。
-- **可拔出。** 停用隐藏控件，卸载恢复原始加载器；未知 App 修改会阻止覆盖。
+- **更新后自动连接。** 适配器保存在用户插件目录，默认安装不修改 App 归档。
+- **对话统计持久化。** 每个账号、每个对话分别保存 tok/s 与 cache，重新加载后可恢复。
 - **适合紧凑窗口。** 窗口空间不足时，缩略条隐藏倒计时；完整倒计时始终在悬停卡中。
 - **不上传采集数据。** 后台使用本机 loopback 接口，数值留在你的电脑。
 
 ## 安装
 
-适用于 **Windows 的 Antigravity 桌面 App 2.19.1 + Python 3.10+**。无 pip / npm 第三方依赖，后台使用 App 自带 Node.js。完整支持范围见 [COMPATIBILITY.md](COMPATIBILITY.md)。
+适用于 **Windows 的 Antigravity 桌面 App 2.21.1 + Python 3.10+**。无 pip / npm 第三方依赖，后台使用 App 自带 Node.js。完整支持范围见 [COMPATIBILITY.md](COMPATIBILITY.md)。
 
-> 模型选择旁的内嵌位置没有公开插件挂载接口。Antigrative Dashboard 使用标准 sidecar 插件采集数据，再通过带备份的本地加载器适配嵌入界面。它会修改 `resources/app.asar` 的三个加载文件，卸载可恢复。不是官方插件，不保证其他版本或 App 更新后的兼容性。
+> 模型选择旁的内嵌位置没有公开插件挂载接口。现在由标准 sidecar 通过已有本地渲染调试端口挂载控件，默认安装不再修改 `resources/app.asar`。未来宿主 DOM、调试通道、SDK 或统计接口改变时仍可能需要适配；原生侧面板作为备用入口。
 
 ### 手动安装
 
@@ -55,7 +56,7 @@ python manage.py install
 
 完全退出并重新打开 Antigravity。打开对话，模型选择右侧就会出现额度与速率条。PowerShell 用户也可以运行 `./install.ps1`。
 
-安装器会检查版本、复制插件、备份归档、应用加载器并启用插件。不兼容时不会自动升级或替换你的 App。**保留这个源码 / 解压目录**，以便启停、升级和卸载。
+安装器复制并启用插件；迁移时只恢复经过完整校验的旧补丁。后台自动发现当前渲染端口并重新连接。**保留这个源码 / 解压目录**，以便启停、升级和卸载。
 
 <details>
 <summary><strong>让 Agent 帮你安装：展开完整提示词</strong></summary>
@@ -66,7 +67,7 @@ python manage.py install
 目标：在 Antigravity 模型选择旁显示 tok/s、5h 余额与倒计时、周余额与倒计时。
 
 1. 读取 README.md 和 COMPATIBILITY.md，确认 Windows、Antigravity 桌面
-   App 2.19.1、Python 3.10+。不要自动升级、降级或替换我的 App。
+   App 2.21.1、Python 3.10+。不要自动升级、降级或替换我的 App。
 2. 将项目克隆 / 解压到固定目录，不在临时下载目录运行。
 3. 用 python manage.py status 检查已有状态，再执行 python manage.py install。
    保留其他插件配置，使用自带备份和完整性校验。
@@ -74,7 +75,7 @@ python manage.py install
    不要强制结束任务。
 5. 验证新对话只显示额度，有请求的对话显示 TPS；悬停显示详情。
    打开额度组菜单等待多次轮询，确认不会被刷新关闭。
-6. 报告安装结果、版本、备份位置和实机验证范围。
+6. 报告安装结果、版本、运行时连接状态和实机验证范围。
 ```
 
 </details>
@@ -85,17 +86,17 @@ python manage.py install
 
 | 操作 | 命令 | 行为 |
 | --- | --- | --- |
-| 安装 / 更新插件 | `python manage.py install` | 备份并应用对应版本的加载器，保留其他配置 |
+| 安装 / 更新插件 | `python manage.py install` | 复制运行时适配器，保留其他配置和历史统计 |
 | 停用 | `python manage.py disable` | 关闭插件，缩略条在下一次轮询隐藏 |
 | 启用 | `python manage.py enable` | 启动插件并重新显示控件 |
-| 查看状态 | `python manage.py status` | 检查安装、开关和归档恢复条件 |
-| 卸载 | `python manage.py uninstall` | 校验后恢复原归档，移除本插件目录 |
+| 查看状态 | `python manage.py status` | 检查安装、开关和控件连接健康状态 |
+| 卸载 | `python manage.py uninstall` | 移除本插件目录，保留历史统计与旧版备份 |
 
-首次安装、更新加载器或卸载之后需要完整重启 App。启停开关不需要重装或再次修改归档。`./uninstall.ps1` 等同于卸载命令。
+首次安装、更新插件代码或卸载之后需要完整重启 App。启停开关不需要重装或再次修改归档。`./uninstall.ps1` 等同于卸载命令。
 
 **恢复资料会保留。** 原始归档在 `%LOCALAPPDATA%/AntigravityPulseBackups/<时间戳>/`；卸载保留备份与诊断日志。遇到 App 升级或其他修改时，卸载器拒绝覆盖未知文件，不强行恢复旧版 App。
 
-`python manage.py install --panel-only` 只安装原生 sidecar，不修改加载器。需要账号原生 UI Extensions 已开放；这个模式不能保证出现模型旁的缩略条。
+`python manage.py install --panel-only` 关闭内嵌挂载，只安装原生 sidecar 面板。需要账号原生 UI Extensions 已开放；这个模式不能保证出现模型旁的缩略条。
 
 ## 语言与缓存
 
@@ -118,9 +119,15 @@ Antigravity 的 `inputTokens` 是未缓存输入。缓存率 = 缓存读取 ÷�
 统计来自已完成请求，约每 2.2 秒检查，不宣称逐 token 的即时速率。额度每 60 秒刷新，倒计时每秒走动。
 思考 token 单独列出；模型未拆分正文时会标明全部输出口径。缺少有效时长的请求不会计入 TPS。失联显示不可用或明确的旧数据状态。
 
+## 对话统计持久化
+
+已完成请求的 tok/s、cache 和数值统计自动保存到 `~/.gemini/antigravity/sidecar_data/antigravity-pulse/panel/data/history-v1/<账号哈希>/<对话ID>.json`。重载、重启、更新或重装插件都会保留。接口临时返回空数据或较少采样时，不覆盖已有有效统计；恢复值会在详情中注明保存时间。真实 0% 缓存命中率正常显示。
+
+只保存白名单数值、模型和状态，不保存正文、标题、邮箱或凭据。确认当前账号后才读取该账号的历史。已经缺失的请求时长无法重建。打开 Antigravity 后执行 `node tools/check-live-history.mjs`，可补存当前接口仍能读取的所有历史对话，并验证重启恢复。
+
 ## 兼容性
 
-当前实机验证：**Windows 11 / Antigravity App 2.19.1**。
+当前实机验证：**Windows 11 / Antigravity App 2.21.1**。
 
 不适用于 Antigravity IDE、VS Code 扩展或 DSH；未适配 macOS / Linux。
 参考 DSH Rail Music 的项目组织与文档风格，但安装接口不同，不能使用 `dsh plugin add` 安装 Antigrative Dashboard。
@@ -131,7 +138,7 @@ Antigravity 的 `inputTokens` 是未缓存输入。缓存率 = 缓存读取 ÷�
 
 <details><summary><strong>安装后没出现？</strong></summary>
 
-确认已完全退出主进程再启动 App，不只是关闭窗口。执行 `python manage.py status`；检查 `~/.gemini/antigravity/sidecar_data/antigravity-pulse/panel/logs/sidecar.log` 和 `widget.log`。日志不要直接公开，其中宿主产生的日志可能含本机信息。
+确认已完全退出主进程再启动 App，不只是关闭窗口。执行 `python manage.py status`；检查 `~/.gemini/antigravity/sidecar_data/antigravity-pulse/panel/logs/sidecar.log` 和 `data/integration-state.json`。日志不要直接公开，其中宿主产生的日志可能含本机信息。
 
 </details>
 
@@ -149,7 +156,7 @@ Antigravity 的 `inputTokens` 是未缓存输入。缓存率 = 缓存读取 ÷�
 
 <details><summary><strong>升级 Antigravity 后怎么办？</strong></summary>
 
-升级可能覆盖加载器，旧版适配器不能保证兼容。查看兼容性说明，不把旧归档覆盖新版应用。安装器会拒绝未知版本。
+App 更新不会覆盖用户插件目录中的适配器。后台重新发现端口、凭据和渲染窗口，并自动重连。未显示时检查 `python manage.py status`；宿主接口变化时可先用原生侧面板。不要把旧归档覆盖新版应用。详见[鲁棒性分析](docs/ROBUSTNESS.md)。
 
 </details>
 

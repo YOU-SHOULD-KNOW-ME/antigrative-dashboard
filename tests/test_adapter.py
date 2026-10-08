@@ -13,7 +13,7 @@ spec.loader.exec_module(archive)
 def fixture(version='2.19.1'):
     content = {
         'package.json': json.dumps({'version':version}).encode(),
-        'dist/preload.js': b'const electron_1 = require("electron");\n',
+        'dist/preload.js': b'const electron_1 = require("electron"); electron_1.contextBridge.exposeInMainWorld("test", {});\n',
         'dist/ipcHandlers.js': b'const electron_1 = require("electron"); const customScheme_1 = {extensionAuthorities:new Map()}; customScheme_1.extensionAuthorities.clear();\n',
         'dist/utils.js': b'function make(win) {\n    win.webContents.setWindowOpenHandler((details) => {\n    });\n}\n',
         'untouched.bin': b'\x00\x01\xffPreserve this data',

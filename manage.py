@@ -18,11 +18,11 @@ CONFIG = HOME / '.gemini' / 'config' / 'config.json'
 SETTINGS = LOCAL / 'AntigravityPulse' / 'settings.json'
 APP = LOCAL / 'Programs' / 'antigravity' / 'resources' / 'app.asar'
 BACKUPS = LOCAL / 'AntigravityPulseBackups'
-RUNTIME_FILES = ('plugin.json', 'assets', 'sidecars', 'compat')
+RUNTIME_FILES = ('assets', 'compat', 'sidecars', 'plugin.json')
 DIST_FILES = ('plugin.json', 'assets', 'sidecars', 'compat', 'manage.py', 'install.ps1',
               'uninstall.ps1', 'README.md', 'LICENSE', 'CHANGELOG.md', 'COMPATIBILITY.md', 'docs', 'package.json',
               '.gitignore', '.gitattributes', '.github', 'tests', 'tools', 'GITHUB_RELEASE.md', 'README.zh-CN.md')
-IGNORED = {'__pycache__', '.data', 'node_modules', '.git', 'dist'}
+IGNORED = {'__pycache__', '.data', 'node_modules', '.git', 'dist', 'data', 'history-v1', 'sdk'}
 
 def json_read(file, default=None):
     if not file.exists():
@@ -69,10 +69,26 @@ def set_enabled(enabled):
     entry = config.setdefault('plugins', {}).setdefault('antigravity-pulse', {})
     entry['enabled'] = bool(enabled)
     atomic_json(CONFIG, config)
-    atomic_json(SETTINGS, {'enabled': bool(enabled)})
+    settings = json_read(SETTINGS)
+    settings['enabled'] = bool(enabled)
+    atomic_json(SETTINGS, settings)
     print('Antigrative Dashboard enabled.' if enabled else 'Antigrative Dashboard disabled; the toolbar hides on its next poll.')
 
-def install(panel_only=False):
+def remove_verified_legacy_adapter():
+    if not APP.is_file():
+        return
+    current = APP.read_bytes()
+    original = original_for_current(current)
+    if original is not None:
+        APP.write_bytes(original)
+        if APP.read_bytes() != original:
+            raise RuntimeError('Legacy adapter restoration verification failed.')
+        print('Restored the exact verified legacy archive; future updates need no archive patches.')
+    elif b'// AG_PULSE_INLINE_V1' in current:
+        raise RuntimeError('The legacy adapter has unknown app changes; refusing to overwrite them. Inspect its backup first.')
+
+
+def install(panel_only=False, legacy_loader=False):
     own_plugin()
     config = json_read(CONFIG)
     if not isinstance(config, dict) or not isinstance(config.get('plugins', {}), dict):
@@ -80,8 +96,11 @@ def install(panel_only=False):
     if not panel_only:
         if not APP.is_file():
             raise RuntimeError('Antigravity desktop app not found. See COMPATIBILITY.md.')
+    if legacy_loader:
         module = adapter()
         module.build(module.unpatched_original(APP.read_bytes()))
+    elif not panel_only:
+        remove_verified_legacy_adapter()
     PLUGIN.mkdir(parents=True, exist_ok=True)
     for name in RUNTIME_FILES:
         source, target = SOURCE / name, PLUGIN / name
@@ -89,14 +108,17 @@ def install(panel_only=False):
             continue
         if source.is_dir():
             shutil.copytree(source, target, dirs_exist_ok=True,
-                            ignore=shutil.ignore_patterns('__pycache__', '*.pyc', '*.log', '.data', 'node_modules'))
+                            ignore=shutil.ignore_patterns('__pycache__', '*.pyc', '*.log', '.data', 'node_modules', 'data', 'history-v1', 'sdk'))
         else:
             shutil.copy2(source, target)
-    if not panel_only:
+    if legacy_loader:
         subprocess.run([sys.executable, str(SOURCE / 'compat' / 'patch-loader.py'), '--apply'], check=True)
+    settings = json_read(SETTINGS)
+    settings.update({'inline': not panel_only, 'mode': 'legacy' if legacy_loader else 'runtime'})
+    atomic_json(SETTINGS, settings)
     set_enabled(True)
     print('Installed:', PLUGIN)
-    print('Fully quit and reopen Antigravity to activate the toolbar adapter.')
+    print('Fully quit and reopen Antigravity to start the plugin runtime. App updates no longer overwrite the inline adapter.')
 
 def uninstall():
     own_plugin()
@@ -110,7 +132,7 @@ def uninstall():
             if APP.read_bytes() != original:
                 raise RuntimeError('Restored application verification failed.')
             print('Original Antigravity archive restored.')
-        else:
+        elif b'// AG_PULSE_INLINE_V1' in current:
             header, base = module.archive(current)
             entry = header['files']['dist']['files']['preload.js']
             preload = current[base + int(entry['offset']):base + int(entry['offset']) + entry['size']]
@@ -131,7 +153,10 @@ def uninstall():
 def status():
     installed = (PLUGIN / 'plugin.json').is_file()
     enabled = installed and json_read(CONFIG).get('plugins', {}).get('antigravity-pulse', {}).get('enabled', True)
+    health_file = HOME / '.gemini' / 'antigravity' / 'sidecar_data' / 'antigravity-pulse' / 'panel' / 'data' / 'integration-state.json'
     print(json.dumps({'installed': installed, 'enabled': bool(enabled), 'pluginDirectory': str(PLUGIN),
+                      'integrationMode': json_read(SETTINGS).get('mode', 'legacy'),
+                      'inlineIntegration': json_read(health_file, None),
                       'toolbarAdapterRecoverable': APP.exists() and original_for_current(APP.read_bytes()) is not None}, indent=2))
 
 def package(output=None):
@@ -158,12 +183,14 @@ def package(output=None):
 def main():
     parser = argparse.ArgumentParser(description='Antigrative Dashboard lifecycle manager')
     sub = parser.add_subparsers(dest='action', required=True)
-    p = sub.add_parser('install'); p.add_argument('--panel-only', action='store_true')
+    p = sub.add_parser('install'); group = p.add_mutually_exclusive_group()
+    group.add_argument('--panel-only', action='store_true')
+    group.add_argument('--legacy-loader', action='store_true', help='Opt in to the old, version-specific app.asar adapter')
     for action in ('enable', 'disable', 'status', 'uninstall'): sub.add_parser(action)
     p = sub.add_parser('package'); p.add_argument('--output')
     args = parser.parse_args()
     try:
-        if args.action == 'install': install(args.panel_only)
+        if args.action == 'install': install(args.panel_only, args.legacy_loader)
         elif args.action == 'enable': set_enabled(True)
         elif args.action == 'disable': set_enabled(False)
         elif args.action == 'uninstall': uninstall()

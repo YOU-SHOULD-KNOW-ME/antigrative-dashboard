@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.4.0
+
+- Replace default app.asar patches with plugin-owned runtime attachment; reconnect after app updates and renderer startup document replacement.
+- Rediscover backend credentials and validate that the selected HTTP port belongs to the current standalone process.
+- Persist numeric TPS/cache statistics per account and conversation with atomic writes, account isolation, and protection against empty/regressing metadata.
+- Restore saved statistics with a timestamp when historical RPC data is unavailable; preserve real zero cache hits.
+- Keep conversation collection working when quota/list endpoints fail; report storage failures without discarding live metrics.
+- Replace old renderer hooks after plugin code updates and expose integration health in status/panel APIs.
+- Add history backfill/restart verification and a documented robustness matrix.
+- Default migration/uninstall never overwrites unverified application changes. Legacy loader remains explicit opt-in.
+
 ## 0.3.0
 
 - Add a DSH-style Token usage card: total tokens, cache hit rate, uncached input, cache reads, output, and optional cache writes.

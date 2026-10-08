@@ -1,0 +1,33 @@
+name: Release
+on:
+  push:
+    tags: ['v*']
+permissions:
+  contents: write
+jobs:
+  release:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Check version
+        shell: pwsh
+        run: |
+          $version = (Get-Content plugin.json -Raw | ConvertFrom-Json).version
+          if ($env:GITHUB_REF_NAME -ne "v$version") { throw 'Tag and plugin version differ' }
+      - run: npm test
+      - run: python -m unittest discover -s tests -v
+      - run: python manage.py package
+      - name: Publish ZIP and checksum
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $assets = @(Get-ChildItem dist -File | ForEach-Object { $_.FullName })
+          gh release create $env:GITHUB_REF_NAME @assets --verify-tag --title "Antigrative Dashboard $env:GITHUB_REF_NAME" --notes-file GITHUB_RELEASE.md
+          if ($LASTEXITCODE -ne 0) { throw 'Release publication failed' }

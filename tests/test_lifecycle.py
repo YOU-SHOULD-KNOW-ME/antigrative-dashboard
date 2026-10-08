@@ -69,10 +69,35 @@ class LifecycleTests(unittest.TestCase):
         self.plugin.mkdir(parents=True)
         manager.atomic_json(self.plugin / 'plugin.json', {'name': 'antigravity-pulse'})
         self.app.parent.mkdir(parents=True)
-        self.app.write_bytes(b'changed-by-another-application')
+        changed = b'changed-by-another-application // AG_PULSE_INLINE_V1'
+        self.app.write_bytes(changed)
         with self.assertRaises(Exception): manager.uninstall()
         self.assertTrue(self.plugin.exists())
-        self.assertEqual(self.app.read_bytes(), b'changed-by-another-application')
+        self.assertEqual(self.app.read_bytes(), changed)
+
+    def test_default_install_and_upgrade_do_not_modify_the_application(self):
+        self.app.parent.mkdir(parents=True)
+        for archive in [b'future-host-build-without-legacy-patch', b'newer-host-build-after-auto-update']:
+            self.app.write_bytes(archive)
+            manager.install()
+            self.assertEqual(self.app.read_bytes(), archive)
+            self.assertEqual(manager.json_read(self.settings)['mode'], 'runtime')
+            self.assertTrue(manager.json_read(self.settings)['inline'])
+        self.assertTrue((self.plugin / 'compat' / 'runtime-ui.mjs').is_file())
+
+    def test_switches_preserve_runtime_settings(self):
+        manager.install(panel_only=True)
+        manager.atomic_json(self.settings, {'enabled': True, 'inline': False, 'mode': 'runtime', 'custom': 123})
+        manager.set_enabled(False)
+        manager.set_enabled(True)
+        self.assertEqual(manager.json_read(self.settings), {'enabled': True, 'inline': False, 'mode': 'runtime', 'custom': 123})
+
+    def test_default_migration_refuses_unknown_legacy_edits_before_copying(self):
+        self.app.parent.mkdir(parents=True)
+        self.app.write_bytes(b'unknown-modifications // AG_PULSE_INLINE_V1')
+        with self.assertRaises(RuntimeError): manager.install()
+        self.assertFalse(self.plugin.exists())
+        self.assertEqual(self.app.read_bytes(), b'unknown-modifications // AG_PULSE_INLINE_V1')
 
     def test_release_uses_allowlist_and_excludes_private_runtime_files(self):
         output = self.home / 'release.zip'
@@ -84,5 +109,19 @@ class LifecycleTests(unittest.TestCase):
             self.assertFalse(any(name.endswith(('.log', '.asar', '.pyc')) for name in names))
             self.assertFalse(any('/.git/' in name or '/__pycache__/' in name for name in names))
         self.assertTrue(output.with_suffix('.zip.sha256').exists())
+
+    def test_history_and_sdk_records_are_excluded_even_if_inside_source(self):
+        source = self.home / 'fixture-source'
+        manager.atomic_json(source / 'plugin.json', {'version': 'test'})
+        panel = source / 'sidecars' / 'panel'
+        panel.mkdir(parents=True)
+        (panel / 'main.mjs').write_text('// public runtime')
+        manager.atomic_json(panel / 'data' / 'history-v1' / 'account' / 'conversation.json', {'private': 'statistics'})
+        manager.atomic_json(panel / 'sdk' / 'private.json', {'private': 'host SDK'})
+        output = self.home / 'private-exclusion.zip'
+        with patch.multiple(manager, SOURCE=source, DIST_FILES=('plugin.json', 'sidecars')):
+            manager.package(output)
+        with zipfile.ZipFile(output) as bundle:
+            self.assertEqual(set(bundle.namelist()), {'antigrative-dashboard/plugin.json', 'antigrative-dashboard/sidecars/panel/main.mjs'})
 
 if __name__ == '__main__': unittest.main()

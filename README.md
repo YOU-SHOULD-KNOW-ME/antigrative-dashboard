@@ -7,9 +7,9 @@
 Token throughput, cache hits, five-hour quota, and weekly quota — in the model selector row.<br>
 Keep the summary visible. Hover for the details.
 
-[![Version 0.3.0](https://img.shields.io/badge/version-0.3.0-91adff?style=flat-square&labelColor=252936)](CHANGELOG.md)
+[![Version 0.4.0](https://img.shields.io/badge/version-0.4.0-91adff?style=flat-square&labelColor=252936)](CHANGELOG.md)
 [![Windows](https://img.shields.io/badge/host-Windows-83d8b9?style=flat-square&labelColor=252936)](COMPATIBILITY.md)
-[![Antigravity 2.19.1](https://img.shields.io/badge/Antigravity-2.19.1-c5a0ff?style=flat-square&labelColor=252936)](COMPATIBILITY.md)
+[![Antigravity 2.21.1](https://img.shields.io/badge/Antigravity-2.21.1-c5a0ff?style=flat-square&labelColor=252936)](COMPATIBILITY.md)
 [![MIT](https://img.shields.io/badge/license-MIT-d4d9e6?style=flat-square&labelColor=252936)](LICENSE)
 
 [Preview](#preview) · [Install](#install) · [Enable or remove](#plug-and-unplug) · [Compatibility](#compatibility) · [FAQ](#faq) · [中文](README.zh-CN.md)
@@ -35,15 +35,16 @@ Keep the summary visible. Hover for the details.
 - **Stable menus.** Quota-group menus stay open across polling cycles while countdowns continue ticking.
 - **Actual account data.** Remaining quota comes from the account API, not an estimate based on text length. Expired windows do not automatically become 100%.
 - **Conversation-aware.** Switch chats without carrying the previous chat's throughput into a new one.
-- **Reversible.** Disable hides the strip. Uninstall restores the verified original application archive.
+- **Survives updates.** Plugin-owned runtime attachment reconnects after app updates, without modifying the application archive.
+- **Persistent conversations.** TPS and cache statistics are saved separately for each conversation and account; reloads can recover saved statistics.
 - **Compact-window support.** Summary countdowns hide when space is limited; full countdowns remain available in hover cards.
 - **Local collection.** The collector talks to loopback endpoints. It does not upload your metrics to a third-party service.
 
 ## Install
 
-Supported: **Windows, Antigravity desktop App 2.19.1, Python 3.10+**. No third-party pip or npm packages are needed to install or run the plugin. The sidecar uses the app's bundled Node.js runtime. See [COMPATIBILITY.md](COMPATIBILITY.md).
+Supported: **Windows, Antigravity desktop App 2.21.1, Python 3.10+**. No third-party pip or npm packages are needed to install or run the plugin. The sidecar uses the app's bundled Node.js runtime. See [COMPATIBILITY.md](COMPATIBILITY.md).
 
-> The inline model-row position has no public plugin mounting API. This project combines a standard Antigravity sidecar plugin with a reversible local loader adapter. Installation modifies three loading files inside `resources/app.asar` and keeps an integrity-checked backup. It is unofficial and version-specific; compatibility after an app update is not guaranteed.
+> The inline model-row position has no public plugin mounting API. A standard Antigravity sidecar now attaches the widget through the existing local renderer debugging endpoint. Default installation does not modify `resources/app.asar`. This is unofficial; future changes to the host DOM, debugging channel, SDK or metrics API may require an adapter update. The native side panel remains a fallback.
 
 Download the ZIP from the [latest release](https://github.com/YOU-SHOULD-KNOW-ME/antigrative-dashboard/releases/latest), extract it to a permanent folder, or clone the repository:
 
@@ -55,7 +56,7 @@ python manage.py install
 
 Fully quit and reopen Antigravity. Open a conversation: the strip appears beside the model selector. PowerShell users can also run `./install.ps1`.
 
-The installer validates the app version, copies the plugin, backs up the archive, applies the adapter, and enables the plugin. It does not upgrade or replace an unsupported app. **Keep the extracted source folder** for enable, disable, update, and uninstall commands.
+The installer copies and enables the plugin and restores any exactly verified legacy patch during migration. The runtime discovers the current renderer port and reconnects automatically. **Keep the extracted source folder** for enable, disable, update, and uninstall commands.
 
 <details>
 <summary><strong>Ask an agent to install it</strong></summary>
@@ -67,7 +68,7 @@ Goal: show tok/s, five-hour quota and reset countdown, and weekly quota and
 reset countdown in the Antigravity model selector row.
 
 1. Read README.md and COMPATIBILITY.md. Verify Windows, Antigravity desktop
-   App 2.19.1, and Python 3.10+. Do not upgrade, downgrade, or replace my app.
+   (tested with App 2.21.1), and Python 3.10+. Do not upgrade, downgrade, or replace my app.
 2. Clone or extract the project to a permanent directory.
 3. Inspect python manage.py status, then run python manage.py install.
    Preserve other plugin settings and use the built-in backup validation.
@@ -75,7 +76,7 @@ reset countdown in the Antigravity model selector row.
    restart and do not forcibly interrupt it.
 5. Verify new-chat quota, existing-chat TPS, and hover cards. Leave the
    quota-group menu open across several polls and confirm it stays open.
-6. Report the app version, installation result, backup path, and what was
+6. Report the app version, installation result, runtime integration status, and what was
    actually verified on this machine.
 ```
 
@@ -87,17 +88,17 @@ Run these commands from the project directory:
 
 | Action | Command | What happens |
 | --- | --- | --- |
-| Install or update | `python manage.py install` | Validate, back up, apply the adapter, preserve other settings |
+| Install or update | `python manage.py install` | Copy runtime adapter; preserve other settings and saved statistics |
 | Disable | `python manage.py disable` | Disable the plugin and hide the strip on its next poll |
 | Enable | `python manage.py enable` | Start the plugin and show the strip again |
-| Inspect | `python manage.py status` | Check installation, enabled state, and archive recovery |
-| Uninstall | `python manage.py uninstall` | Restore the verified archive and remove this plugin |
+| Inspect | `python manage.py status` | Check installation, enabled state, and runtime attachment health |
+| Uninstall | `python manage.py uninstall` | Remove this plugin; retain saved statistics and verified legacy backups |
 
-First installation, a loader update, and uninstall require a full app restart. Enable and disable do not require reinstalling or rewriting the archive. `./uninstall.ps1` runs the uninstall command.
+First installation, plugin code updates, and uninstall require a full app restart. Enable and disable do not require reinstalling or rewriting the archive. `./uninstall.ps1` runs the uninstall command.
 
 **Recovery files stay available.** Original archives live in `%LOCALAPPDATA%/AntigravityPulseBackups/<timestamp>/`. Uninstall retains backups and diagnostic logs. If the archive has unknown modifications, the uninstaller refuses to overwrite it.
 
-`python manage.py install --panel-only` installs the sidecar without modifying the loader. It requires native UI Extensions to be available on the account and does not provide the inline strip.
+`python manage.py install --panel-only` disables inline attachment and installs only the sidecar panel. It requires native UI Extensions to be available on the account and does not provide the inline strip.
 
 The stable internal plugin ID remains `antigravity-pulse` for compatibility with earlier installations. The public project name is **Antigrative Dashboard**.
 
@@ -119,9 +120,15 @@ Request metrics update after requests finish, with a poll about every 2.2 second
 Antigravity normalizes `inputTokens` to uncached input even for Gemini; these are not upstream prompt-token counters. Cache writes are not hits. Cache details show unavailable or partial coverage when the provider counters are unsupported.
 Thinking tokens are separate. If a model does not expose response tokens, the detail card explains the all-output fallback. Requests without valid timing do not contribute to TPS. Missing or disconnected data is labeled accordingly.
 
+## Saved conversation statistics
+
+Completed-request TPS and cache counts are saved automatically in `~/.gemini/antigravity/sidecar_data/antigravity-pulse/panel/data/history-v1/<account-hash>/<conversation-id>.json`. Reloading, restarting, updating or reinstalling the plugin preserves them. Empty or regressing backend data cannot erase a useful saved sample. Saved fallbacks show their saved time in the details. A real 0% cache hit remains 0%.
+
+Records contain whitelisted statistics and model/status only; no prompts, titles, emails or credentials. The current account must be authenticated before its saved files are loaded. Already missing timing cannot be reconstructed. To backfill all conversations still available from the local API and check restart restoration, run `node tools/check-live-history.mjs` with Antigravity open.
+
 ## Compatibility
 
-Verified on **Windows 11 / Antigravity desktop App 2.19.1**. Not an Antigravity IDE, VS Code, or DSH extension. macOS and Linux are not adapted.
+Verified on **Windows 11 / Antigravity desktop App 2.21.1**. Not an Antigravity IDE, VS Code, or DSH extension. macOS and Linux are not adapted.
 Repository presentation is inspired by [DSH Rail Music](https://github.com/YOU-SHOULD-KNOW-ME/dsh-rail-music); installation APIs differ. `dsh plugin add` cannot install this project.
 
 [Full compatibility and recovery details →](COMPATIBILITY.md)
@@ -134,7 +141,7 @@ Click **EN** in the model row to switch to Simplified Chinese; click **中** to 
 
 <details><summary><strong>The strip did not appear after installation.</strong></summary>
 
-Fully quit the main app process and reopen it. Run `python manage.py status`. Inspect `~/.gemini/antigravity/sidecar_data/antigravity-pulse/panel/logs/sidecar.log` and `widget.log`. Review raw host logs for local information before publishing them.
+Fully quit the main app process and reopen it. Run `python manage.py status`. Inspect `~/.gemini/antigravity/sidecar_data/antigravity-pulse/panel/logs/sidecar.log` and `data/integration-state.json`. Review raw host logs for local information before publishing them.
 
 </details>
 
@@ -152,7 +159,7 @@ The service returns independent groups. The default follows the selected model. 
 
 <details><summary><strong>What happens after an Antigravity update?</strong></summary>
 
-An update may replace the adapter. Check compatibility before reinstalling; do not overwrite a newer app with an older backup. The installer refuses unknown versions.
+App updates cannot overwrite the runtime adapter in the user plugin directory. It rediscovers ports, credentials and the renderer automatically. If the inline strip is missing, inspect `python manage.py status`; use the native panel while a changed host interface is adapted. Never copy an old app archive over a newer installation. See [robustness analysis](docs/ROBUSTNESS.md).
 
 </details>
 

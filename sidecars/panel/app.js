@@ -81,14 +81,16 @@ function render() {
   $('ttft').textContent = language.elapsed(speed?.ttftSeconds);
   $('token-detail').textContent = speed ? `${count(speed.counts.responseOutput)} / ${count(speed.counts.thinkingOutput)} tok` : '—';
   const basis=t(speed?.rateBasis==='all-output'?'allBasis':'responseBasis');
-  $('speed-basis').textContent = basis+(speed?.missingTiming?' '+t('missingTime',{n:speed.missingTiming}):'')+(speed?.latestShortSample?' '+t('shortSample'):'');
+  const savedNote=speed?.restoredFromHistory?' '+t('savedStats',{time:speed.savedAt?language.resetDate(speed.savedAt):'—'}):'';
+  const saveWarning=snapshot.persistenceError?' '+t('saveFailed'):'';
+  $('speed-basis').textContent = basis+(speed?.missingTiming?' '+t('missingTime',{n:speed.missingTiming}):'')+(speed?.latestShortSample?' '+t('shortSample'):'')+savedNote+saveWarning;
   const cache=speed?.cache;
   $('strip-cache').textContent=percent(cache?.hitRate);$('cache-rate').textContent=percent(cache?.hitRate);
   $('strip-cache-total').textContent=cache?.measuredRequests?`${compact(cache.totalTokens)} tok`:'— tok';
   for(const [field,id]of[['cachedTokens','cache-read'],['uncachedTokens','cache-miss'],['cacheWriteTokens','cache-write'],['outputTokens','cache-output']])$(id).textContent=cache?.measuredRequests?`${count(cache[field])} tok`:'—';
   $('cache-coverage').textContent=cache?.measuredRequests?`${count(cache.totalTokens)} tok`:'— tok';
   $('cache-write-row').hidden=!(cache?.cacheWriteTokens>0);
-  $('cache-note').textContent=cache?.measuredRequests?t('cacheBasis')+(cache.missingRequests?' '+t('cacheMissing',{n:cache.missingRequests}):''):t('cacheUnavailable');
+  $('cache-note').textContent=(cache?.measuredRequests?t('cacheBasis')+(cache.missingRequests?' '+t('cacheMissing',{n:cache.missingRequests}):''):t('cacheUnavailable'))+savedNote+saveWarning;
   $('connection-dot').className = `connection-dot ${snapshot.connection}`;
   $('connection-dot').title = t(snapshot.connection === 'live'?'live':snapshot.connection === 'stale'?'stale':'offline');
   $('rest-title').textContent = snapshot.connection === 'offline' ? t('waitingApp') : speed ? `${rate(speed.tps)} tok/s` : t('waitingModel');
@@ -96,6 +98,9 @@ function render() {
   const timestamp = snapshot.quotaUpdatedAt ? new Date(snapshot.quotaUpdatedAt).toLocaleTimeString(language.language,{hour12:false}) : null;
   $('health-note').textContent = language.errorMessage(snapshot.error||snapshot.sessionError) || (timestamp ? t('health',{time:timestamp}) : t('firstUpdate'));
   $('health-note').classList.toggle('warning', snapshot.connection !== 'live' || !!snapshot.sessionError);
+  const integration = snapshot.integration;
+  $('integration-note').textContent = integration && !['mounted','disabled'].includes(integration.state)
+    ? (language.language === 'zh-CN' ? '内嵌栏正在自动重连；此面板仍可查看统计。' : 'Inline widget is reconnecting automatically; statistics remain available in this panel.') : '';
   updateCountdowns();
 }
 

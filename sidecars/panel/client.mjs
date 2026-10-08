@@ -7,6 +7,16 @@ import { request } from 'node:http';
 
 const exec = promisify(execFile);
 const SERVICE = '/exa.language_server_pb.LanguageServerService/';
+export function serverFromDiscovery(log, processes) {
+  const rows = (Array.isArray(processes) ? processes : [processes]).filter(p => /--standalone\b/.test(p.CommandLine || ''));
+  if (rows.length !== 1) throw new Error(rows.length ? '检测到多个 Antigravity 实例，请保留一个' : '未找到 Antigravity 桌面后台');
+  const ports = new Set([rows[0].Ports].flat().map(Number));
+  const port = [...log.matchAll(/listening on random port at (\d+) for HTTP(?:\s|$)/g)].reverse().map(m=>Number(m[1])).find(p=>ports.has(p));
+  if (!port) throw new Error('等待 Antigravity 本地接口启动');
+  const csrf = rows[0].CommandLine.match(/--csrf_token(?:=|\s+)"?([^\s"]+)/)?.[1];
+  if (!csrf) throw new Error('当前版本未提供可用的本地检测凭据');
+  return {port,csrf,pid:rows[0].ProcessId};
+}
 export class AntigravityClient {
   server = null;
   discoveredAt = 0;
@@ -23,24 +33,16 @@ export class AntigravityClient {
     if (process.platform !== 'win32') throw new Error('当前采集适配器支持 Windows');
     const logPath = join(process.env.APPDATA || join(homedir(), 'AppData', 'Roaming'), 'Antigravity', 'logs', 'language_server.log');
     const log = await readFile(logPath, 'utf8');
-    const port = [...log.matchAll(/listening on random port at (\d+) for HTTP(?:\s|$)/g)].at(-1)?.[1];
-    if (!port) throw new Error('等待 Antigravity 本地接口启动');
-    if (process.env.ANTIGRAVITY_CSRF_TOKEN && process.env.ANTIGRAVITY_LS_ADDRESS) {
-      this.server = { port:Number(port), csrf:process.env.ANTIGRAVITY_CSRF_TOKEN, pid:'host-sidecar' };
-      this.discoveredAt = Date.now();
-      return this.server;
-    }
-    const script = "Get-CimInstance Win32_Process -Filter \"Name='language_server.exe'\" | Select-Object ProcessId,CommandLine | ConvertTo-Json -Compress";
+    // A sidecar can outlive a renderer/backend restart. Its injected token may
+    // then refer to the previous LS instance; pair the current log port with
+    // the current standalone process credential instead of mixing generations.
+    const script = "Get-CimInstance Win32_Process -Filter \"Name='language_server.exe'\" | ForEach-Object { $agProcess = $_; [pscustomobject]@{ProcessId=$agProcess.ProcessId; CommandLine=$agProcess.CommandLine; Ports=@(Get-NetTCPConnection -State Listen -OwningProcess $agProcess.ProcessId -ErrorAction SilentlyContinue | Select-Object -ExpandProperty LocalPort)} } | ConvertTo-Json -Compress";
     const { stdout } = await exec('powershell.exe', ['-NoProfile', '-NonInteractive', '-Command', script], { windowsHide: true, timeout: 8000, maxBuffer: 1048576 });
     if (!stdout.trim()) throw new Error('请先打开 Antigravity');
     const parsed = JSON.parse(stdout.replace(/^\uFEFF/, ''));
-    const rows = (Array.isArray(parsed) ? parsed : [parsed]).filter(p => /--standalone\b/.test(p.CommandLine || ''));
-    if (rows.length !== 1) throw new Error(rows.length ? '检测到多个 Antigravity 实例，请保留一个' : '未找到 Antigravity 桌面后台');
-    const csrf = rows[0].CommandLine.match(/--csrf_token(?:=|\s+)"?([^\s"]+)/)?.[1];
-    if (!csrf) throw new Error('当前版本未提供可用的本地检测凭据');
     // Credentials stay in process memory. They are never logged, persisted, or
     // returned to a browser; all calls go exclusively to 127.0.0.1.
-    this.server = { port: Number(port), csrf, pid: rows[0].ProcessId };
+    this.server = serverFromDiscovery(log,parsed);
     this.discoveredAt = Date.now();
     return this.server;
   }

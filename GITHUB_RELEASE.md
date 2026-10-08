@@ -1,36 +1,29 @@
-# Antigrative Dashboard v0.3.0
+# Antigrative Dashboard v0.4.0
 
-Adds a DSH-style Token usage card with cache hit rate, plus an English-first UI with persistent Simplified Chinese switching. The inline strip now shows total tokens and cache hits alongside tok/s, five-hour quota, and weekly quota.
+App updates no longer overwrite the default inline adapter. TPS and cache statistics persist separately for every conversation and account.
 
-## Download and install
+## Install / update
 
-Download `antigrative-dashboard-0.3.0.zip`, verify its matching `.zip.sha256` checksum, and extract it to a permanent directory.
+Download `antigrative-dashboard-0.4.0.zip` and its `.zip.sha256`, verify the checksum and extract to a permanent directory.
 
 ```powershell
-cd antigrative-dashboard
 python manage.py install
 ```
 
-Fully quit and reopen Antigravity. The summary lives beside the model selector; hover for detailed statistics.
+Fully quit and reopen Antigravity when no task is running. Default installation no longer modifies app.asar. Exactly verified legacy patches are safely migrated. Saved statistics remain in the separate sidecar data directory.
 
-## Plug and unplug
+## Changes
 
-```powershell
-python manage.py disable
-python manage.py enable
-python manage.py status
-python manage.py uninstall
-```
-
-## What changed
-
-- Token total, cache hit percentage, uncached input, cache reads, output, and optional cache writes.
-- Cache totals use Antigravity normalized input counters; writes are not hits.
-- English by default; click EN / 中 to switch languages.
-- Quota reset text and statistics cards switch immediately, without resetting your selected quota group.
+- Runtime attachment discovers changing renderer ports, retries missed startup injection and replaces old hooks on plugin updates.
+- Current backend credentials are paired with ports owned by the standalone process, fixing stale-token 401 errors.
+- Atomic per-account/per-conversation history restores TPS and cache; empty or regressing data cannot erase useful samples.
+- Saved values show a timestamp; real zero cache hits stay visible. Disk errors preserve live values and show a warning.
+- Quota/list failures no longer block selected-conversation collection.
+- `node tools/check-live-history.mjs` backfills recoverable metadata and checks restart restoration.
+- Expanded tests and documented [robustness analysis](docs/ROBUSTNESS.md).
 
 ## Compatibility
 
-Windows / Antigravity desktop App 2.19.1 / Python 3.10+. The inline position requires a local loader adapter with an integrity-checked archive backup. Compatibility after app updates is not guaranteed, and unknown archive changes are never overwritten by the uninstaller.
+Windows / Antigravity desktop 2.21.1 / Python 3.10+. Uses native Node, with built-in WebSocket for inline attachment. Future DOM, debugging, SDK or RPC changes may still need adaptation. The native side panel remains a fallback when the host SDK supports it.
 
-This release includes no account credentials, conversations, host logs, SDK cache, or Antigravity application archive.
+No conversations, credentials, history records, host logs, SDK cache or application archive are included.

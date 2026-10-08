@@ -128,14 +128,16 @@ module.exports = function installAgPulseInlineWidget() {
     text('tps',rate(speed?.tps));text('rounds',speed?t('rounds',{rounds:speed.rounds,steps:speed.steps}):'');
     text('samples',speed?t('sample',{rounds:speed.rounds,steps:speed.steps,requests:speed.measuredRequests}):t('waitingRequest'));text('model-time',seconds(speed?.modelSeconds));text('tool-time',seconds(speed?.toolSeconds));text('ttft',seconds(speed?.ttftSeconds));text('session-rate',`${rate(speed?.tps)} tok/s`);text('latest-rate',`${rate(speed?.latestTps)} tok/s`);text('tokens',speed?`${count(speed.counts.responseOutput)} / ${count(speed.counts.thinkingOutput)} tok`:'—');
     const basis=t(speed?.rateBasis==='all-output'?'allBasis':'responseBasis');
-    text('rate-note',language.errorMessage(data.error||data.sessionError)||(!speed?t('waitingRequest'):basis+(speed.missingTiming?' '+t('missingTime',{n:speed.missingTiming}):'')+(/RUNNING/.test(speed.status||'')?' '+t('running'):'')));
+    const savedNote=speed?.restoredFromHistory?' '+t('savedStats',{time:speed.savedAt?language.resetDate(speed.savedAt):'—'}):'';
+    const saveWarning=data.persistenceError?' '+t('saveFailed'):'';
+    text('rate-note',(language.errorMessage(data.error||data.sessionError)||(!speed?t('waitingRequest'):basis+(speed.missingTiming?' '+t('missingTime',{n:speed.missingTiming}):'')+(/RUNNING/.test(speed.status||'')?' '+t('running'):'')))+savedNote+saveWarning);
     const cache=speed?.cache;
     text('cache-rate',pct(cache?.hitRate));text('cache-detail-rate',pct(cache?.hitRate));
     text('cache-total',cache?.measuredRequests?`${compact(cache.totalTokens)} tok`:'— tok');
     text('cache-coverage',cache?.measuredRequests?`${count(cache.totalTokens)} tok`:'— tok');
     for(const [field,id]of[['cachedTokens','cache-read'],['uncachedTokens','cache-miss'],['cacheWriteTokens','cache-write'],['outputTokens','cache-output']])text(id,cache?.measuredRequests?`${count(cache[field])} tok`:'—');
     $('cache-write-row').hidden=!(cache?.cacheWriteTokens>0);
-    text('cache-note',cache?.measuredRequests?t('cacheBasis')+(cache.missingRequests?' '+t('cacheMissing',{n:cache.missingRequests}):''):t('cacheUnavailable'));
+    text('cache-note',(cache?.measuredRequests?t('cacheBasis')+(cache.missingRequests?' '+t('cacheMissing',{n:cache.missingRequests}):''):t('cacheUnavailable'))+savedNote+saveWarning);
     for(const [window,name]of[['5h','five'],['weekly','week']]){
       const b=group?.windows?.[window];text(name,pct(b?.remaining));text(`${name}-balance`,pct(b?.remaining));text(`${name}-reset`,date(b?.resetAt));
       $(`${name}-fill`).style.width=typeof b?.remaining==='number'?`${b.remaining*100}%`:'0%';$(`${name}-fill`).style.background=b?.remaining<.05?'#e99b9b':b?.remaining<.2?'#d7b079':'';
@@ -158,9 +160,18 @@ module.exports = function installAgPulseInlineWidget() {
     finally{pending=false;}
   }
   const observer=new MutationObserver(()=>{if(!node?.isConnected)mount();});observer.observe(document.documentElement,{childList:true,subtree:true});
-  document.addEventListener('keydown',e=>{if(e.key==='Escape')hide();});document.addEventListener('pointerdown',e=>{if(node&&!e.composedPath().includes(node))hide();});
+  const onKey=e=>{if(e.key==='Escape')hide();}, onPointer=e=>{if(node&&!e.composedPath().includes(node))hide();};
+  document.addEventListener('keydown',onKey);document.addEventListener('pointerdown',onPointer);
   window.addEventListener('resize',position);document.addEventListener('scroll',position,true);
-  window.addEventListener('storage',event=>{if(event.key==='ag-pulse-language'){language.setLanguage(event.newValue);if(root){closeGroup();localize();render();tick();position();}}});
-  setInterval(()=>{mount();tick();const conversation=location.pathname.match(/\/c\/([0-9a-f-]{36})/i)?.[1]||null;if(conversation!==lastConversation||Date.now()-lastFetch>(document.hidden?10000:2200))refresh();},1000);
+  const onStorage=event=>{if(event.key==='ag-pulse-language'){language.setLanguage(event.newValue);if(root){closeGroup();localize();render();tick();position();}}};
+  window.addEventListener('storage',onStorage);
+  const timerId=setInterval(()=>{mount();tick();const conversation=location.pathname.match(/\/c\/([0-9a-f-]{36})/i)?.[1]||null;if(conversation!==lastConversation||Date.now()-lastFetch>(document.hidden?10000:2200))refresh();},1000);
+  window.__agPulseDispose=()=>{
+    clearInterval(timerId);clearTimeout(hoverTimer);observer.disconnect();resizeObserver?.disconnect();hide();node?.remove();
+    document.removeEventListener('keydown',onKey);document.removeEventListener('pointerdown',onPointer);
+    document.removeEventListener('scroll',position,true);window.removeEventListener('resize',position);window.removeEventListener('storage',onStorage);
+    document.removeEventListener('DOMContentLoaded',mount);node=null;root=null;
+    window.__agPulseInlineInstalled=false;delete window.__agPulseDispose;
+  };
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',mount,{once:true});else mount();
 };

@@ -1,4 +1,4 @@
-"""Reversible adapter mounting Antigrative Dashboard below the 2.19.1 chat composer.
+"""Reversible adapter mounting Antigrative Dashboard in supported chat composers.
 
 --check prepares and validates the archive in memory without modifying the app.
 --apply makes an original-file backup, then writes the prepared archive.
@@ -15,6 +15,7 @@ import struct
 HERE = Path(__file__).resolve().parent
 APP = Path(os.environ['LOCALAPPDATA']) / 'Programs' / 'antigravity' / 'resources' / 'app.asar'
 MARKER = '// AG_PULSE_INLINE_V1'
+SUPPORTED_VERSIONS = {'2.19.1'}
 
 def walk(entry, prefix=''):
     for key, value in entry.get('files', {}).items():
@@ -52,9 +53,12 @@ def build(data):
     header, base = archive(data)
     files = list(walk(header))
     bodies = {name:data[base+int(entry['offset']):base+int(entry['offset'])+entry['size']] for name,entry in files}
-    if json.loads(bodies['package.json']).get('version') != '2.19.1':
-        raise RuntimeError('This adapter is verified only for Antigravity 2.19.1.')
+    version = json.loads(bodies['package.json']).get('version')
+    if version not in SUPPORTED_VERSIONS:
+        raise RuntimeError(f'Unsupported Antigravity version {version}; supported: {sorted(SUPPORTED_VERSIONS)}.')
     old = bodies['dist/preload.js'].decode('utf-8')
+    if 'electron_1.contextBridge.exposeInMainWorld' not in old:
+        raise RuntimeError('The renderer bridge is incompatible with this app build.')
     if MARKER in old:
         raise RuntimeError('The UI adapter is already installed.')
     source = (HERE/'inline-widget.cjs').read_text(encoding='utf-8')
@@ -137,8 +141,13 @@ def main():
     backup=Path(os.environ['LOCALAPPDATA'])/'AntigravityPulseBackups'/datetime.datetime.now().strftime('%Y%m%d-%H%M%S')
     backup.mkdir(parents=True,exist_ok=False)
     (backup/'app.asar').write_bytes(original)
+    original_header, original_base = archive(original)
+    package_entry = original_header['files']['package.json']
+    package_start = original_base + int(package_entry['offset'])
+    app_version = json.loads(original[package_start:package_start+package_entry['size']]).get('version')
     (backup/'patch.json').write_text(json.dumps({'originalSha256':hashlib.sha256(original).hexdigest(),
-        'patchedSha256':hashlib.sha256(patched).hexdigest()},indent=2),encoding='utf-8')
+        'patchedSha256':hashlib.sha256(patched).hexdigest(),
+        'appVersion':app_version},indent=2),encoding='utf-8')
     try:
         APP.write_bytes(patched)
         assert APP.read_bytes()==patched
