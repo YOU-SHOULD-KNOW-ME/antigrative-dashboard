@@ -48,6 +48,14 @@
 
 <sub>示例为 44% 占用，非真实对话数据。实际读取宿主最近请求开始时的估计值；缺少容量会明确显示不可用。</sub>
 
+## Antigravity CLI 状态栏
+
+**v0.6.0 新增**独立的 CLI 官方状态栏适配：上下文占用、缓存读取 Token、状态、分组额度及重置倒计时，支持中英文和终端宽度适配。额度数字和进度条按剩余量显示：**≥70% 绿色、≥30% 且 <70% 黄色、<30% 红色**。预览：`node cli/statusline.mjs --preview --language zh-CN`；安装：`python manage.py install-cli`（Linux/macOS 用 `python3`）。需要 Node.js 20+ 和支持官方接口的 CLI。官方输入没有流式耗时，暂不显示 tok/s。详见 [CLI 使用及撤回](docs/CLI.md)。
+
+![真实 Antigravity CLI 两轮对话及状态栏](docs/assets/cli-conversation.png)
+
+<sub>Windows Antigravity CLI 1.3.2 真实两轮对话，账号邮箱已遮挡。Linux/macOS 登录后的交互实机验收尚未完成。</sub>
+
 ## 安装
 
 适用于 **Windows / Linux / macOS 的 Antigravity 桌面 App 2.21.1 / 2.22.0 + Python 3.10+**。三系统共用同一个 release ZIP，无 pip / npm 第三方依赖，后台使用 App 自带 Node.js。各平台完整验证范围见 [COMPATIBILITY.md](COMPATIBILITY.md)。

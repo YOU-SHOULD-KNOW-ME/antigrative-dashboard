@@ -51,6 +51,14 @@ Keep the summary visible. Hover for the details.
 
 <sub>Illustrative 44% sample. Uses the host estimate at the latest request start; capacity may be unavailable.</sub>
 
+## Antigravity CLI status line
+
+Available in **v0.6.0**: an independent adapter for the official Antigravity CLI `statusLine` interface displays context occupancy, cache read tokens, state and grouped quotas, with English/Chinese and terminal-width adaptation. Remaining quota numbers and bars are **green ≥70%, yellow ≥30% and <70%, red <30%**. Preview: `node cli/statusline.mjs --preview`; install: `python manage.py install-cli` (Linux/macOS: `python3`). Requires Node.js 20+ and a CLI supporting the interface. CLI tok/s needs streaming-duration data absent from the documented payload. See [CLI usage and rollback](docs/CLI.md).
+
+![Real Antigravity CLI conversation with the dashboard](docs/assets/cli-conversation.png)
+
+<sub>Real Windows Antigravity CLI 1.3.2 session after two replies; account email masked. Linux/macOS signed-in interactive acceptance remains outstanding.</sub>
+
 ## Install
 
 Supported: **Windows, Linux and macOS; Antigravity desktop App 2.21.1 / 2.22.0; Python 3.10+**. The same release ZIP works on all three systems. No third-party pip or npm packages are needed to install or run the plugin. The sidecar uses the app's bundled Node.js runtime. See [COMPATIBILITY.md](COMPATIBILITY.md) for the per-platform verification scope.

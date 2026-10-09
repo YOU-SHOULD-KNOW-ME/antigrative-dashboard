@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.6.0 — 2026-10-10
+
+- Add a standalone Antigravity CLI statusLine adapter: explicit context occupancy, current cache read tokens, agent state, grouped Gemini/Claude-GPT quotas and reset countdowns.
+- Prioritize key values with foreground colors and bold text; show quota numbers and bars in green at ≥70% remaining, yellow at ≥30% and <70%, red below 30%, with a textual low-balance alert.
+- Support English/Chinese, CJK/emoji-aware terminal widths, narrow layouts, optional details and monochrome terminals without forcing the terminal background.
+- Add independent install-cli/status-cli/uninstall-cli commands, atomic settings updates, recovery of the prior status line, safe reinstall and user-directory runtime storage that survives CLI binary replacement.
+- Fix Windows agy Go/CMD quote transport using a literal-path UTF-8 PowerShell encoded invocation; retain POSIX shell quoting for Linux/macOS.
+- Include CLI modules in the portable release package and regression suites for payload validation, color thresholds, widths, language persistence, shell transport and lifecycle restoration.
+- Add a real Windows CLI 1.3.2 two-turn conversation screenshot. Signed-in Linux/macOS interactive acceptance remains outstanding.
+- Omit CLI tok/s and cache hit ratios because the documented input does not establish streaming duration or the needed cache denominator; missing values remain explicit and no transcripts or new metric history are read or stored.
+
 ## 0.5.2 — 2026-10-09
 
 - Follow the host's custom background, card and foreground colors for chips, hover cards and quota menus; derive matching controls and tracks with readable text, and restore fallback colors when host tokens disappear.

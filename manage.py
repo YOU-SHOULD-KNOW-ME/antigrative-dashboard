@@ -23,7 +23,7 @@ SETTINGS = _paths['settings']
 APP = _paths['app']
 BACKUPS = _paths['backups']
 RUNTIME_FILES = ('assets', 'compat', 'sidecars', 'plugin.json')
-DIST_FILES = ('plugin.json', 'assets', 'sidecars', 'compat', 'manage.py', 'install.ps1',
+DIST_FILES = ('plugin.json', 'assets', 'sidecars', 'compat', 'cli', 'manage.py', 'install.ps1',
               'uninstall.ps1', 'install.sh', 'uninstall.sh', 'README.md', 'LICENSE', 'CHANGELOG.md', 'COMPATIBILITY.md', 'docs', 'package.json',
               '.gitignore', '.gitattributes', '.github', 'tests', 'tools', 'GITHUB_RELEASE.md', 'README.zh-CN.md')
 IGNORED = {'__pycache__', '.data', 'node_modules', '.git', 'dist', 'data', 'history-v1', 'sdk'}
@@ -201,11 +201,23 @@ def main():
     group.add_argument('--legacy-loader', action='store_true', help='Opt in to the old, version-specific app.asar adapter')
     p.add_argument('--app-path', type=Path, help='Path to the desktop app resources/app.asar for a custom installation')
     for action in ('enable', 'disable', 'status', 'uninstall'): sub.add_parser(action)
+    p = sub.add_parser('install-cli', help='Install the official CLI statusLine adapter independently of desktop')
+    p.add_argument('--node', help='Node.js 20+ executable (defaults to PATH)')
+    p.add_argument('--language', choices=('en', 'zh-CN'), help='Override shared desktop language choice')
+    for action in ('uninstall-cli', 'status-cli'): sub.add_parser(action)
     p = sub.add_parser('package'); p.add_argument('--output')
     args = parser.parse_args()
     if args.action == 'install' and args.app_path:
         APP = args.app_path.expanduser().resolve()
     try:
+        if args.action in ('install-cli', 'uninstall-cli', 'status-cli'):
+            spec = importlib.util.spec_from_file_location('pulse_cli_lifecycle', SOURCE / 'cli' / 'lifecycle.py')
+            cli = importlib.util.module_from_spec(spec)
+            spec.loader.exec_module(cli)
+            if args.action == 'install-cli': cli.install(SOURCE, HOME, args.node, args.language)
+            elif args.action == 'uninstall-cli': cli.uninstall(HOME)
+            else: cli.status(HOME)
+            return 0
         if args.action == 'install': install(args.panel_only, args.legacy_loader)
         elif args.action == 'enable': set_enabled(True)
         elif args.action == 'disable': set_enabled(False)
