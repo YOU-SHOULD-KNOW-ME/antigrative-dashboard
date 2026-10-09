@@ -6,7 +6,7 @@ module.exports = function createDashboardI18n(initialLanguage) {
       savedStats:'Showing saved conversation statistics ({time}).',saveFailed:'Statistics could not be saved locally.',
       strip:'Antigrative Dashboard statistics',session:'Session statistics',cache:'Cache hit',cacheTitle:'Token usage',five:'Five-hour quota',week:'Weekly quota',weekShort:'Wk',
       modelTime:'Model time',toolTime:'Tool time',ttft:'Average TTFT',sessionTps:'Session TPS',latest:'Last request',tokens:'Response / thinking',remaining:'remaining',
-      resetIn:'Resets in',resetTime:'Reset time (UTC+8)',group:'Quota group',selectGroup:'Select quota group',refresh:'Refresh quota',refreshStats:'Refresh statistics',
+      resetIn:'Resets in',resetTime:'Reset time (UTC+8)',group:'Quota group',selectGroup:'Select quota group',refresh:'Refresh quota',refreshStats:'Refresh statistics',refreshing:'Refreshing…',
       waiting:'Waiting for refresh',connecting:'Connecting to Antigravity…',waitingApp:'Waiting for Antigravity',waitingModel:'Waiting for a model request',waitingRequest:'No requests yet',
       hover:'Hover over the strip for details',autoConnect:'Open the app to connect automatically',loadingQuota:'Loading quota…',unavailableQuota:'Quota unavailable',
       live:'Connected to Antigrative Dashboard',stale:'Showing last available quota',offline:'Antigrative Dashboard is offline',
@@ -17,14 +17,14 @@ module.exports = function createDashboardI18n(initialLanguage) {
       sharedQuota:'Models in this group share quota.',quotaSource:'Balances and reset times come from the account API.',updated:'Updated {time}',health:'Quota updated {time} · actual request metrics',firstUpdate:'Waiting for the first update',
       cacheRate:'Cache hit',cacheRead:'Cache read',cacheInput:'Total input',cacheMiss:'Uncached input',cacheWrite:'Cache write',cacheOutput:'Output',
       cacheBasis:'Cached input ÷ total input, weighted across requests. Cache writes are not hits.',cacheMissing:'{n} requests have unavailable cache statistics.',cacheUnavailable:'Cache statistics are unavailable for this conversation.',
-      cacheCoverage:'{measured} of {total} requests',language:'Language',switchLanguage:'Switch to Chinese',reconnecting:'Waiting to reconnect',panelUnavailable:'The statistics panel cannot connect right now.',invalidData:'Incompatible statistics data',
+      cacheCoverage:'{measured} of {total} requests',language:'Language',switchLanguage:'Switch to Chinese',languageSaveFailed:'Language preference could not be saved. Please retry.',reconnecting:'Waiting to reconnect',panelUnavailable:'The statistics panel cannot connect right now.',invalidData:'Incompatible statistics data',
     },
     'zh-CN':{
       context:'上下文窗口',contextShort:'上下文',contextUsed:'{used}% 已用（剩余 {remaining}%）',contextTokens:'已用 {used} 标记，共 {max}',contextUnknown:'上下文容量不可用',contextUnavailable:'此请求暂无可用上下文统计。',contextBasis:'宿主在最近请求开始时的估计值，非累计 Token，也非流式实时计数。',contextModel:'采样模型',contextLimit:'窗口容量',contextUsage:'已用 Token（估计）',contextSaved:'显示已保存的上下文统计（{time}）。',contextExceeded:'宿主估计值超过返回的窗口容量。',
       savedStats:'显示已保存的会话统计（{time}）。',saveFailed:'统计暂时无法保存到本地。',
       strip:'Antigrative Dashboard 会话与额度状态条',session:'会话统计',cache:'缓存命中',cacheTitle:'Token 用量',five:'5h 额度',week:'周额度',weekShort:'周',
       modelTime:'模型调用用时',toolTime:'工具调用用时',ttft:'首 token 平均（TTFT）',sessionTps:'会话输出速率（TPS）',latest:'最近一次请求',tokens:'正文 / 思考输出',remaining:'剩余',
-      resetIn:'重置倒计时',resetTime:'重置时间（北京时间）',group:'额度组',selectGroup:'选择额度组',refresh:'刷新额度',refreshStats:'刷新统计',
+      resetIn:'重置倒计时',resetTime:'重置时间（北京时间）',group:'额度组',selectGroup:'选择额度组',refresh:'刷新额度',refreshStats:'刷新统计',refreshing:'正在刷新…',
       waiting:'等待刷新',connecting:'连接 Antigravity…',waitingApp:'等待 Antigravity',waitingModel:'等待模型生成',waitingRequest:'尚无请求',hover:'悬停状态条，查看详细统计',autoConnect:'打开应用后自动连接',loadingQuota:'读取额度…',unavailableQuota:'额度暂不可用',
       live:'已连接 Antigrative Dashboard',stale:'显示上次成功读取的额度',offline:'Antigrative Dashboard 暂未连接',
       responseBasis:'正文输出 token ÷ 流式生成时长；会话值按总时长加权。',allBasis:'输出 token ÷ 流式生成时长；此模型未拆分正文与思考。',
@@ -32,7 +32,7 @@ module.exports = function createDashboardI18n(initialLanguage) {
       sample:'{rounds}轮 {steps}步 · {requests} 次采样',sampleCount:'{n} 次采样',rounds:'{rounds}轮 {steps}步 ·',
       noQuota:'账户未返回此额度窗口。',disabledQuota:'此额度窗口已停用。',noFraction:'账户未返回剩余比例。',sharedQuota:'同组模型共享额度。',quotaSource:'余额与重置时间来自账户接口。',updated:'{time} 更新',health:'额度更新于 {time} · 真实请求统计',firstUpdate:'等待首次更新',
       cacheRate:'缓存命中',cacheRead:'缓存读取',cacheInput:'总输入',cacheMiss:'未缓存输入',cacheWrite:'缓存写入',cacheOutput:'输出',cacheBasis:'缓存读取 token ÷ 总输入 token，按请求 token 总量加权；缓存写入不算命中。',cacheMissing:'{n} 次请求缺少缓存统计。',cacheUnavailable:'此会话暂无可用缓存统计。',cacheCoverage:'{measured} / {total} 次请求',
-      language:'语言',switchLanguage:'Switch to English',reconnecting:'等待控件重新连接',panelUnavailable:'统计面板暂时无法连接',invalidData:'统计数据格式不兼容',
+      language:'语言',switchLanguage:'Switch to English',languageSaveFailed:'语言设置暂时无法保存，请重试。',reconnecting:'等待控件重新连接',panelUnavailable:'统计面板暂时无法连接',invalidData:'统计数据格式不兼容',
     },
   };
   let language=initialLanguage==='zh-CN'?'zh-CN':'en';
@@ -61,6 +61,7 @@ module.exports = function createDashboardI18n(initialLanguage) {
       '未找到 Antigravity 桌面后台':'Antigravity desktop backend was not found.',
       '当前版本未提供可用的本地检测凭据':'Local metrics credentials are unavailable in this version.',
       '等待 Antigravity 本地接口启动':'Waiting for the local Antigravity API.',
+      '未找到 Antigravity 语言服务日志，请检查日志路径':'Antigravity language-server log was not found. Check the log path.',
       '会话暂时没有可用统计':'No statistics are available for this conversation yet.',
       '完整会话统计分页暂不可用':'Complete conversation statistics are temporarily unavailable.',
       'Antigravity 本地接口超时':'The local Antigravity API timed out.',
@@ -74,5 +75,48 @@ module.exports = function createDashboardI18n(initialLanguage) {
     const match=String(value).match(/^Antigravity 接口 (\w+) 返回 (\d+)$/);
     return match?`Antigravity ${match[1]} returned HTTP ${match[2]}.`:'Statistics are temporarily unavailable.';
   }
-  return {t,countdown,elapsed,resetDate,errorMessage,get language(){return language;},setLanguage(value){language=value==='zh-CN'?'zh-CN':'en';},toggle(){language=language==='en'?'zh-CN':'en';return language;}};
+  function connectPreferences({read,write,cache=()=>{},changed=()=>{}}) {
+    let epoch=0,writes=0,revision=-1,disposed=false,error=false,queue=Promise.resolve();
+    const valid=value=>value==='en'||value==='zh-CN';
+    const notify=()=>{if(!disposed)changed();};
+    const remember=()=>{try{cache(language);}catch{}};
+    const check=value=>{if(!value||value.error||!Object.hasOwn(value,'language')||value.language!==null&&!valid(value.language))throw new Error('Invalid preference response');return value;};
+    function sync(value) {
+      if(disposed||writes)return;
+      try {
+        check(value);const next=Number.isSafeInteger(value.revision)?value.revision:0;
+        if(next<revision)return;
+        if(error&&epoch>0&&value.language!==language)return; // retain an unsaved choice and its warning
+        if(value.language===null&&epoch===0&&valid(initialLanguage)){void choose(initialLanguage);return;}
+        revision=next;error=false;
+        if(valid(value.language)&&language!==value.language){language=value.language;remember();}
+        notify();
+      } catch {error=true;notify();}
+    }
+    function choose(value) {
+      if(disposed||!valid(value))return Promise.resolve();
+      const choice=++epoch;language=value;writes++;error=false;remember();notify();
+      const pending=queue.then(async()=>{
+        try {
+          const saved=check(await write({language:value}));
+          if(saved.language!==value)throw new Error('Preference acknowledgement differs');
+          revision=Math.max(revision,Number.isSafeInteger(saved.revision)?saved.revision:0);
+          if(choice===epoch)error=false;
+        } catch {if(choice===epoch)error=true;}
+        finally {writes--;notify();}
+      });
+      queue=pending;return pending;
+    }
+    const ready=(async()=>{
+      const started=epoch;
+      try {
+        const saved=check(await read());
+        if(disposed||epoch!==started)return;
+        if(saved.language===null&&valid(initialLanguage))await choose(initialLanguage); // migrate an existing browser choice once
+        else sync(saved);
+      }catch{if(!disposed&&epoch===started){error=true;notify();}}
+    })();
+    return {ready,sync,choose,toggle:()=>choose(language==='en'?'zh-CN':'en'),get error(){return error;},get pending(){return writes>0;},dispose(){disposed=true;}};
+  }
+  return {t,countdown,elapsed,resetDate,errorMessage,connectPreferences,get language(){return language;},setLanguage(value){language=value==='zh-CN'?'zh-CN':'en';},toggle(){language=language==='en'?'zh-CN':'en';return language;}};
 };

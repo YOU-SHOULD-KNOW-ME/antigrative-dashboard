@@ -5,16 +5,27 @@ const theme=createTheme();
 let themeController=theme.attach(document.documentElement);
 window.addEventListener('pagehide',()=>themeController.dispose());
 window.addEventListener('pageshow',event=>{if(event.persisted)themeController=theme.attach(document.documentElement);});
-const language=createI18n(localStorage.getItem('ag-pulse-language'));
+const localGet=key=>{try{return localStorage.getItem(key);}catch{return null;}};
+const localSet=(key,value)=>{try{localStorage.setItem(key,value);}catch{}};
+const language=createI18n(localGet('ag-pulse-language'));
 const t=language.t;
 
 const $ = id => document.getElementById(id);
 const compact=n=>typeof n!=='number'||!Number.isFinite(n)?'—':n>=1e9?`${(n/1e9).toFixed(1).replace(/\.0$/,'')}B`:n>=1e6?`${(n/1e6).toFixed(1).replace(/\.0$/,'')}M`:n>=1e3?`${(n/1e3).toFixed(1).replace(/\.0$/,'')}K`:String(n);
 const chips = [...document.querySelectorAll('[data-card]')];
-let snapshot = null, selectedGroup = localStorage.getItem('ag-pulse-group'), group = null;
+let snapshot = null, selectedGroup = localGet('ag-pulse-group'), group = null;
 let pending = false, timer = null, leaveTimer = null, serverOffset = 0, lastExpiredRefresh = 0;
+let refreshRequest=null,manualRequest=null;
 const host = window.sidecar;
 if (!host) document.body.classList.add('standalone');
+const preferenceRequest=async(input)=>{
+  const transport=host?.fetch?host.fetch.bind(host):fetch;
+  const response=await transport('/api/preferences',input?{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(input)}:{cache:'no-store'});
+  if(!response.ok)throw new Error('Preferences unavailable');return response.json();
+};
+const connectPreferences=()=>language.connectPreferences({read:()=>preferenceRequest(),write:preferenceRequest,
+  cache:value=>localSet('ag-pulse-language',value),changed:()=>{localize();render();updateCountdowns();}});
+let preferences=connectPreferences();
 
 function showCard(name) {
   clearTimeout(leaveTimer);
@@ -36,7 +47,7 @@ function localize(){
   for(const e of document.querySelectorAll('[data-i18n]'))e.textContent=t(e.dataset.i18n);
   for(const e of document.querySelectorAll('[data-i18n-aria]'))e.setAttribute('aria-label',t(e.dataset.i18nAria));
   for(const e of document.querySelectorAll('[data-i18n-aria][title]'))e.title=t(e.dataset.i18nAria);
-  $('language-toggle').textContent=language.language==='en'?'EN':'中';$('language-toggle').title=t('switchLanguage');
+  $('language-toggle').textContent=language.language==='en'?'EN':'中';$('language-toggle').title=t('switchLanguage')+(preferences.error?' · '+t('languageSaveFailed'):'');$('language-toggle').dataset.saveFailed=String(preferences.error);
 }
 
 function chooseGroup(groups, speed) {
@@ -129,9 +140,26 @@ function updateCountdowns() {
   }
 }
 
-async function refresh(force = false) {
-  if (pending) return;
-  pending = true; $('refresh-button').disabled = true;
+function refreshBusy(busy){
+  const button=$('refresh-button');button.setAttribute('aria-busy',String(busy));button.setAttribute('aria-disabled',String(busy));
+  button.dataset.i18nAria=busy?'refreshing':'refreshStats';button.title=t(button.dataset.i18nAria);button.setAttribute('aria-label',button.title);
+}
+function refreshManually(){
+  if(manualRequest)return;
+  refreshBusy(true);const started=performance.now();
+  manualRequest=(async()=>{
+    try{if(pending)await refreshRequest;await refresh(true);}
+    finally{
+      const remaining=250-(performance.now()-started);
+      if(remaining>0)await new Promise(resolve=>setTimeout(resolve,remaining));
+      refreshBusy(false);manualRequest=null;
+    }
+  })();
+}
+function refresh(force = false) {
+  if (pending) return refreshRequest;
+  pending = true;
+  refreshRequest=(async()=>{
   try {
     const params = new URLSearchParams();
     if (host?.conversationId) params.set('conversationId',host.conversationId);
@@ -142,6 +170,8 @@ async function refresh(force = false) {
     const value = await response.json();
     if (!['live','stale','offline'].includes(value.connection)) throw new Error(t('invalidData'));
     snapshot = value;
+    if(Object.hasOwn(value,'theme'))themeController.setHostTheme(value.theme);
+    if(value.preferences)preferences.sync(value.preferences);
     serverOffset = Date.parse(value.serverTime) - Date.now();
     if (!Number.isFinite(serverOffset)) serverOffset = 0;
     render();
@@ -149,15 +179,18 @@ async function refresh(force = false) {
     if (snapshot) { snapshot.connection = 'stale'; snapshot.error = error.message; render(); }
     else { $('rest-title').textContent = t('connecting'); $('health-note').textContent = language.errorMessage(error.message); $('health-note').classList.add('warning'); }
   } finally {
-    pending = false; $('refresh-button').disabled = false;
+    pending = false; refreshRequest=null;
     clearTimeout(timer); timer = setTimeout(refresh, document.hidden ? 10000 : 2200);
   }
+  })();
+  return refreshRequest;
 }
-$('quota-group').addEventListener('change', event => { selectedGroup = event.target.value; localStorage.setItem('ag-pulse-group',selectedGroup); render(); });
-$('refresh-button').addEventListener('click', () => refresh(true));
-$('language-toggle').addEventListener('click',()=>{localStorage.setItem('ag-pulse-language',language.toggle());localize();render();});
+$('quota-group').addEventListener('change', event => { selectedGroup = event.target.value; localSet('ag-pulse-group',selectedGroup); render(); });
+$('refresh-button').addEventListener('click', refreshManually);
+$('language-toggle').addEventListener('click',()=>{void preferences.toggle();});
 document.addEventListener('visibilitychange', () => { if (!document.hidden) refresh(); });
-window.addEventListener('storage',event=>{if(event.key==='ag-pulse-language'){language.setLanguage(event.newValue);localize();render();}});
+window.addEventListener('pagehide',()=>preferences.dispose());
+window.addEventListener('pageshow',event=>{if(event.persisted)preferences=connectPreferences();});
 setInterval(updateCountdowns,1000);
 localize();
 refresh();

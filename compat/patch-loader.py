@@ -73,6 +73,8 @@ def build(data):
     addition = f'''\n{MARKER}
 electron_1.contextBridge.exposeInMainWorld("agPulseHost", {{
   getMetrics: (input) => electron_1.ipcRenderer.invoke("ag-pulse:metrics", input),
+  getPreferences: () => electron_1.ipcRenderer.invoke("ag-pulse:preferences", {{}}),
+  setPreferences: (input) => electron_1.ipcRenderer.invoke("ag-pulse:preferences", input),
   report: (state) => electron_1.ipcRenderer.send("ag-pulse:diagnostic", state)
 }});
 '''

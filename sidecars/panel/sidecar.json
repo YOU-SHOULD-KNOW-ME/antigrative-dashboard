@@ -5,7 +5,7 @@
   ],
   "restart_policy": "always",
   "display_name": "Antigrative Dashboard",
-  "description": "Theme-aware throughput, token cache and combined context/quota details",
+  "description": "Live host background, card, foreground and accent adaptation with localized composers and durable preferences",
   "has_web_ui": true,
   "ui_config": {
     "display_name": "Antigrative Dashboard",

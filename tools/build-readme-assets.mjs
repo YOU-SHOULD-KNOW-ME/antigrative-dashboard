@@ -13,6 +13,7 @@ const { chromium } = await import(process.env.PLAYWRIGHT_MODULE ? pathToFileURL(
 const i18n = await read('compat/i18n.cjs'), widget = await read('compat/inline-widget.cjs');
 const theme = await read('compat/theme.cjs');
 const id = '11111111-1111-1111-1111-111111111111';
+let previewPreferences={language:null,revision:0};
 function sample() {
   const now = Date.now();
   const metrics = trajectoryMetrics({ trajectory: { cascadeId: id, generatorMetadata: [{ chatModel: {
@@ -31,7 +32,11 @@ const server = createServer(async (req, res) => {
   try {
     const path = new URL(req.url, 'http://127.0.0.1').pathname;
     let content, type;
-    if (path === '/api/metrics') { content = JSON.stringify(sample()); type = 'application/json'; }
+    if(path==='/api/preferences'){
+      if(req.method==='POST'){let body='';for await(const chunk of req)body+=chunk;previewPreferences={language:JSON.parse(body).language,revision:previewPreferences.revision+1};}
+      content=JSON.stringify(previewPreferences);type='application/json';
+    }
+    else if (path === '/api/metrics') { content = JSON.stringify(sample()); type = 'application/json'; }
     else if (path === '/inline-widget.js') { content = `window.__agPulseI18nFactory=(${extract(i18n)});window.__agPulseThemeFactory=(${extract(theme)});(${extract(widget)})();`; type = 'text/javascript'; }
     else if (path.startsWith('/toolbar-preview')) { content = await read('sidecars/panel/toolbar-preview.html'); type = 'text/html'; }
     else { res.writeHead(404); res.end(); return; }
@@ -58,6 +63,7 @@ async function captureDetails(page, host, card, file, includeComposer) {
 }
 try {
   for (const mode of ['dark','light']) for (const chinese of [false, true]) {
+    previewPreferences={language:null,revision:0};
     const languageSuffix = chinese ? '-zh' : '';
     const suffix = languageSuffix + (mode==='light'?'-light':'');
     const page = await browser.newPage({ viewport: { width: 1000, height: 900 }, deviceScaleFactor: 2 });

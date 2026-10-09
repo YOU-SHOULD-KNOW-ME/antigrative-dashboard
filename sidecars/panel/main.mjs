@@ -8,11 +8,17 @@ import { MetricsStore } from './store.mjs';
 import { loadSidecarSdk } from './sdk.mjs';
 import { RuntimeUi, makeRendererSource } from '../../compat/runtime-ui.mjs';
 import { platformPaths } from '../../compat/platform.mjs';
+import { PreferencesStore } from '../../compat/preferences.mjs';
+import { SidecarOwner } from '../../compat/sidecar-owner.mjs';
+import { readHostTheme } from '../../compat/host-theme.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const createTheme=createRequire(import.meta.url)('../../compat/theme.cjs');
 const themeCss=()=>createTheme().css(':root');
 const store = new MetricsStore();
+const preferences=new PreferencesStore();
+const ownership=process.env.ANTIGRAVITY_SIDECAR_WEB_PORT?new SidecarOwner(platformPaths().data):null;
+const metrics = async input => ({ ...await store.snapshot(input), preferences:await preferences.snapshot(), theme:await readHostTheme(), integration: integration.health });
 const staticFiles = { '/': ['index.html', 'text/html'], '/app.js': ['app.js', 'text/javascript'], '/styles.css': ['styles.css', 'text/css'], '/format.mjs': ['format.mjs', 'text/javascript'] };
 const inlineSource=()=>{
   const file=readFileSync(join(HERE,'..','..','compat','inline-widget.cjs'),'utf8');
@@ -30,15 +36,17 @@ const runtimeSettings = () => {
   return settings;
 };
 const integration = new RuntimeUi({
-  snapshot: input => store.snapshot(input),
-  source: makeRendererSource(readFileSync(join(HERE,'..','..','compat','i18n.cjs'),'utf8'),readFileSync(join(HERE,'..','..','compat','inline-widget.cjs'),'utf8'),readFileSync(join(HERE,'..','..','compat','theme.cjs'),'utf8')),
+  snapshot: input => metrics(input),
+  preferences,
+  owner:ownership?.token,owns:()=>ownership?ownership.isOwner():true,
+  source: makeRendererSource(readFileSync(join(HERE,'..','..','compat','i18n.cjs'),'utf8'),readFileSync(join(HERE,'..','..','compat','inline-widget.cjs'),'utf8'),readFileSync(join(HERE,'..','..','compat','theme.cjs'),'utf8'),ownership?.token,ownership?.startedAt),
   dataDir: platformPaths().data,
   enabled: () => { const s = runtimeSettings(); return s.enabled !== false && s.inline !== false && s.mode !== 'legacy'; },
 });
-const metrics = async input => ({ ...await store.snapshot(input), integration: integration.health });
 
 if (process.env.ANTIGRAVITY_SIDECAR_WEB_PORT) {
   const { SidecarApp, Response } = await loadSidecarSdk();
+  if(!await ownership.claim())process.exit(0);
   const app = new SidecarApp();
   for (const [path, [file, type]] of Object.entries(staticFiles)) app.api(path, () => new Response(readFileSync(join(HERE, file), 'utf8'), { contentType: type }), 'GET');
   app.page('/i18n.js',i18nModule);
@@ -46,11 +54,17 @@ if (process.env.ANTIGRAVITY_SIDECAR_WEB_PORT) {
   app.api('/theme.css',()=>new Response(themeCss(),{contentType:'text/css'}),'GET');
   app.api('/api/metrics', data => metrics({ conversationId: data.conversationId || null, force: data.force === true || data.force === '1' }), 'GET');
   app.api('/api/integration', () => integration.health, 'GET');
+  app.api('/api/preferences',()=>preferences.snapshot(),'GET');
+  app.api('/api/preferences',async data=>{try{return await preferences.set(data);}catch{return new Response(JSON.stringify({error:'Language preference could not be saved'}),{status:400,contentType:'application/json'});}},'POST');
   app.run();
   integration.start();
+  const shutdown=async()=>{
+    const exitTimer=setTimeout(()=>process.exit(0),2000);exitTimer.unref();
+    await integration.stop();ownership.stop();process.exit(0);
+  };
+  ownership.watch(shutdown);
   for (const signal of ['SIGTERM','SIGINT']) process.once(signal, () => {
-    const exitTimer = setTimeout(() => process.exit(0), 2000); exitTimer.unref();
-    void integration.stop().finally(() => process.exit(0));
+    void shutdown();
   });
 } else {
   // A dependency-free local preview uses the same collector and frontend.
@@ -59,6 +73,20 @@ if (process.env.ANTIGRAVITY_SIDECAR_WEB_PORT) {
     const host = req.headers.host || '';
     if (!/^(127\.0\.0\.1|localhost)(:\d+)?$/.test(host)) { res.writeHead(403); res.end(); return; }
     const url = new URL(req.url, `http://${host}`);
+    if (url.pathname === '/api/preferences') {
+      const sameOrigin=req.headers.origin===`http://${host}`;
+      if(req.headers.origin&&!sameOrigin){res.writeHead(403);res.end();return;}
+      res.setHeader('Cache-Control','no-store');res.setHeader('Content-Type','application/json; charset=utf-8');
+      if(req.method==='GET'){res.end(JSON.stringify(await preferences.snapshot()));return;}
+      if(req.method==='POST'&&sameOrigin&&String(req.headers['content-type']).startsWith('application/json')){
+        let body='';
+        try {for await(const chunk of req){body+=chunk;if(body.length>1024)throw new Error('Preference payload too large');}
+          res.end(JSON.stringify(await preferences.set(JSON.parse(body))));
+        }catch{res.writeHead(400);res.end(JSON.stringify({error:'Language preference could not be saved'}));}
+        return;
+      }
+      res.writeHead(405);res.end();return;
+    }
     if (req.method !== 'GET') { res.writeHead(405); res.end(); return; }
     res.setHeader('Cache-Control', 'no-store');
     res.setHeader('X-Content-Type-Options', 'nosniff');

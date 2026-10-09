@@ -2,7 +2,7 @@
 
 | 系统 | 安装 / 后台发现 | 验证范围 |
 | --- | --- | --- |
-| Windows | Python / PowerShell，CIM + PID 所属监听端口 | Windows 11 / 桌面 App 2.21.1、2.22.0；真实对话上下文、合并悬浮卡已实机验证并验收；CI 生命周期与数据测试 |
+| Windows | Python / PowerShell，CIM 筛选 standalone + 单次 netstat PID 所属监听端口 | Windows 11 / 桌面 App 2.21.1、2.22.0；真实对话上下文、合并悬浮卡已实机验证并验收；CI 生命周期与数据测试 |
 | Linux | Python3 / POSIX shell，当前用户 `/proc` + TCP/TCP6 socket inode | Ubuntu CI 原生端口测试、安装生命周期、官方 2.21.1 资源与 SDK 检查；完整登录 App GUI 待用户实机验证 |
 | macOS | Python3 / POSIX shell，当前用户 `ps` + `lsof` PID 所属端口 | macOS CI 原生端口测试、安装生命周期、官方 2.21.1 资源与 SDK 检查；完整登录 App GUI 待用户实机验证 |
 
@@ -20,12 +20,15 @@ Linux/macOS：`python3 manage.py install` / `sh install.sh`。
 `AG_PULSE_APP_ASAR` 可覆盖生命周期检测位置；`AG_PULSE_PROFILE` 可在安装时指定用户配置目录并保存。
 如果宿主省略 SDK 解析与语言服务器路径，可用 `ANTIGRAVITY_AGENTAPI_EXE` 指定其已安装的语言服务器，或 `AG_PULSE_APP_RESOURCES` 指定资源目录。环境变量应传给启动 App 的环境。
 
+语言服务日志：Windows/Linux 默认读取 `<profile>/logs/language_server.log`；macOS 优先读取 `~/Library/Logs/Antigravity/language_server.log`，缺失或不能匹配当前 PID 端口时回退到 profile 日志。`AG_PULSE_LOG` 可显式指定唯一日志位置。回退仍校验当前进程拥有该 HTTP 端口，不连接旧日志中的失效接口。
+
 ## 独立用户数据目录
 
 | 内容 | Windows | Linux | macOS |
 | --- | --- | --- | --- |
 | App profile | `%APPDATA%/Antigravity` | `${XDG_CONFIG_HOME:-~/.config}/Antigravity` | `~/Library/Application Support/Antigravity` |
 | 插件设置 | `%LOCALAPPDATA%/AntigravityPulse/settings.json` | `${XDG_DATA_HOME:-~/.local/share}/AntigravityPulse/settings.json` | `~/Library/Application Support/AntigravityPulse/settings.json` |
+| 语言选择 | `%LOCALAPPDATA%/AntigravityPulse/preferences.json` | `${XDG_DATA_HOME:-~/.local/share}/AntigravityPulse/preferences.json` | `~/Library/Application Support/AntigravityPulse/preferences.json` |
 | 备份 | `%LOCALAPPDATA%/AntigravityPulseBackups` | `${XDG_DATA_HOME:-~/.local/share}/AntigravityPulseBackups` | `~/Library/Application Support/AntigravityPulseBackups` |
 
 三系统插件均在 `~/.gemini/config/plugins/antigravity-pulse`；历史均在 `~/.gemini/antigravity/sidecar_data/antigravity-pulse/panel/data/history-v1/<account-hash>/<conversation-id>.json`（宿主可覆盖 data 目录）。
@@ -40,7 +43,17 @@ Linux/macOS：`python3 manage.py install` / `sh install.sh`。
 
 默认安装不修改 `resources/app.asar`，由用户插件中的运行时适配器通过宿主现有 loopback 调试通道挂载。每 3 秒重试端口变化、文档替换与窗口重启。只允许 loopback 主 frame，通过受限桥接传递白名单统计。后台凭据仅在内存使用，匹配当前 PID 所属 HTTP 端口。
 
-三系统共用同一套合并布局和 V2 桥接协议；旧后台即使未随宿主退出，也不能响应新控件请求。更新包时替换运行代码后完全退出并重新打开宿主，可保证采集器和界面一起更新。
+三系统共用同一套合并布局和 V4 桥接协议。每个宿主后台具有独立实例标识与绑定；data 目录中的 `active-sidecar.json` 由新实例原子接管，旧实例每 2 秒检测接管后解绑退出。启动接管用短期文件锁串行化，异常退出的锁可恢复；不终止无关 PID。退出时只清理自身脚本和绑定，旧请求与延迟注入不能覆盖新实例。首次从没有接管保护的旧版升级，仍应完全退出宿主并清理已确认的旧插件后台；之后新实例可自动退役旧实例。
+
+内嵌悬浮卡通过浏览器原生 popover 顶层展示，避免输入区层叠上下文导致宿主按钮遮挡；不支持该 API 的旧宿主回退为普通固定定位。
+
+强调色优先跟随宿主当前生效的 `--primary` / `--color-primary`；配置中的 `userSettings.customThemeSeedsDark.primary` 与 `customThemeSeedsLight.primary` 提供深浅主题回退。切换主题或强调色无需重启；上下文环、上下文与额度进度条共用主色，小字号强调文字另行保证可读对比度。后台只传递有效颜色与主题模式，不传递完整配置，也不修改宿主设置。缺失或非法颜色恢复默认配色。
+
+背景与文字同样跟随实际生效的 `--background`、`--popover` / `--card`、`--foreground`；只保存背景 seed 时，从同色系派生卡片、菜单、控件和轨道。配置中仅白名单传递 `background`、`foregroundOverride` 色值作为回退。支持宿主的 color-mix、OKLCH 等有效不透明颜色；文字与背景过于接近时调整对比度，移除颜色后清理旧覆盖值。
+
+v0.5.2 的发布检查在三系统分别运行 Node 数据/路径/后台接管测试、Python 生命周期测试，以及 Chromium 中的主题切换、汉化布局和跨端口语言持久化测试。浏览器使用示意宿主和示例数据；它们不能证明 Linux/macOS 的已登录 App 界面已经实机验收。Windows 本轮修复已在当前真实 App 中验证；Linux/macOS 完整 App GUI 仍待实机确认。
+
+汉化兼容：优先用 `role="combobox"` / `role="textbox"` 与 `contenteditable="true"` 识别输入区，用模型选择器的稳定 `data-testid` 定位；沿 DOM 包含关系找输入区与工具栏的共同父容器，不依赖发送、录音或取消按钮的英文/中文文案。旧版缺少语义属性时保留原英文标识回退。隐藏或存在歧义的候选不随意挂载；宿主若同时改变这些结构或标识，仍可能需要适配。
 
 `python[3] manage.py status` 显示运行模式与健康状态：`mounted`、`waiting-for-composer`、`reconnecting`；检查 `checkedAt` 是否新鲜，历史文件不能证明当前后台仍在运行。原生侧面板是 SDK 兼容时的回退。
 

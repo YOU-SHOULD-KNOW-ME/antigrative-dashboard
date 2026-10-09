@@ -7,7 +7,7 @@
 模型选择旁只显示生成速率、缓存和上下文占用；悬停上下文，一并查看上下文、5 小时和周额度详情。<br>
 缩略信息常驻；鼠标悬停，才展开详细统计。
 
-[![Version 0.5.1](https://img.shields.io/badge/version-0.5.1-91adff?style=flat-square&labelColor=252936)](CHANGELOG.md)
+[![Version 0.5.2](https://img.shields.io/badge/version-0.5.2-91adff?style=flat-square&labelColor=252936)](CHANGELOG.md)
 [![Platforms](https://img.shields.io/badge/host-Windows%20%7C%20Linux%20%7C%20macOS-83d8b9?style=flat-square&labelColor=252936)](COMPATIBILITY.md)
 [![Antigravity 2.21.1 / 2.22.0](https://img.shields.io/badge/Antigravity-2.21.1%20%2F%202.22.0-c5a0ff?style=flat-square&labelColor=252936)](COMPATIBILITY.md)
 [![MIT](https://img.shields.io/badge/license-MIT-d4d9e6?style=flat-square&labelColor=252936)](LICENSE)
@@ -15,6 +15,8 @@
 [看看效果](#看看效果) · [开始安装](#安装) · [启用与停用](#可插拔) · [兼容性](#兼容性) · [常见问题](#常见问题)
 
 </div>
+
+**v0.5.2 更新：** 修复自定义背景/强调色、汉化后控件不显示、中英文设置丢失、悬浮卡遮挡和额度组菜单；加入刷新反馈，修正 macOS 日志路径及 Windows 发现/旧后台问题。[完整更新说明](https://github.com/YOU-SHOULD-KNOW-ME/antigrative-dashboard/releases/tag/v0.5.2)。
 
 ## 看看效果
 
@@ -36,7 +38,8 @@
 - **更新后自动连接。** 适配器保存在用户插件目录，默认安装不修改 App 归档。
 - **对话统计持久化。** 每个账号、每个对话分别保存 tok/s 与 cache，重新加载后可恢复。
 - **适合紧凑窗口。** 常驻仅三个控件；上下文细节、5h 与周额度余额、重置倒计时统一放在上下文悬浮卡中。
-- **跟随深浅主题。** 控件、悬浮卡和额度菜单优先跟随 Antigravity 配色；独立预览跟随系统，切换主题无需重启或重新加载对话。
+- **跟随主题配色。** 控件、悬浮卡和额度菜单跟随 Antigravity 的深浅模式及自定义背景、卡片、文字和强调色，并保持文字可读；独立预览跟随系统，切换主题无需重启或重新加载对话。
+- **语言设置跨重启保留。** 中英文选择写入独立的 `AntigravityPulse/preferences.json` 用户配置，控件和侧面板共用；不依赖应用每次启动的本地端口。
 - **不上传采集数据。** 后台使用本机 loopback 接口，数值留在你的电脑。
 
 ### 上下文窗口占用

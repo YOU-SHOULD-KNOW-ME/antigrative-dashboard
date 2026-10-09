@@ -21,6 +21,11 @@ select { max-width:160px; height:25px; border:0; border-radius:5px; padding:0 7p
 .icon-button:hover { background:var(--pulse-hover); color:var(--pulse-hover-text); }
 .icon-button:active { transform:scale(.97); }
 .icon-button[disabled] { opacity:.5; cursor:wait; }
+#language-toggle[data-save-failed=true] { color:var(--pulse-warning); text-decoration:underline dotted; }
+#refresh-button[aria-busy=true] { color:var(--pulse-emphasis); cursor:wait; }
+#refresh-button[aria-busy=true] .icon { animation:pulse-refresh-spin 1s linear infinite; transform-origin:center; }
+@keyframes pulse-refresh-spin { to { transform:rotate(360deg); } }
+@media (prefers-reduced-motion:reduce) { #refresh-button[aria-busy=true] .icon { animation:none; opacity:.65; } }
 .card-stage { position:relative; min-height:228px; margin:0 10px; }
 .rest-state { position:absolute; inset:0; display:flex; flex-direction:column; gap:8px; align-items:center; justify-content:center; color:var(--pulse-subtle); pointer-events:none; }
 .rest-state span:first-child { font-size:13px; color:var(--pulse-muted); }

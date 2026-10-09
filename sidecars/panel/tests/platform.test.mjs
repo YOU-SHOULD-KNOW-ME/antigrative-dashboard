@@ -1,8 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { platformPaths,agentExecutables } from '../../../compat/platform.mjs';
-import { parsePs,parseLsof,parseProcNet,linuxPorts,discoverProcesses } from '../discovery.mjs';
-import { serverFromDiscovery } from '../client.mjs';
+import { parsePs,parseLsof,parseProcNet,parseNetstat,linuxPorts,discoverProcesses } from '../discovery.mjs';
+import { serverFromDiscovery,AntigravityClient } from '../client.mjs';
 import { createServer } from 'node:net';
 import { once } from 'node:events';
 
@@ -40,4 +40,84 @@ test('native Unix listening-port discovery works without sudo', {skip:process.pl
     const {stdout}=await promisify(execFile)('/usr/sbin/lsof',['-nP','-a','-p',String(process.pid),'-iTCP','-sTCP:LISTEN','-Fpn']);
     assert.ok(parseLsof(stdout).get(process.pid).includes(port));
   }
+});
+
+test('macOS logs use Library/Logs with profile fallback; explicit log overrides stay authoritative',()=>{
+  const home='/test-user',native='/test-user/Library/Logs/Antigravity/language_server.log';
+  const normalize=p=>p.replaceAll('\\','/');
+  const mac=platformPaths({platform:'darwin',home,env:{}});
+  assert.equal(normalize(mac.log),native);
+  assert.deepEqual(mac.logCandidates.map(normalize),[native,'/test-user/Library/Application Support/Antigravity/logs/language_server.log']);
+  const custom=platformPaths({platform:'darwin',home,env:{AG_PULSE_PROFILE:'/custom'}});
+  assert.deepEqual(custom.logCandidates.map(normalize),[native,'/custom/logs/language_server.log']);
+  for(const platform of ['win32','darwin','linux']){
+    const overridden=platformPaths({platform,home,env:{AG_PULSE_LOG:'/chosen.log'}});
+    assert.equal(overridden.log,'/chosen.log');assert.deepEqual(overridden.logCandidates,['/chosen.log']);
+    if(platform!=='darwin'){
+      const defaults=platformPaths({platform,home,env:{}});
+      assert.deepEqual(defaults.logCandidates,[defaults.log]);
+    }
+  }
+});
+
+test('discovery falls back from missing/stale logs and clears old server on failure',async()=>{
+  const rows=[{ProcessId:12,CommandLine:'language_server --standalone --csrf_token=test',Ports:[1234]}];
+  for(const primary of ['missing','stale','valid']){
+    const reads=[];
+    const client=new AntigravityClient({paths:()=>({logCandidates:['native','profile']}),processes:async()=>rows,
+      readLog:async path=>{
+        reads.push(path);
+        if(path==='native'&&primary==='missing')throw Object.assign(new Error('missing'),{code:'ENOENT'});
+        return `listening on random port at ${path==='native'&&primary==='stale'?9999:1234} for HTTP\n`;
+      }});
+    assert.deepEqual(await client.discover(),{port:1234,pid:12,csrf:'test'});
+    assert.deepEqual(reads,primary==='valid'?['native']:['native','profile']);
+    client.readLog=async()=>{throw Object.assign(new Error('missing'),{code:'ENOENT'});};
+    await assert.rejects(client.discover(true),/语言服务日志/);assert.equal(client.server,null);
+  }
+});
+
+test('fallback never selects a log port owned by another process or conceals read permission errors',async()=>{
+  const client=new AntigravityClient({paths:()=>({logCandidates:['native','profile']}),
+    processes:async()=>[{ProcessId:12,CommandLine:'language_server --standalone --csrf_token=test',Ports:[1234]}],
+    readLog:async()=> 'listening on random port at 9999 for HTTP\n'});
+  await assert.rejects(client.discover(),/接口启动/);assert.equal(client.server,null);
+  client.readLog=async()=>{throw Object.assign(new Error('permission denied'),{code:'EACCES'});};
+  await assert.rejects(client.discover(),/permission denied/);
+});
+
+test('netstat isolates exact PIDs, IPv4/IPv6 and listening TCP ports',()=>{
+  const ports=parseNetstat(`
+ TCP 127.0.0.1:1234 0.0.0.0:0 LISTENING 12
+ TCP [::1]:4321 [::]:0 LISTENING 12
+ TCP 0.0.0.0:1234 0.0.0.0:0 LISTENING 12
+ TCP 127.0.0.1:9999 0.0.0.0:0 LISTENING 112
+ TCP 127.0.0.1:2222 127.0.0.1:3333 ESTABLISHED 12
+ UDP 127.0.0.1:4444 *:* 12
+ TCP 127.0.0.1:0 0.0.0.0:0 LISTENING 12
+ TCP 127.0.0.1:65536 0.0.0.0:0 LISTENING 12
+ TCP 127.0.0.1:8888 0.0.0.0:0 LISTENING 0
+ `);
+  assert.deepEqual([...ports],[[12,[1234,4321]],[112,[9999]]]);
+});
+
+test('Windows discovers standalone candidates first and takes one hidden socket snapshot',async()=>{
+  for(const json of [JSON.stringify({ProcessId:12,CommandLine:'ls --standalone'}),JSON.stringify([
+    {ProcessId:12,CommandLine:'ls --standalone'},{ProcessId:112,CommandLine:'ls --standalone'},
+    {ProcessId:13,CommandLine:'ls --sidecar'},{ProcessId:14,CommandLine:'ls --standalone-extra'}])]){
+    const calls=[];
+    const rows=await discoverProcesses({platform:'win32',run:async(file,args,options)=>{
+      calls.push({file,args,options});
+      return {stdout:file==='powershell.exe'?'\uFEFF'+json:' TCP 127.0.0.1:1234 0.0.0.0:0 LISTENING 12\n TCP [::]:9999 [::]:0 LISTENING 112'};
+    }});
+    assert.deepEqual(rows.map(r=>r.Ports),rows.length===1?[[1234]]:[[1234],[9999]]);
+    assert.equal(calls.length,2);assert.equal(calls[1].file,'netstat.exe');
+    assert.deepEqual(calls[1].args,['-ano','-p','tcp']);
+    assert.ok(calls.every(c=>c.options.windowsHide===true));
+    assert.ok(calls[0].args.at(-1).includes('Where-Object'));
+    assert.equal(calls[0].args.at(-1).includes('Get-NetTCPConnection'),false);
+  }
+  let count=0;
+  assert.deepEqual(await discoverProcesses({platform:'win32',run:async()=>{count++;return {stdout:'null'};}}),[]);
+  assert.equal(count,1);
 });

@@ -18,8 +18,10 @@ export function platformPaths({ platform = process.platform, home = homedir(), e
   let saved = {};
   try { saved=JSON.parse(readFileSync(settings,'utf8').replace(/^\uFEFF/,'')); } catch {}
   const profile = env.AG_PULSE_PROFILE || (typeof saved.profile === 'string' ? saved.profile : null) || join(config, 'Antigravity');
+  const profileLog=join(profile,'logs','language_server.log');
+  const log=env.AG_PULSE_LOG || (platform==='darwin'?join(home,'Library','Logs','Antigravity','language_server.log'):profileLog);
   return {
-    profile, log: join(profile, 'logs', 'language_server.log'),
+    profile, log, logCandidates:env.AG_PULSE_LOG?[log]:[...new Set([log,profileLog])],
     settings,
     pluginConfig: join(home, '.gemini', 'config', 'config.json'),
     data: env.ANTIGRAVITY_EXECUTABLE_DATA_DIR || join(home, '.gemini', 'antigravity', 'sidecar_data', 'antigravity-pulse', 'panel', 'data'),

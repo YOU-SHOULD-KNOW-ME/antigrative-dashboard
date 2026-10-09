@@ -81,7 +81,7 @@ test('disable disposes UI, intervals and navigation hooks; reenable attaches onc
 
 test('iframe and malformed binding events never reach metric collection', async () => {
   const { ui, state, connections } = fixture(); await ui.tick(); const c = connections[0];
-  const message = { method: 'Runtime.bindingCalled', params: { name: '__agPulseRuntimeCallV2', executionContextId: 8,
+  const message = { method: 'Runtime.bindingCalled', params: { name: '__agPulseRuntimeCallV4', executionContextId: 8,
     payload: JSON.stringify({ id: 1, type: 'metrics', input: { conversationId: null } }) } };
   await ui.event(c, message); assert.equal(state.calls, 0);
   message.params.executionContextId = 7; message.params.payload = 'not-json'; await ui.event(c, message); assert.equal(state.calls, 0);
@@ -91,13 +91,14 @@ test('iframe and malformed binding events never reach metric collection', async 
 
 test('a sidecar left running before an update cannot answer the new protocol binding', async () => {
   const { ui, state, connections } = fixture(); await ui.tick(); const c = connections[0];
-  const message = { method: 'Runtime.bindingCalled', params: { name: '__agPulseRuntimeCall', executionContextId: 7,
+  const message = { method: 'Runtime.bindingCalled', params: { name: '__agPulseRuntimeCallV2', executionContextId: 7,
     payload: JSON.stringify({ id: 1, type: 'metrics', input: { conversationId: null } }) } };
   await ui.event(c, message); assert.equal(state.calls, 0);
-  message.params.name = '__agPulseRuntimeCallV2'; await ui.event(c, message); assert.equal(state.calls, 1);
+  message.params.name = '__agPulseRuntimeCallV3'; await ui.event(c, message); assert.equal(state.calls, 0);
+  message.params.name = '__agPulseRuntimeCallV4'; await ui.event(c, message); assert.equal(state.calls, 1);
   const source = makeRendererSource('module.exports = function(){return {};};', 'module.exports = function(){};');
-  assert.ok(source.includes('window.__agPulseRuntimeCallV2('));
-  assert.equal(source.includes('window.__agPulseRuntimeCall('), false);
+  assert.ok(source.includes('"__agPulseRuntimeCallV4"'));
+  assert.equal(source.includes('window.__agPulseRuntimeCallV2('), false);
   await ui.stop();
 });
 
@@ -108,11 +109,21 @@ test('stopping during renderer discovery prevents a late attach', async () => {
   assert.equal(connections.length, 0); assert.equal(ui.sessions.size, 0);
 });
 
+test('only trusted preference requests can persist supported language settings',async()=>{
+  const {ui,connections}=fixture();const writes=[];
+  ui.preferences={get:async()=>({language:'zh-CN',revision:1}),set:async value=>{if(!['en','zh-CN'].includes(value.language))throw new Error('Invalid language');writes.push(value);return {...value,revision:2};}};
+  await ui.tick();const connection=connections[0];
+  const request=(value,context=7)=>ui.event(connection,{method:'Runtime.bindingCalled',params:{name:'__agPulseRuntimeCallV4',executionContextId:context,payload:JSON.stringify({id:10,type:'preferences',input:value})}});
+  await request({language:'en'},9);await request({language:'en',file:'other'});await request({language:'fr'});assert.deepEqual(writes,[]);
+  await request({language:'en'});assert.deepEqual(writes,[{language:'en'}]);
+  await request({});assert.ok(connection.calls.some(call=>call.params.expression?.includes('"language":"zh-CN"')));await ui.stop();
+});
+
 test('navigation to a remote origin cannot obtain metrics before the next discovery tick', async () => {
   const { ui, state, connections } = fixture(); await ui.tick(); const c = connections[0];
   await ui.event(c, { method: 'Runtime.executionContextsCleared' });
   await ui.event(c, { method: 'Runtime.executionContextCreated', params: { context: { id: 9, origin: 'https://example.com', auxData: { isDefault: true, frameId: 'main' } } } });
-  await ui.event(c, { method: 'Runtime.bindingCalled', params: { name: '__agPulseRuntimeCallV2', executionContextId: 9,
+  await ui.event(c, { method: 'Runtime.bindingCalled', params: { name: '__agPulseRuntimeCallV4', executionContextId: 9,
     payload: JSON.stringify({ id: 1, type: 'metrics', input: { conversationId: null } }) } });
   assert.equal(state.calls, 0); assert.equal(c.contexts.size, 0); await ui.stop();
 });
@@ -132,7 +143,7 @@ test('WebSocket disconnect rejects outstanding commands instead of hanging', asy
 
 test('renderer injection does not depend on a particular host version or expose credentials', () => {
   const source = makeRendererSource('module.exports = function(){return {};};', 'module.exports = function(){};');
-  assert.ok(source.includes('__agPulseRuntimeCallV2')); assert.ok(source.includes('window.top'));
+  assert.ok(source.includes('__agPulseRuntimeCallV4')); assert.ok(source.includes('window.top'));
   assert.equal(source.includes('csrf'), false); assert.equal(source.includes('access_token'), false);
   assert.throws(() => makeRendererSource('changed format', 'module.exports = function(){};'));
 });
@@ -156,4 +167,50 @@ test('palette-only updates replace the installed theme controller without stacki
   runInNewContext(makeRendererSource(i18n,widget,'module.exports = function(){return "old";};'),context);
   runInNewContext(makeRendererSource(i18n,widget,'module.exports = function(){return "new";};'),context);
   assert.equal(window.mounted,2);assert.equal(window.disposed,1);assert.equal(window.theme,'new');
+});
+
+test('old delayed injections and shutdown cannot replace or dispose a newer renderer',async()=>{
+  const window={};window.top=window;window.mounted=0;window.disposed=0;
+  const i18n='module.exports = function(){return {};};';
+  const widget='module.exports = function(){window.mounted++;window.__agPulseDispose=()=>{window.disposed++;};};';
+  const context={window,setTimeout,clearTimeout};
+  const newer=makeRendererSource(i18n,widget,'','new-owner',20);
+  runInNewContext(newer,context);
+  runInNewContext(makeRendererSource(i18n,widget,'','old-owner',10),context);
+  assert.equal(window.mounted,1);assert.equal(window.__agPulseRuntimeOwner,'new-owner');
+  const {ui,connections}=fixture();let owned=true;
+  ui.owner='old-owner';ui.binding='__agPulseRuntimeCallV4_oldowner';ui.owns=async()=>owned;
+  await ui.tick();const c=connections[0];owned=false;await ui.stop();
+  assert.equal(c.closed,true);
+  assert.ok(c.calls.some(call=>call.method==='Page.removeScriptToEvaluateOnNewDocument'));
+  assert.equal(c.calls.some(call=>call.params.expression?.includes('__agPulseDispose')),false);
+  assert.deepEqual(c.calls.filter(call=>call.method==='Runtime.removeBinding').map(call=>call.params.name),['__agPulseRuntimeCallV4_oldowner']);
+  runInNewContext(ui.rendererGuard('window.__agPulseDispose();'),context);assert.equal(window.disposed,0);
+});
+
+test('takeover drops in-flight old metrics and rejects other instance bindings',async()=>{
+  const {ui,connections,state}=fixture();let owned=true,release;
+  ui.owner='old-owner';ui.binding='__agPulseRuntimeCallV4_oldowner';ui.owns=async()=>owned;
+  await ui.tick();const c=connections[0];
+  const request=name=>({method:'Runtime.bindingCalled',params:{name,executionContextId:7,payload:JSON.stringify({id:1,type:'metrics',input:{}})}});
+  await ui.event(c,request('__agPulseRuntimeCallV4_newowner'));assert.equal(state.calls,0);
+  ui.snapshot=()=>new Promise(resolve=>{release=resolve;});
+  const event=ui.event(c,request(ui.binding));await new Promise(resolve=>setImmediate(resolve));
+  owned=false;release({connection:'live'});await event;
+  assert.equal(c.calls.some(call=>call.params.expression?.includes('?.resolve(')),false);
+  await ui.stop();
+});
+
+test('takeover during attachment removes old preload and leaves no retained connection',async()=>{
+  const {ui,connections}=fixture();let owned=true;
+  ui.owner='old';ui.owns=async()=>owned;
+  const connect=ui.connect;
+  ui.connect=(url,options)=>{
+    const c=connect(url,options),original=c.command.bind(c);
+    c.command=async(method,params)=>{const result=await original(method,params);if(method==='Page.addScriptToEvaluateOnNewDocument')owned=false;return result;};return c;
+  };
+  await ui.tick();assert.equal(ui.sessions.size,0);assert.equal(connections[0].closed,true);
+  assert.ok(connections[0].calls.some(call=>call.method==='Page.removeScriptToEvaluateOnNewDocument'));
+  assert.equal(connections[0].calls.some(call=>call.method==='Runtime.evaluate'),false);
+  await ui.stop();
 });

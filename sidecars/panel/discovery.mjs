@@ -35,6 +35,18 @@ export function parseProcNet(text) {
   });
 }
 
+export function parseNetstat(text) {
+  const ports=new Map();
+  for(const line of text.split(/\r?\n/)) {
+    const match=line.match(/^\s*TCP\s+(\S+)\s+\S+\s+LISTENING\s+(\d+)\s*$/i);
+    if(!match)continue;
+    const port=Number(match[1].match(/:(\d+)$/)?.[1]),pid=Number(match[2]);
+    if(!Number.isInteger(port)||port<1||port>65535||!Number.isSafeInteger(pid)||pid<1)continue;
+    if(!ports.has(pid))ports.set(pid,new Set());ports.get(pid).add(port);
+  }
+  return new Map([...ports].map(([pid,values])=>[pid,[...values]]));
+}
+
 export async function linuxPorts(pid, { proc = '/proc' } = {}) {
   const { readlink } = await import('node:fs/promises');
   const inodes = new Set();
@@ -50,9 +62,16 @@ export async function linuxPorts(pid, { proc = '/proc' } = {}) {
 
 export async function discoverProcesses({ platform = process.platform, run = exec, uid = process.getuid?.(), proc = '/proc' } = {}) {
   if (platform === 'win32') {
-    const script = "Get-CimInstance Win32_Process -Filter \"Name='language_server.exe'\" | ForEach-Object { $agProcess = $_; [pscustomobject]@{ProcessId=$agProcess.ProcessId; CommandLine=$agProcess.CommandLine; Ports=@(Get-NetTCPConnection -State Listen -OwningProcess $agProcess.ProcessId -ErrorAction SilentlyContinue | Select-Object -ExpandProperty LocalPort)} } | ConvertTo-Json -Compress";
+    const script = "Get-CimInstance Win32_Process -Filter \"Name='language_server.exe'\" | Where-Object { $_.CommandLine -match '(?:^|\\s)--standalone(?:\\s|=|$)' } | Select-Object ProcessId,CommandLine | ConvertTo-Json -Compress";
     const {stdout}=await run('powershell.exe',['-NoProfile','-NonInteractive','-Command',script],{windowsHide:true,timeout:8000,maxBuffer:1048576});
-    return stdout.trim() ? JSON.parse(stdout.replace(/^\uFEFF/,'')) : [];
+    const parsed=stdout.trim()?JSON.parse(stdout.replace(/^\uFEFF/,'')):[];
+    const rows=(Array.isArray(parsed)?parsed:[parsed]).filter(row=>Number.isSafeInteger(row?.ProcessId)&&row.ProcessId>0&&/(?:^|\s)--standalone(?:\s|=|$)/.test(row.CommandLine||''));
+    if(!rows.length)return [];
+    // One native socket-table snapshot for all candidates, rather than a costly
+    // Get-NetTCPConnection/CIM query for every language_server.exe process.
+    const {stdout:sockets}=await run('netstat.exe',['-ano','-p','tcp'],{windowsHide:true,timeout:4000,maxBuffer:4194304});
+    const ports=parseNetstat(sockets);
+    return rows.map(row=>({...row,Ports:ports.get(row.ProcessId)||[]}));
   }
   if (platform === 'darwin') {
     const {stdout}=await run('/bin/ps',['-ww','-axo','pid=,uid=,args='],{timeout:8000,maxBuffer:4194304});

@@ -1,12 +1,13 @@
 {
   "name": "antigrative-dashboard",
-  "version": "0.5.1",
+  "version": "0.5.2",
   "private": true,
   "description": "Compact Antigravity token throughput and quota widget",
   "license": "MIT",
   "scripts": {
     "test": "node --test sidecars/panel/tests/*.test.mjs",
     "test:lifecycle": "python -m unittest discover -s tests -v",
+    "test:ui": "node tools/check-theme-ui.mjs && node tools/check-localized-ui.mjs && node tools/check-language-persistence.mjs",
     "package": "python manage.py package"
   }
 }

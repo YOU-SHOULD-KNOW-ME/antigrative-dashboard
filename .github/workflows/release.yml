@@ -25,6 +25,11 @@ jobs:
           python-version: '3.11'
       - run: npm test
       - run: python -m unittest discover -s tests -v
+      - name: Install Chromium for shared UI regressions
+        run: |
+          npm install --no-save --package-lock=false playwright
+          npx playwright install --with-deps chromium
+      - run: npm run test:ui
       - run: python manage.py package
   release:
     needs: [verify, host-resources]

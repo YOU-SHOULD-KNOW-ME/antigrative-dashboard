@@ -15,6 +15,9 @@ export function serverFromDiscovery(log, processes) {
   return {port,csrf,pid:rows[0].ProcessId};
 }
 export class AntigravityClient {
+  constructor({paths=platformPaths,readLog=readFile,processes=discoverProcesses}={}) {
+    this.paths=paths;this.readLog=readLog;this.processes=processes;
+  }
   server = null;
   discoveredAt = 0;
   discovering = null;
@@ -27,15 +30,25 @@ export class AntigravityClient {
   }
 
   async discoverNow() {
-    const log = await readFile(platformPaths().log, 'utf8');
+    this.server=null;
     // A sidecar can outlive a renderer/backend restart. Its injected token may
     // then refer to the previous LS instance; pair the current log port with
     // the current standalone process credential instead of mixing generations.
-    const parsed = await discoverProcesses();
+    const parsed = await this.processes();
     if (!parsed || Array.isArray(parsed) && !parsed.length) throw new Error('请先打开 Antigravity');
     // Credentials stay in process memory. They are never logged, persisted, or
     // returned to a browser; all calls go exclusively to 127.0.0.1.
-    this.server = serverFromDiscovery(log,parsed);
+    let foundLog=false,lastError=null;
+    const paths=this.paths();
+    for(const file of paths.logCandidates||[paths.log]) {
+      try {
+        const log=await this.readLog(file,'utf8');foundLog=true;
+        this.server=serverFromDiscovery(log,parsed);break;
+      } catch(error) {
+        if(error.code!=='ENOENT'&&error.code!=='ENOTDIR')lastError=error;
+      }
+    }
+    if(!this.server)throw lastError||new Error(foundLog?'等待 Antigravity 本地接口启动':'未找到 Antigravity 语言服务日志，请检查日志路径');
     this.discoveredAt = Date.now();
     return this.server;
   }
