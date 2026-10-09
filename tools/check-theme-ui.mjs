@@ -163,16 +163,18 @@ async function checkAccent(page,scope,inline){
   }else await page.screenshot({path:join(output,'host-accent-panel.png')});
 }
 async function checkRefresh(page,button){
-  let forced=0,release;
+  let forced=0,release,forcedSeen,arrivalTimeout;
   const waiting=new Promise(resolve=>{release=resolve;});
+  const arrived=new Promise(resolve=>{forcedSeen=resolve;});
   const handler=async route=>{
     if(new URL(route.request().url()).searchParams.get('force')!=='1'){await route.continue();return;}
-    forced++;await waiting;await route.fulfill({contentType:'application/json',body:JSON.stringify(sample())});
+    forced++;forcedSeen();await waiting;await route.fulfill({contentType:'application/json',body:JSON.stringify(sample())});
   };
   await page.route('**/api/metrics**',handler);
   try{
     await button.click();
     assert.equal(await button.getAttribute('aria-busy'),'true');
+    await Promise.race([arrived,new Promise((_,reject)=>{arrivalTimeout=setTimeout(()=>reject(new Error('Forced refresh request did not arrive')),7000);})]);clearTimeout(arrivalTimeout);
     assert.equal(await button.locator('svg').evaluate(e=>getComputedStyle(e).animationName),'pulse-refresh-spin');
     const before=await button.locator('svg').evaluate(e=>getComputedStyle(e).transform);
     await page.waitForTimeout(140);
@@ -185,7 +187,7 @@ async function checkRefresh(page,button){
       const host=document.getElementById('ag-pulse-status-bar');
       return (host?.shadowRoot||document).querySelector(selector)?.getAttribute('aria-busy')==='false';
     },await button.evaluate(e=>e.id?'#'+e.id:'.refresh'));
-  }finally{release();await page.unroute('**/api/metrics**',handler);await page.emulateMedia({reducedMotion:'no-preference'});}
+  }finally{clearTimeout(arrivalTimeout);release();await page.unrouteAll({behavior:'wait'});await page.emulateMedia({reducedMotion:'no-preference'});}
   // Failed refreshes must also settle the indicator and remain retryable.
   let abort;
   const failing=new Promise(resolve=>{abort=resolve;});
@@ -198,7 +200,7 @@ async function checkRefresh(page,button){
       return (host?.shadowRoot||document).querySelector(selector)?.getAttribute('aria-busy')==='false';
     },await button.evaluate(e=>e.id?'#'+e.id:'.refresh'));
     assert.equal(await button.getAttribute('aria-disabled'),'false');
-  }finally{abort();await page.unroute('**/api/metrics**',fail);}
+  }finally{abort();await page.unrouteAll({behavior:'wait'});}
   // Click while a real automatic poll is in flight: immediate feedback, then
   // one forced request after that poll, rather than silently dropping the click.
   let seen,unblock,ordinaryHeld=false,queuedForced=0,timeout;
@@ -220,7 +222,7 @@ async function checkRefresh(page,button){
       return (host?.shadowRoot||document).querySelector(selector)?.getAttribute('aria-busy')==='false';
     },await button.evaluate(e=>e.id?'#'+e.id:'.refresh'));
     assert.equal(queuedForced,1,'Manual refresh must run once after the ongoing poll');
-  }finally{clearTimeout(timeout);unblock();await page.unroute('**/api/metrics**',queue);}
+  }finally{clearTimeout(timeout);unblock();await page.unrouteAll({behavior:'wait'});}
 }
 try {
   const page=await browser.newPage({viewport:{width:1000,height:900},deviceScaleFactor:2,colorScheme:'light'});
