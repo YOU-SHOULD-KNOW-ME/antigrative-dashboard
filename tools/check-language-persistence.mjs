@@ -17,11 +17,12 @@ const directory=await mkdtemp(join(tmpdir(),'pulse-language-ui-')),file=join(dir
 const id='11111111-1111-1111-1111-111111111111';
 async function serve() {
   const store=new PreferencesStore({file});
+  let completedWrites=0;
   const server=createServer(async(req,res)=>{
     try {
       const path=new URL(req.url,'http://127.0.0.1').pathname;let text,type='text/javascript';
       if(path==='/api/preferences'){
-        if(req.method==='POST'){let input='';for await(const chunk of req)input+=chunk;text=JSON.stringify(await store.set(JSON.parse(input)));}
+        if(req.method==='POST'){let input='';for await(const chunk of req)input+=chunk;text=JSON.stringify(await store.set(JSON.parse(input)));completedWrites++;}
         else text=JSON.stringify(await store.get());type='application/json';
       }else if(path==='/api/metrics'){
         text=JSON.stringify({connection:'live',serverTime:new Date().toISOString(),preferences:await store.snapshot(),groups:[],speed:{conversationId:id,counts:{},cache:null,context:null}});type='application/json';
@@ -37,7 +38,7 @@ async function serve() {
     }catch(error){res.writeHead(400,{'Content-Type':'application/json'});res.end(JSON.stringify({error:error.message}));}
   });
   server.listen(0,'127.0.0.1');await new Promise(resolve=>server.once('listening',resolve));
-  return {url:'http://127.0.0.1:'+server.address().port,store,close:()=>new Promise(resolve=>server.close(resolve))};
+  return {url:'http://127.0.0.1:'+server.address().port,store,get completedWrites(){return completedWrites;},close:()=>new Promise(resolve=>server.close(resolve))};
 }
 const {chromium}=await import(process.env.PLAYWRIGHT_MODULE?pathToFileURL(process.env.PLAYWRIGHT_MODULE).href:'playwright');
 const browser=await chromium.launch(process.platform==='win32'&&!process.env.CI?{channel:'msedge',headless:true}:{headless:true});
@@ -63,7 +64,16 @@ try {
   await page.goto(server.url+'/toolbar-preview');host=page.locator('#ag-pulse-status-bar');await host.locator('#language-toggle').waitFor();
   assert.equal(await host.locator('#language-toggle').textContent(),'EN');
   await host.locator('#language-toggle').click();await host.locator('#language-toggle').click();await host.locator('#language-toggle').click();
-  await page.waitForFunction(async()=>{const p=await(await fetch('/api/preferences')).json();return p.language==='zh-CN';});
+  // The first click also saves zh-CN. Seeing that transient disk value does not
+  // mean the remaining two serialized writes finished; closing the browser at
+  // that point can abort the final write and produce a false restart failure.
+  const deadline=Date.now()+30000;
+  while(server.completedWrites<3){
+    if(Date.now()>deadline)throw new Error('The three rapid language writes did not finish');
+    await new Promise(resolve=>setTimeout(resolve,50));
+  }
+  assert.equal((await server.store.get()).language,'zh-CN');
+  assert.equal(await host.locator('#language-toggle').textContent(),'中');
   await context.close();await server.close();server=await serve();context=await browser.newContext();page=await context.newPage();await page.goto(server.url+'/');
   await page.waitForFunction(()=>document.documentElement.lang==='zh-CN');
   assert.equal(await page.locator('#language-toggle').textContent(),'中');assert.deepEqual(errors,[]);
