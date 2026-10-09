@@ -71,7 +71,9 @@ Automated checks cover official example values, zero/missing values, compaction/
 
 ## 简体中文
 
-从 [GitHub Releases](https://github.com/YOU-SHOULD-KNOW-ME/antigrative-dashboard/releases) 下载 v0.6.0 或更新安装包，解压后在项目目录运行以下命令。上图为 Windows CLI 1.3.2 登录后的真实两轮对话，邮箱已遮挡；上下文从 0% 变为 1.7%，缓存读取为真实零值，Claude/GPT 周额度 49.6% 显示黄色。Linux/macOS 尚未完成登录后的实机交互验收，非零缓存的真实宿主场景也尚未验证。
+![真实中文 CLI 两轮对话及状态栏](assets/cli-conversation-zh.png)
+
+从 [GitHub Releases](https://github.com/YOU-SHOULD-KNOW-ME/antigrative-dashboard/releases) 下载 v0.6.0 或更新安装包，解压后在项目目录运行以下命令。上图为 Windows CLI 1.3.2 登录后的真实中文两轮对话，邮箱已遮挡；上下文从 0% 变为 1.7%，缓存读取为真实零值，Claude/GPT 周额度 49.6% 显示黄色。Linux/macOS 尚未完成登录后的实机交互验收，非零缓存的真实宿主场景也尚未验证。
 
 通过 [Antigravity CLI 官方状态栏接口](https://antigravity.google/docs/cli/statusline/) 接入，要求 **Node.js 20+、Python 3.10+** 和支持该接口的 `agy`。Windows/Linux/macOS 共用实现；Linux/macOS 把以下 `python` 换为 `python3`。
 
