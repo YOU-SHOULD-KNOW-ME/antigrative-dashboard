@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.5.1
+
+- Follow the Antigravity light/dark theme for toolbar chips, all hover cards, quota menus and warning states; fall back to the OS in standalone previews.
+- Share one palette and theme controller between the injected widget and native SDK panel; react to host classes, background tokens and live theme changes without resetting statistics.
+
+- Crop README screenshots around the controls and cards; show a single color theme to avoid repeated artwork.
+
 ## 0.5.0
 
 - Consolidate context, five-hour and weekly quotas into one hover card; keep only TPS, cache and context chips in the toolbar on every platform.

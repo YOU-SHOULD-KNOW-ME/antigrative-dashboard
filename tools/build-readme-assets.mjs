@@ -11,6 +11,7 @@ const read = file => readFile(join(root, file), 'utf8');
 const extract = source => source.slice(source.indexOf('module.exports = ') + 17).trim().replace(/;$/, '');
 const { chromium } = await import(process.env.PLAYWRIGHT_MODULE ? pathToFileURL(process.env.PLAYWRIGHT_MODULE).href : 'playwright');
 const i18n = await read('compat/i18n.cjs'), widget = await read('compat/inline-widget.cjs');
+const theme = await read('compat/theme.cjs');
 const id = '11111111-1111-1111-1111-111111111111';
 function sample() {
   const now = Date.now();
@@ -31,7 +32,7 @@ const server = createServer(async (req, res) => {
     const path = new URL(req.url, 'http://127.0.0.1').pathname;
     let content, type;
     if (path === '/api/metrics') { content = JSON.stringify(sample()); type = 'application/json'; }
-    else if (path === '/inline-widget.js') { content = `window.__agPulseI18nFactory=(${extract(i18n)});(${extract(widget)})();`; type = 'text/javascript'; }
+    else if (path === '/inline-widget.js') { content = `window.__agPulseI18nFactory=(${extract(i18n)});window.__agPulseThemeFactory=(${extract(theme)});(${extract(widget)})();`; type = 'text/javascript'; }
     else if (path.startsWith('/toolbar-preview')) { content = await read('sidecars/panel/toolbar-preview.html'); type = 'text/html'; }
     else { res.writeHead(404); res.end(); return; }
     res.writeHead(200, { 'Content-Type': type + '; charset=utf-8' }); res.end(content);
@@ -41,31 +42,39 @@ server.listen(0, '127.0.0.1'); await new Promise(resolve => server.once('listeni
 const browser = await chromium.launch(process.platform === 'win32' ? { channel: 'msedge', headless: true } : { headless: true });
 const output = join(root, 'docs', 'assets'); await mkdir(output, { recursive: true });
 const errors = [];
+// Crop live DOM geometry, including the fixed hover card, without raster edits.
+async function captureDetails(page, host, card, file, includeComposer) {
+  const isolation=!includeComposer?await page.addStyleTag({content:'.rounded-composer{background:transparent!important;border-color:transparent!important}.editor,.actions>:not(#ag-pulse-status-bar){visibility:hidden}'}):null;
+  if(!includeComposer) await host.locator('.bar').evaluate(bar=>{for(const element of bar.children)if(element.dataset.card!=='context')element.style.visibility='hidden';});
+  const boxes=await Promise.all([
+    (includeComposer?page.locator('.rounded-composer'):host.locator('[data-card="context"]')).boundingBox(),
+    host.locator(`#${card}-card`).boundingBox(),
+  ]);
+  const pad=20, left=Math.max(0,Math.min(...boxes.map(box=>box.x))-pad), top=Math.max(0,Math.min(...boxes.map(box=>box.y))-pad);
+  const right=Math.min(page.viewportSize().width,Math.max(...boxes.map(box=>box.x+box.width))+pad);
+  const bottom=Math.min(page.viewportSize().height,Math.max(...boxes.map(box=>box.y+box.height))+pad);
+  await page.screenshot({path:file,clip:{x:left,y:top,width:right-left,height:bottom-top}});
+  if(isolation){await isolation.evaluate(element=>element.remove());await host.locator('.bar').evaluate(bar=>{for(const element of bar.children)element.style.visibility='';});}
+}
 try {
-  for (const chinese of [false, true]) {
-    const suffix = chinese ? '-zh' : '';
+  for (const mode of ['dark','light']) for (const chinese of [false, true]) {
+    const languageSuffix = chinese ? '-zh' : '';
+    const suffix = languageSuffix + (mode==='light'?'-light':'');
     const page = await browser.newPage({ viewport: { width: 1000, height: 900 }, deviceScaleFactor: 2 });
     page.on('pageerror', error => errors.push(error.message));
     await page.goto(`http://127.0.0.1:${server.address().port}/toolbar-preview`);
+    await page.evaluate(mode=>document.body.dataset.theme=mode,mode);
+    await page.addStyleTag({content:`.project{display:none}body{padding-top:65px;background:${mode==='light'?'#f5f6f8':'#111'};color:${mode==='light'?'#505867':'#aaa'}}.rounded-composer{background:${mode==='light'?'#fff':'#202020'};border-color:${mode==='light'?'#cdd3dc':'#303030'}}button{color:${mode==='light'?'#4e5969':'#bbb'}}.send{background:${mode==='light'?'#e7ebf2':'#303030'}}`});
     const host = page.locator('#ag-pulse-status-bar');
     await host.locator('#context-percent').waitFor();
     await page.waitForFunction(() => document.querySelector('#ag-pulse-status-bar')?.shadowRoot?.getElementById('context-percent')?.textContent === '44%');
     if (chinese) await host.locator('#language-toggle').click();
     await host.locator('[data-card="context"]').hover();
-    await page.screenshot({ path: join(output, `context${suffix}.png`) });
-
-    await page.setViewportSize({ width: 1000, height: 680 });
-    await page.addStyleTag({ content: '.project{display:none}body{padding-top:450px}' });
-    await page.evaluate(chinese => {
-      const heading = document.createElement('header'); heading.id = 'docs-heading';
-      heading.style.cssText = 'position:absolute;left:110px;top:34px;font:28px "Segoe UI","Microsoft YaHei",sans-serif;color:#eef1f7';
-      heading.textContent = chinese ? '三个控件，完整详情。' : 'Three controls. All the details.';
-      const caption = document.createElement('div'); caption.style.cssText = 'font-size:13px;color:#929eaf;margin-top:12px';
-      caption.textContent = chinese ? '当前插件源码渲染 · 示意数据 · 悬停上下文查看 5h 和周额度' : 'Rendered from the current widget · Illustrative data · Hover context for both quotas';
-      heading.append(caption); document.body.prepend(heading);
-    }, chinese);
+    await captureDetails(page,host,'context',join(output,`context${suffix}.png`),false);
     await host.locator('[data-card="cache"]').hover();
-    await page.screenshot({ path: join(output, `widget${suffix}.png`) });
+    await captureDetails(page,host,'cache',join(output,`widget${suffix}.png`),true);
+
+    if(mode==='light'||process.argv.includes('--details-only')){await page.close();continue;}
 
     await page.setViewportSize({ width: 1400, height: 680 });
     await page.keyboard.press('Escape');
@@ -89,5 +98,5 @@ try {
     await page.close();
   }
   if (errors.length) throw new Error(errors.join('\n'));
-  console.log('Generated current English/Chinese README assets: hero, widget, context.');
+  console.log('Generated compact English/Chinese widget and context assets in dark/light themes.');
 } finally { await browser.close(); await new Promise(resolve => server.close(resolve)); }

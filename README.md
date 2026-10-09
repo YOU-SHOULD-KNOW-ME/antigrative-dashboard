@@ -7,7 +7,7 @@
 Token throughput, cache hits and context usage in the model selector row. Hover over context for five-hour and weekly quotas too.<br>
 Keep the summary visible. Hover for the details.
 
-[![Version 0.5.0](https://img.shields.io/badge/version-0.5.0-91adff?style=flat-square&labelColor=252936)](CHANGELOG.md)
+[![Version 0.5.1](https://img.shields.io/badge/version-0.5.1-91adff?style=flat-square&labelColor=252936)](CHANGELOG.md)
 [![Platforms](https://img.shields.io/badge/host-Windows%20%7C%20Linux%20%7C%20macOS-83d8b9?style=flat-square&labelColor=252936)](COMPATIBILITY.md)
 [![Antigravity 2.21.1 / 2.22.0](https://img.shields.io/badge/Antigravity-2.21.1%20%2F%202.22.0-c5a0ff?style=flat-square&labelColor=252936)](COMPATIBILITY.md)
 [![MIT](https://img.shields.io/badge/license-MIT-d4d9e6?style=flat-square&labelColor=252936)](LICENSE)
@@ -18,7 +18,7 @@ Keep the summary visible. Hover for the details.
 
 ## Preview
 
-<img src="docs/assets/widget.png?v=0.5.0-compact" width="100%" alt="The latest three-control toolbar and its token cache hover card.">
+<img src="docs/assets/widget.png?v=0.5.1-compact" width="100%" alt="The latest three-control toolbar and its token cache hover card.">
 
 <sub>Artwork uses illustrative data, not real account quotas or conversations. The installed widget reads metrics from your local Antigravity app. The widget defaults to English. Use the EN / 中 button to switch languages; your choice is saved.</sub>
 
@@ -39,11 +39,12 @@ Keep the summary visible. Hover for the details.
 - **Survives updates.** Plugin-owned runtime attachment reconnects after app updates, without modifying the application archive.
 - **Persistent conversations.** TPS and cache statistics are saved separately for each conversation and account; reloads can recover saved statistics.
 - **Compact-window support.** Only three summary controls; quota balances and countdowns stay in the combined context hover card.
+- **Light/dark adaptation.** Controls, cards and quota menus follow Antigravity's theme, with OS fallback in standalone previews. Live changes require no restart or conversation reload.
 - **Local collection.** The collector talks to loopback endpoints. It does not upload your metrics to a third-party service.
 
 ### Context window
 
-<img src="docs/assets/context.png?v=0.5.0-compact" width="100%" alt="Context usage and both five-hour and weekly quota details in one hover card">
+<img src="docs/assets/context.png?v=0.5.1-compact" width="460" alt="Context usage and both five-hour and weekly quota details in one hover card">
 
 <sub>Illustrative 44% sample. Uses the host estimate at the latest request start; capacity may be unavailable.</sub>
 

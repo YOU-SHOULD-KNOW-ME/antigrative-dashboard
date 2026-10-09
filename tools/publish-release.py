@@ -21,7 +21,7 @@ def checked_assets(root, tag):
         manifest = json.loads(archive.read(prefix + 'plugin.json'))
         if manifest['version'] != version:
             raise ValueError('Packaged version differs')
-        for required in ['install.sh', 'uninstall.sh', 'install.ps1', 'compat/runtime-ui.mjs', 'sidecars/panel/context.mjs']:
+        for required in ['install.sh', 'uninstall.sh', 'install.ps1', 'compat/runtime-ui.mjs', 'compat/theme.cjs', 'sidecars/panel/context.mjs']:
             archive.getinfo(prefix + required)
     return [bundle, checksum]
 

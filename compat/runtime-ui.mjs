@@ -113,15 +113,16 @@ function rendererBridge() {
   if (!window.agPulseHost) window.agPulseHost = { getMetrics: input => call('metrics', input), report: input => { void call('diagnostic', input); } };
 }
 
-export function makeRendererSource(i18n, widget) {
+export function makeRendererSource(i18n, widget, theme = '') {
   const extract = source => {
     const prefix = 'module.exports = ', index = source.indexOf(prefix);
     if (index < 0) throw new Error('Widget source format changed');
     return source.slice(index + prefix.length).trim().replace(/;$/, '');
   };
-  const version = createHash('sha256').update(i18n + widget + rendererBridge.toString()).digest('hex');
+  const version = createHash('sha256').update(i18n + widget + theme + rendererBridge.toString()).digest('hex');
   const upgrade = 'if(window.__agPulseRuntimeVersion!==' + JSON.stringify(version) + '){window.__agPulseDispose?.();window.__agPulseRuntimeBridge?.dispose();delete window.agPulseHost;window.__agPulseRuntimeVersion=' + JSON.stringify(version) + ';}';
-  return upgrade + '(' + rendererBridge.toString() + ')();window.__agPulseI18nFactory=(' + extract(i18n) + ');(' + extract(widget) + ')();';
+  return upgrade + '(' + rendererBridge.toString() + ')();window.__agPulseI18nFactory=(' + extract(i18n) + ');'
+    + (theme ? 'window.__agPulseThemeFactory=(' + extract(theme) + ');' : '') + '(' + extract(widget) + ')();';
 }
 
 export class RuntimeUi {

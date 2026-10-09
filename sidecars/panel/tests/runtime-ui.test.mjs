@@ -147,3 +147,13 @@ test('plugin source updates replace old hooks once and keep identical reinjectio
   runInNewContext(makeRendererSource(i18n,widget.replace('window.mounted++;','window.mounted++;window.updated=true;')),context);
   assert.equal(window.mounted,2);assert.equal(window.disposed,1);
 });
+
+test('palette-only updates replace the installed theme controller without stacking widgets', () => {
+  const window={};window.top=window;window.mounted=0;window.disposed=0;
+  const i18n='module.exports = function(){return {};};';
+  const widget='module.exports = function(){window.mounted++;window.theme=window.__agPulseThemeFactory();window.__agPulseDispose=()=>{window.disposed++;};};';
+  const context={window,setTimeout,clearTimeout};
+  runInNewContext(makeRendererSource(i18n,widget,'module.exports = function(){return "old";};'),context);
+  runInNewContext(makeRendererSource(i18n,widget,'module.exports = function(){return "new";};'),context);
+  assert.equal(window.mounted,2);assert.equal(window.disposed,1);assert.equal(window.theme,'new');
+});

@@ -1,5 +1,10 @@
 import { percent, rate, count, elapsed, countdown, resetDate } from './format.mjs';
 import { createI18n } from './i18n.js';
+import { createTheme } from './theme.js';
+const theme=createTheme();
+let themeController=theme.attach(document.documentElement);
+window.addEventListener('pagehide',()=>themeController.dispose());
+window.addEventListener('pageshow',event=>{if(event.persisted)themeController=theme.attach(document.documentElement);});
 const language=createI18n(localStorage.getItem('ag-pulse-language'));
 const t=language.t;
 
@@ -49,7 +54,7 @@ function renderQuota(window, prefix) {
   $(`${prefix}-balance`).textContent = percent(remaining);
   const fill = $(`${prefix}-fill`), track = $(`${prefix}-track`);
   fill.style.width = typeof remaining === 'number' ? `${remaining * 100}%` : '0%';
-  fill.style.background = remaining !== null && remaining < .05 ? '#e79696' : remaining !== null && remaining < .2 ? '#d7b078' : '';
+  fill.style.background = remaining !== null && remaining < .05 ? 'var(--pulse-danger)' : remaining !== null && remaining < .2 ? 'var(--pulse-warning)' : '';
   if (typeof remaining === 'number') { track.setAttribute('aria-valuenow', String(remaining * 100)); track.setAttribute('aria-valuemin','0'); track.setAttribute('aria-valuemax','100'); }
   else track.removeAttribute('aria-valuenow');
   $(`${prefix}-reset`).textContent = language.resetDate(bucket?.resetAt);
@@ -92,7 +97,7 @@ function render() {
   const restored=context&&(speed.contextRestored===true||speed.restoredFromHistory&&speed.contextRestored!==false);
   $('context-note').textContent=(context?t('contextBasis'):t('contextUnavailable'))+(restored?' '+t('contextSaved',{time:speed.savedAt?language.resetDate(speed.savedAt):'—'}):'')+(hasCapacity&&context.usedFraction>1?' '+t('contextExceeded'):'');
   $('context-fill').style.width=hasCapacity?`${Math.min(1,context.usedFraction)*100}%`:'0%';
-  $('context-fill').style.background=hasCapacity&&context.usedFraction>=.9?'#e99b9b':'';
+  $('context-fill').style.background=hasCapacity&&context.usedFraction>=.9?'var(--pulse-danger)':'';
   if(hasCapacity){$('context-track').setAttribute('aria-valuenow',String(Math.min(100,context.usedFraction*100)));$('context-track').setAttribute('aria-valuemin','0');$('context-track').setAttribute('aria-valuemax','100');}else $('context-track').removeAttribute('aria-valuenow');
   $('strip-cache').textContent=percent(cache?.hitRate);$('cache-rate').textContent=percent(cache?.hitRate);
   $('strip-cache-total').textContent=cache?.measuredRequests?`${compact(cache.totalTokens)} tok`:'— tok';
