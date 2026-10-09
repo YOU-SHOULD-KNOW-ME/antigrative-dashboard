@@ -176,9 +176,14 @@ async function checkRefresh(page,button){
     assert.equal(await button.getAttribute('aria-busy'),'true');
     await Promise.race([arrived,new Promise((_,reject)=>{arrivalTimeout=setTimeout(()=>reject(new Error('Forced refresh request did not arrive')),7000);})]);clearTimeout(arrivalTimeout);
     assert.equal(await button.locator('svg').evaluate(e=>getComputedStyle(e).animationName),'pulse-refresh-spin');
-    const before=await button.locator('svg').evaluate(e=>getComputedStyle(e).transform);
-    await page.waitForTimeout(140);
-    assert.notEqual(await button.locator('svg').evaluate(e=>getComputedStyle(e).transform),before,'Refresh icon must actually rotate');
+    const spinner=await button.locator('svg').elementHandle();
+    const before=await spinner.evaluate(e=>getComputedStyle(e).transform);
+    // Hosted browsers may postpone an animation's first frame; observe motion
+    // instead of assuming that a fixed 140 ms sleep spans rendered frames.
+    await page.waitForFunction(({spinner,before})=>getComputedStyle(spinner).transform!==before,
+      {spinner,before},{timeout:5000});
+    assert.equal(await button.getAttribute('aria-busy'),'true','Rotation must be observed while the request is pending');
+    await spinner.dispose();
     await button.dispatchEvent('click');await page.waitForTimeout(80);assert.equal(forced,1,'Repeated clicks must share one request');
     await page.emulateMedia({reducedMotion:'reduce'});
     assert.equal(await button.locator('svg').evaluate(e=>getComputedStyle(e).animationName),'none');
