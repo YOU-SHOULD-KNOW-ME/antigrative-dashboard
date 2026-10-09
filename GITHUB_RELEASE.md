@@ -7,9 +7,11 @@ This release adds an independent adapter for the official Antigravity CLI `statu
 - Context occupancy and current cache read tokens appear first, followed by agent state.
 - Gemini and Claude/GPT quotas occupy separate rows; each groups five-hour and weekly balances with reset countdowns.
 - Remaining quota numbers and bars are **green at ≥70%, yellow at ≥30% and <70%, red below 30%**. Low balances also show `!` for monochrome terminals.
+- The shared quota label distinguishes **Claude #DA7756** from **GPT #F8FAFC**; a supplied light-background terminal hint makes GPT use the default foreground for readability.
 - English/Chinese, CJK/emoji cell widths, compact narrow layouts and optional details are supported. Only foreground colors and text weight are set; the terminal background is preserved.
 - Independent installation, upgrade, status and uninstall preserve unrelated settings and restore the prior status line. Runtime files live in the user directory and survive replacement of the CLI binary.
 - Windows shell transport is fixed for the real agy Go/CMD runner, with UTF-8 input/output and literal quoted paths. Linux/macOS use POSIX shell quoting.
+- Unicode installation paths remain usable when a redirected Windows console uses a legacy encoding.
 
 ## Install or update
 

@@ -1,4 +1,5 @@
 import importlib.util
+import io
 import json
 import base64
 import os
@@ -49,6 +50,21 @@ class CliLifecycleTests(unittest.TestCase):
                                 capture_output=True, encoding='utf-8', timeout=10)
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertIn('上下文 12.5%', re.sub(r'\x1b\[[\d;]+m', '', result.stdout))
+
+    def test_unicode_install_path_does_not_fail_on_redirected_legacy_console(self):
+        buffer = io.BytesIO()
+        terminal = io.TextIOWrapper(buffer, encoding='cp1252')
+        try:
+            with patch('sys.stdout', terminal):
+                cli.install(ROOT, self.home, language='zh-CN')
+            terminal.flush()
+            output = buffer.getvalue().decode('cp1252')
+            self.assertIn('CLI status line installed:', output)
+            self.assertIn('\\u7a7a', output)
+            self.assertTrue((self.runtime / 'cli' / 'statusline.mjs').is_file())
+            self.assertTrue(cli.owns(cli.read(self.settings)['statusLine'], cli.read(self.backup)))
+        finally:
+            terminal.close()
 
     def test_new_config_uninstall_returns_to_builtin_and_preserves_later_settings(self):
         cli.install(ROOT, self.home)

@@ -12,6 +12,12 @@ from contextlib import contextmanager
 NAME = 'antigrative-dashboard-cli'
 
 
+def display_path(path):
+    # Redirected Windows consoles may use cp1252 even for a Unicode home path.
+    encoding = getattr(os.sys.stdout, 'encoding', None) or 'utf-8'
+    return str(path).encode(encoding, errors='backslashreplace').decode(encoding)
+
+
 def read(file):
     if not file.exists():
         return {}
@@ -153,7 +159,7 @@ def install(source, home, node=None, language=None):
             raise RuntimeError('CLI settings changed during installation; retry without overwriting concurrent edits.')
         config['statusLine'] = {**(current if owned else {}), 'type': 'command', 'command': installed_command, 'enabled': True}
         write(settings, config)
-    print('CLI status line installed:', root)
+    print('CLI status line installed:', display_path(root))
     print('Reopen agy to load it. Desktop installation and statistics are unchanged.')
 
 

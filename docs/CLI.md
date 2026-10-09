@@ -49,6 +49,8 @@ Normal output uses at most three lines; wider terminals add progress bars with m
 
 Only foreground ANSI colors and text weights are set, allowing light/dark terminal backgrounds. `--no-color`, `NO_COLOR` and `TERM=dumb` disable colors. Automation shells commonly set the last two; a real terminal must not inherit those flags if color is wanted. No system environment variables are changed by installation. Chinese/emoji/grapheme cell widths are handled when truncating labels.
 
+The shared `Claude/GPT` quota label uses **Claude #DA7756** and **GPT #F8FAFC** separately, with a muted slash; the supplied balance is still one shared bucket, not two independent quotas. If the terminal supplies a `COLORFGBG` light-background hint ending in palette index 7 or 15, GPT uses the terminal's default foreground instead of white. Without that hint, a light terminal can use `--no-color`. Exact RGB colors require a true-color terminal. Quota numbers and bars keep the remaining-balance thresholds.
+
 **tok/s is unavailable:** the documented input has no streaming duration. Status-line invocation intervals, tool duration and request wall time cannot substitute for it. Cache ratio is also omitted because the documented CLI input-token semantics do not establish the desktop denominator.
 
 No network, background polling, transcript reading, account persistence or new metric history files are used. Resumed statistics depend on the current CLI payload; missing data cannot recover from another conversation, model, account or the desktop history store. `--json` outputs normalized display fields only, excluding email, workspace, session IDs and transcript paths. `--preview` uses synthetic data and writes nothing.
@@ -86,6 +88,8 @@ python manage.py status-cli
 重新打开 `agy` 后，第一行突出上下文占用和缓存读取量（青色/紫色加粗），状态显示在末尾。Gemini、Claude/GPT 额度各一行，同行排列 5h 与周额度；当前模型所属组优先展示。额度数字与进度条统一按剩余量变色：≥70% 绿色、30%≤剩余<70% 黄色、<30% 红色；红色额度附 `!`。上下文不低于 60% 变黄、不低于 90% 变红并附 `!`。进度条辅助扫读，`↻` 表示重置倒计时，作为次要文字显示。
 
 窄窗口先隐藏倒计时与进度条，再截断；默认至多三行。模型名称由宿主顶部提供，插件不重复占一行。`--details` 增加模型、容量和当前输入/输出/缓存写入量；`--width 55` 预览窄窗口。只设置前景色和字重，兼容深浅终端背景；`--no-color`、`NO_COLOR` 或 `TERM=dumb` 可关闭颜色。自动化运行环境可能自带这些标志；想看到彩色时，启动 CLI 的真实终端应避免继承这些标志。安装不会修改系统环境变量。
+
+共享额度标签分别使用 **Claude #DA7756** 与 **GPT #F8FAFC 雪白色**，斜线弱化显示；仍展示官方提供的同一组共享额度，不拆成两份。终端的 `COLORFGBG` 浅色背景标志末尾为 7 或 15 时，GPT 回退为终端默认前景色，避免白字难读；没有提供该标志的浅色终端可用 `--no-color`。精确 RGB 颜色需要真彩色终端支持。额度数字和条形继续按剩余量绿、黄、红分档。
 
 配置在 `~/.gemini/antigravity-cli/settings.json` 的 `statusLine`；运行文件在 `~/.gemini/antigravity-cli/antigrative-dashboard/`；恢复记录是同级 `.antigrative-dashboard-install.json`。不改桌面配置或 App 归档；CLI 二进制更新不会覆盖用户目录中的适配器，未来接口变更仍可能需要更新。
 

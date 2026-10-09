@@ -107,6 +107,31 @@ test('remaining quota uses green at 70+, yellow at 30..70, red below 30 for both
   assert.doesNotMatch(missing, /\x1b\[1;31m/);
 });
 
+test('shared Claude/GPT quota has distinct brand labels without splitting or recoloring balances', () => {
+  const metrics = normalize({ model: { display_name: 'GPT' }, quota: {
+    '3p-5h': { remaining_fraction: 0.75 }, '3p-weekly': { remaining_fraction: 0.49 },
+  } });
+  const colored = render(metrics, { color: true, width: 120 });
+  assert.match(colored, /\x1b\[1;38;2;218;119;86mClaude\x1b\[0m/);
+  assert.match(colored, /\x1b\[1;38;2;248;250;252mGPT\x1b\[0m/);
+  assert.match(colored, /\x1b\[1;32m75%/);
+  assert.match(colored, /\x1b\[1;33m49%/);
+  assert.equal(colored.replace(/\x1b\[[\d;]+m/g, ''), render(metrics, { color: false, width: 120 }));
+  assert.equal(colored.split('\n').length, 2);
+  for (const language of ['en', 'zh-CN']) for (const width of [1, 8, 10, 11, 20, 55, 80]) {
+    for (const line of render(metrics, { language, width, color: true }).split('\n')) {
+      assert.ok(displayWidth(line.replace(/\x1b\[[\d;]+m/g, '')) <= width);
+    }
+  }
+  const light = render(metrics, { lightBackground: true });
+  assert.match(light, /\x1b\[1;39mGPT/);
+  assert.match(light, /\x1b\[1;38;2;218;119;86mClaude/);
+  const env = { ...process.env, TERM: 'xterm-256color', COLORFGBG: '0;15' }; delete env.NO_COLOR;
+  const result = spawnSync(process.execPath, [script], { input: JSON.stringify({ quota: { '3p-5h': { remaining_fraction: 1 } } }), encoding: 'utf8', env });
+  assert.equal(result.status, 0);
+  assert.match(result.stdout, /\x1b\[1;39mGPT/);
+});
+
 test('model and bucket labels cannot inject ANSI, control characters or bidi overrides', () => {
   const hostile = '\x1b]0;SECRET_TITLE\x07\x1b[31mGemini\n\r\x08\u202e';
   assert.equal(cleanText(hostile), 'Gemini');

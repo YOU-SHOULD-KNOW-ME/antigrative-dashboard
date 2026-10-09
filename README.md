@@ -7,16 +7,16 @@
 Token throughput, cache hits and context usage in the model selector row. Hover over context for five-hour and weekly quotas too.<br>
 Keep the summary visible. Hover for the details.
 
-[![Version 0.5.2](https://img.shields.io/badge/version-0.5.2-91adff?style=flat-square&labelColor=252936)](CHANGELOG.md)
+[![Version 0.6.0](https://img.shields.io/badge/version-0.6.0-91adff?style=flat-square&labelColor=252936)](CHANGELOG.md)
 [![Platforms](https://img.shields.io/badge/host-Windows%20%7C%20Linux%20%7C%20macOS-83d8b9?style=flat-square&labelColor=252936)](COMPATIBILITY.md)
 [![Antigravity 2.21.1 / 2.22.0](https://img.shields.io/badge/Antigravity-2.21.1%20%2F%202.22.0-c5a0ff?style=flat-square&labelColor=252936)](COMPATIBILITY.md)
 [![MIT](https://img.shields.io/badge/license-MIT-d4d9e6?style=flat-square&labelColor=252936)](LICENSE)
 
-[Preview](#preview) · [Install](#install) · [Enable or remove](#plug-and-unplug) · [Compatibility](#compatibility) · [FAQ](#faq) · [中文](README.zh-CN.md)
+[Preview](#preview) · [CLI](#antigravity-cli-status-line) · [Install](#install) · [Enable or remove](#plug-and-unplug) · [Compatibility](#compatibility) · [FAQ](#faq) · [中文](README.zh-CN.md)
 
 </div>
 
-**v0.5.2:** Custom theme backgrounds and accents, localized composers, durable language settings, stable hover cards and refresh feedback, plus macOS log and Windows discovery/sidecar fixes. [Full release notes](https://github.com/YOU-SHOULD-KNOW-ME/antigrative-dashboard/releases/tag/v0.5.2).
+**v0.6.0:** Native CLI status line with context, cache reads, grouped quotas and green/yellow/red balance bars. Distinct Claude (#DA7756) and GPT (#F8FAFC) labels, independent install/restore and a real conversation screenshot. [Full release notes](https://github.com/YOU-SHOULD-KNOW-ME/antigrative-dashboard/releases/tag/v0.6.0).
 
 ## Preview
 

@@ -62,6 +62,8 @@ try {
     const language = opts.language || saved.language || 'en';
     process.stdout.write((opts.json ? JSON.stringify(metrics) : render(metrics, {
       language, width: opts.width || metrics.width, details: opts.details,
+      // Common light-background palette hints; never probe or alter the terminal.
+      lightBackground: /(?:^|;)(?:7|15)$/.test(process.env.COLORFGBG || ''),
       color: !opts['no-color'] && !Object.hasOwn(process.env, 'NO_COLOR') && process.env.TERM !== 'dumb',
     })) + '\n');
   }

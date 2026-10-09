@@ -7,16 +7,16 @@
 模型选择旁只显示生成速率、缓存和上下文占用；悬停上下文，一并查看上下文、5 小时和周额度详情。<br>
 缩略信息常驻；鼠标悬停，才展开详细统计。
 
-[![Version 0.5.2](https://img.shields.io/badge/version-0.5.2-91adff?style=flat-square&labelColor=252936)](CHANGELOG.md)
+[![Version 0.6.0](https://img.shields.io/badge/version-0.6.0-91adff?style=flat-square&labelColor=252936)](CHANGELOG.md)
 [![Platforms](https://img.shields.io/badge/host-Windows%20%7C%20Linux%20%7C%20macOS-83d8b9?style=flat-square&labelColor=252936)](COMPATIBILITY.md)
 [![Antigravity 2.21.1 / 2.22.0](https://img.shields.io/badge/Antigravity-2.21.1%20%2F%202.22.0-c5a0ff?style=flat-square&labelColor=252936)](COMPATIBILITY.md)
 [![MIT](https://img.shields.io/badge/license-MIT-d4d9e6?style=flat-square&labelColor=252936)](LICENSE)
 
-[看看效果](#看看效果) · [开始安装](#安装) · [启用与停用](#可插拔) · [兼容性](#兼容性) · [常见问题](#常见问题)
+[看看效果](#看看效果) · [CLI](#antigravity-cli-状态栏) · [开始安装](#安装) · [启用与停用](#可插拔) · [兼容性](#兼容性) · [常见问题](#常见问题)
 
 </div>
 
-**v0.5.2 更新：** 修复自定义背景/强调色、汉化后控件不显示、中英文设置丢失、悬浮卡遮挡和额度组菜单；加入刷新反馈，修正 macOS 日志路径及 Windows 发现/旧后台问题。[完整更新说明](https://github.com/YOU-SHOULD-KNOW-ME/antigrative-dashboard/releases/tag/v0.5.2)。
+**v0.6.0 更新：** 新增原生 CLI 状态栏，展示上下文、缓存读取量、分组额度与绿黄红进度条；Claude (#DA7756) 与 GPT (#F8FAFC) 分别配色，提供独立安装、卸载还原及真实对话截图。[完整更新说明](https://github.com/YOU-SHOULD-KNOW-ME/antigrative-dashboard/releases/tag/v0.6.0)。
 
 ## 看看效果
 

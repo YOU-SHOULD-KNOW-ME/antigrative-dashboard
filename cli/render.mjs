@@ -33,7 +33,7 @@ const labels = {
     working: '生成中', tool_use: '工具', initializing: '启动中' },
 };
 
-export function render(metrics, { language = 'en', width = metrics.width, color = true, details = false, now = Date.now() } = {}) {
+export function render(metrics, { language = 'en', width = metrics.width, color = true, details = false, lightBackground = false, now = Date.now() } = {}) {
   const l = labels[language] || labels.en;
   width = Math.max(1, Math.min(500, width));
   const part = (text, code = 39, bold = false, dim = false) => ({ text, code, bold, dim });
@@ -83,7 +83,12 @@ export function render(metrics, { language = 'en', width = metrics.width, color 
   const sorted = [...groups.values()].sort((a, b) => (b.id === active ? 1 : 0) - (a.id === active ? 1 : 0) ||
     (b.known ? 1 : 0) - (a.known ? 1 : 0) || a.name.localeCompare(b.name));
   const quotaRow = (group, bars, resets) => {
-    const row = [part((group.name + (group.known ? '' : ' ')).padEnd(group.known ? 11 : 0), group.code, true), subtle(`${l.left}  `)];
+    // 3p is one shared quota bucket, but each model label keeps its own color.
+    const name = group.id === '3p' && group.known
+      ? [part('Claude', '38;2;218;119;86', true), subtle('/'),
+        part('GPT', lightBackground ? 39 : '38;2;248;250;252', true), part(' ')]
+      : [part((group.name + (group.known ? '' : ' ')).padEnd(group.known ? 11 : 0), group.code, true)];
+    const row = [...name, subtle(`${l.left}  `)];
     const windows = [...group.windows].sort((a, b) => (a.window === '5h' ? -1 : 1) - (b.window === '5h' ? -1 : 1));
     for (const [index, quota] of windows.entries()) {
       if (index) row.push(subtle('   │   '));
