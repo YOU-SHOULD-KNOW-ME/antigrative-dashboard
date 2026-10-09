@@ -14,7 +14,7 @@ if (!host) document.body.classList.add('standalone');
 function showCard(name) {
   clearTimeout(leaveTimer);
   for (const chip of chips) chip.setAttribute('aria-expanded', String(chip.dataset.card === name));
-  for (const nameKey of ['speed','cache','five','week','context']) $(`${nameKey}-card`).hidden = name !== nameKey;
+  for (const nameKey of ['speed','cache','context']) $(`${nameKey}-card`).hidden = name !== nameKey;
   document.querySelector('.rest-state').style.visibility = name ? 'hidden' : '';
 }
 for (const chip of chips) {
@@ -47,7 +47,6 @@ function renderQuota(window, prefix) {
   const bucket = group?.windows?.[window];
   const remaining = bucket?.remaining;
   $(`${prefix}-balance`).textContent = percent(remaining);
-  $(`strip-${prefix === 'five' ? 'five' : 'week'}`).textContent = percent(remaining);
   const fill = $(`${prefix}-fill`), track = $(`${prefix}-track`);
   fill.style.width = typeof remaining === 'number' ? `${remaining * 100}%` : '0%';
   fill.style.background = remaining !== null && remaining < .05 ? '#e79696' : remaining !== null && remaining < .2 ? '#d7b078' : '';
@@ -119,7 +118,6 @@ function updateCountdowns() {
   for (const [window,prefix] of [['5h','five'],['weekly','week']]) {
     const bucket = group?.windows?.[window];
     $(`${prefix}-countdown`).textContent = language.countdown(bucket?.resetAt,now);
-    $(`strip-${prefix}-timer`).textContent = language.countdown(bucket?.resetAt,now,true);
     if (bucket?.resetAt && Date.parse(bucket.resetAt) <= now && snapshot?.connection === 'live' && now - lastExpiredRefresh > 30000) {
       lastExpiredRefresh = now; setTimeout(() => refresh(true),0);
     }

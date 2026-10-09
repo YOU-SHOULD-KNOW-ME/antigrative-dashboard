@@ -7,7 +7,9 @@ import { createHash } from 'node:crypto';
 
 const LOOPBACK = new Set(['127.0.0.1', 'localhost', '[::1]']);
 const GUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-const BINDING = '__agPulseRuntimeCall';
+// A previous sidecar may outlive a desktop update. Use a distinct protocol
+// binding so its older collector cannot answer the current widget's requests.
+const BINDING = '__agPulseRuntimeCallV2';
 const offline = message => ({ connection: 'offline', error: message, speed: null, groups: [] });
 
 export function validTarget(target, port) {
@@ -102,7 +104,7 @@ function rendererBridge() {
     const id = ++sequence;
     const timer = setTimeout(() => { pending.delete(id); resolve(empty()); }, 15000);
     pending.set(id, { resolve, timer });
-    try { window.__agPulseRuntimeCall(JSON.stringify({ id, type, input })); } catch { clearTimeout(timer); pending.delete(id); resolve(empty()); }
+    try { window.__agPulseRuntimeCallV2(JSON.stringify({ id, type, input })); } catch { clearTimeout(timer); pending.delete(id); resolve(empty()); }
   });
   window.__agPulseRuntimeBridge = {
     resolve(id, result) { const item = pending.get(id); if (!item) return; clearTimeout(item.timer); pending.delete(id); item.resolve(result); },

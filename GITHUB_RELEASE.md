@@ -13,7 +13,8 @@ Fully quit and reopen Antigravity when no task is running. Default installation 
 
 ## New features
 
-- **Context occupancy:** compact ring + usage percentage. Hover for used/remaining fractions, tokens/capacity, sampled model and data basis. English/Chinese labels.
+- **Compact toolbar:** only TPS, cache and context remain visible. Hover over context for used/remaining fractions, tokens/capacity, sampled model, five-hour and weekly quota details together. English/Chinese labels.
+- **Reliable updates:** a versioned renderer protocol prevents old sidecars left running after an app update from replacing valid context readings with an older schema.
 - **Honest measurements:** use the host estimate at the latest request start. No invented capacity, no cumulative-token substitution, no claim of per-token streaming updates. Compaction can reduce occupancy.
 - **Persistent context:** whitelisted numeric snapshots are saved per account/conversation. History fallbacks show their timestamp, and chat switching clears prior values immediately.
 - **Native desktop platforms:** Windows CIM, Linux `/proc`, macOS `ps`/`lsof`; token and port must belong to the same standalone backend. Platform-native profiles/settings and SDK discovery.
@@ -21,7 +22,7 @@ Fully quit and reopen Antigravity when no task is running. Default installation 
 
 ## Compatibility and verification
 
-Targets Antigravity **desktop App 2.21.1**, Python 3.10+, and the host's bundled Node with WebSocket (Node 24 recommended). Not the IDE/VS Code extension or iOS. macOS means Apple computers.
+Targets Antigravity **desktop App 2.21.1 / 2.22.0**, Python 3.10+, and the host's bundled Node with WebSocket (Node 24 recommended). Windows desktop 2.22.0 was verified with a real conversation and accepted by the user. Official Linux/macOS resource checks use desktop 2.21.1. Not the IDE/VS Code extension or iOS. macOS means Apple computers.
 
 Automated native Linux/macOS checks cover process/port discovery, lifecycle, app resources and SDK loading. Full signed-in host GUI verification on those platforms is not claimed; it requires Linux/macOS user machines. Current Windows UI validation and future host API/DOM limitations are described in [COMPATIBILITY.md](COMPATIBILITY.md).
 

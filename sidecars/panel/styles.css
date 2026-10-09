@@ -44,7 +44,7 @@ dd { margin:0; color:#e6e7e9; font-size:11px; text-align:right; font-variant-num
 .quota-track { height:4px; border-radius:2px; background:#ffffff13; overflow:hidden; margin-bottom:14px; }
 .quota-track i { display:block; height:100%; width:0; border-radius:2px; background:var(--pulse-accent); }
 .reset-countdown { font-weight:600; color:#d9e4ff; }
-.status-strip { margin:0 6px; padding:4px 0; display:grid; grid-template-columns:1.1fr 1fr 1fr 1.1fr .8fr; border-top:1px solid #ffffff0b; }
+.status-strip { margin:0 6px; padding:4px 0; display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); border-top:1px solid #ffffff0b; }
 .metric-chip { position:relative; display:flex; align-items:center; justify-content:center; gap:7px; min-width:0; padding:5px 5px; border:0; border-radius:5px; background:transparent; color:#aeb2bb; text-align:left; transition:background-color 120ms ease, color 120ms ease; }
 .metric-chip:hover,.metric-chip[aria-expanded=true] { background:#333539; color:#dce0e7; }
 .metric-chip + .metric-chip::before { position:absolute; left:-1px; top:8px; bottom:8px; width:1px; background:#ffffff0b; content:""; }
@@ -64,3 +64,5 @@ dd { margin:0; color:#e6e7e9; font-size:11px; text-align:right; font-variant-num
 @media (max-width:460px) { .status-strip { grid-template-columns:repeat(3,minmax(0,1fr)); } }
 
 .widget-header{height:auto;min-height:43px;flex-wrap:wrap;gap:6px;padding-block:8px}.brand{font-size:10px}.header-controls{margin-left:auto}.metric-chip{gap:4px}.chip-primary{font-size:10px}.card-stage{min-height:250px}
+
+#context-card{position:relative;bottom:auto;max-height:560px;overflow-y:auto;margin-block:10px}.quota-details{margin-top:14px;border-top:1px solid #ffffff15;padding-top:12px}.quota-section+.quota-section{border-top:1px solid #ffffff10;margin-top:12px;padding-top:12px}.quota-section .card-heading{border:0;margin:0;padding:0}.quota-section .balance{margin:8px 0}.quota-section .balance strong{font-size:18px}.quota-section .quota-track{margin-bottom:8px}.quota-section .card-footnote{margin-top:6px}

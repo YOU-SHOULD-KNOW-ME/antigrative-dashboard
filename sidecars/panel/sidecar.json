@@ -5,7 +5,7 @@
   ],
   "restart_policy": "always",
   "display_name": "Antigrative Dashboard",
-  "description": "Throughput, token cache, five-hour and weekly quota",
+  "description": "Throughput, token cache and combined context/quota details",
   "has_web_ui": true,
   "ui_config": {
     "display_name": "Antigrative Dashboard",

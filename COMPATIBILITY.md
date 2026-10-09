@@ -2,11 +2,11 @@
 
 | 系统 | 安装 / 后台发现 | 验证范围 |
 | --- | --- | --- |
-| Windows | Python / PowerShell，CIM + PID 所属监听端口 | Windows 11 / 桌面 App 2.21.1，已有实机 UI 验证；CI 生命周期与数据测试 |
+| Windows | Python / PowerShell，CIM + PID 所属监听端口 | Windows 11 / 桌面 App 2.21.1、2.22.0；真实对话上下文、合并悬浮卡已实机验证并验收；CI 生命周期与数据测试 |
 | Linux | Python3 / POSIX shell，当前用户 `/proc` + TCP/TCP6 socket inode | Ubuntu CI 原生端口测试、安装生命周期、官方 2.21.1 资源与 SDK 检查；完整登录 App GUI 待用户实机验证 |
 | macOS | Python3 / POSIX shell，当前用户 `ps` + `lsof` PID 所属端口 | macOS CI 原生端口测试、安装生命周期、官方 2.21.1 资源与 SDK 检查；完整登录 App GUI 待用户实机验证 |
 
-面向 **Antigravity 桌面 App 2.21.1**，不是 Antigravity IDE、VS Code 扩展、CLI 或 iOS。
+面向 **Antigravity 桌面 App 2.21.1 / 2.22.0**，不是 Antigravity IDE、VS Code 扩展、CLI 或 iOS。Linux/macOS 官方资源检查固定为 2.21.1，不等同于已验证其 2.22.0 登录界面。
 Python 3.10+ 仅用于生命周期，无 pip 依赖；后台使用宿主 Node，内嵌桥接需原生 WebSocket，建议 Node 24。Linux/macOS 架构跟随宿主，不分发平台二进制。官方系统要求见 [Antigravity 下载页](https://antigravity.google/download)。
 
 ## 安装与自定义位置
@@ -39,6 +39,8 @@ Linux/macOS：`python3 manage.py install` / `sh install.sh`。
 ## 更新与失败恢复
 
 默认安装不修改 `resources/app.asar`，由用户插件中的运行时适配器通过宿主现有 loopback 调试通道挂载。每 3 秒重试端口变化、文档替换与窗口重启。只允许 loopback 主 frame，通过受限桥接传递白名单统计。后台凭据仅在内存使用，匹配当前 PID 所属 HTTP 端口。
+
+三系统共用同一套合并布局和 V2 桥接协议；旧后台即使未随宿主退出，也不能响应新控件请求。更新包时替换运行代码后完全退出并重新打开宿主，可保证采集器和界面一起更新。
 
 `python[3] manage.py status` 显示运行模式与健康状态：`mounted`、`waiting-for-composer`、`reconnecting`；检查 `checkedAt` 是否新鲜，历史文件不能证明当前后台仍在运行。原生侧面板是 SDK 兼容时的回退。
 

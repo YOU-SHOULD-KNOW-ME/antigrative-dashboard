@@ -44,25 +44,27 @@
         <div class="card-heading"><span><svg class="icon"><use href="#cache"/></svg><span data-i18n="cacheTitle">Token cache</span></span><span class="card-tag" id="cache-coverage">—</span></div>
         <dl><div><dt data-i18n="cacheRate">Cache hit</dt><dd id="cache-rate">—</dd></div><div><dt data-i18n="cacheMiss">Uncached input</dt><dd id="cache-miss">—</dd></div><div><dt data-i18n="cacheRead">Cache read</dt><dd id="cache-read">—</dd></div><div><dt data-i18n="cacheOutput">Output</dt><dd id="cache-output">—</dd></div><div id="cache-write-row" hidden><dt data-i18n="cacheWrite">Cache write</dt><dd id="cache-write">—</dd></div></dl><p class="card-footnote" id="cache-note">Cached input divided by total input.</p>
       </article>
-      <article class="detail-card quota-card" id="five-card" role="region" data-i18n-aria="five" aria-label="Five-hour quota" hidden>
-        <div class="card-heading"><span><svg class="icon"><use href="#clock"/></svg><span data-i18n="five">Five-hour quota</span></span><span class="card-tag group-name">—</span></div>
-        <div class="balance"><strong id="five-balance">—</strong><span><span data-i18n="remaining">remaining</span></span></div>
-        <div class="quota-track" role="progressbar" data-i18n-aria="five" aria-label="Five-hour quota remaining" id="five-track"><i id="five-fill"></i></div>
-        <dl><div><dt><span data-i18n="resetIn">Resets in</span></dt><dd class="reset-countdown" id="five-countdown">—</dd></div><div><dt><span data-i18n="resetTime">Reset time (UTC+8)</span></dt><dd id="five-reset">—</dd></div></dl>
-        <p class="card-footnote quota-note" id="five-note">Read from the account API.</p>
-      </article>
-      <article class="detail-card quota-card" id="week-card" role="region" data-i18n-aria="week" aria-label="Weekly quota" hidden>
-        <div class="card-heading"><span><svg class="icon"><use href="#calendar"/></svg><span data-i18n="week">Weekly quota</span></span><span class="card-tag group-name">—</span></div>
-        <div class="balance"><strong id="week-balance">—</strong><span><span data-i18n="remaining">remaining</span></span></div>
-        <div class="quota-track" role="progressbar" data-i18n-aria="week" aria-label="Weekly quota remaining" id="week-track"><i id="week-fill"></i></div>
-        <dl><div><dt><span data-i18n="resetIn">Resets in</span></dt><dd class="reset-countdown" id="week-countdown">—</dd></div><div><dt><span data-i18n="resetTime">Reset time (UTC+8)</span></dt><dd id="week-reset">—</dd></div></dl>
-        <p class="card-footnote quota-note" id="week-note">Read from the account API.</p>
-      </article>
       <article class="detail-card" id="context-card" role="region" data-i18n-aria="context" hidden>
         <div class="card-heading"><span data-i18n="context">Context window</span></div>
         <strong id="context-summary">—</strong><p id="context-tokens">—</p>
         <div class="quota-track" role="progressbar" data-i18n-aria="context" id="context-track"><i id="context-fill"></i></div>
         <dl><div><dt data-i18n="contextModel">Sampled model</dt><dd id="context-model">—</dd></div></dl><p class="card-footnote" id="context-note">—</p>
+        <div class="quota-details">
+      <section class="quota-section" id="five-details" role="region" data-i18n-aria="five" aria-label="Five-hour quota">
+        <div class="card-heading"><span><svg class="icon"><use href="#clock"/></svg><span data-i18n="five">Five-hour quota</span></span><span class="card-tag group-name">—</span></div>
+        <div class="balance"><strong id="five-balance">—</strong><span><span data-i18n="remaining">remaining</span></span></div>
+        <div class="quota-track" role="progressbar" data-i18n-aria="five" aria-label="Five-hour quota remaining" id="five-track"><i id="five-fill"></i></div>
+        <dl><div><dt><span data-i18n="resetIn">Resets in</span></dt><dd class="reset-countdown" id="five-countdown">—</dd></div><div><dt><span data-i18n="resetTime">Reset time (UTC+8)</span></dt><dd id="five-reset">—</dd></div></dl>
+        <p class="card-footnote quota-note" id="five-note">Read from the account API.</p>
+      </section>
+      <section class="quota-section" id="week-details" role="region" data-i18n-aria="week" aria-label="Weekly quota">
+        <div class="card-heading"><span><svg class="icon"><use href="#calendar"/></svg><span data-i18n="week">Weekly quota</span></span><span class="card-tag group-name">—</span></div>
+        <div class="balance"><strong id="week-balance">—</strong><span><span data-i18n="remaining">remaining</span></span></div>
+        <div class="quota-track" role="progressbar" data-i18n-aria="week" aria-label="Weekly quota remaining" id="week-track"><i id="week-fill"></i></div>
+        <dl><div><dt><span data-i18n="resetIn">Resets in</span></dt><dd class="reset-countdown" id="week-countdown">—</dd></div><div><dt><span data-i18n="resetTime">Reset time (UTC+8)</span></dt><dd id="week-reset">—</dd></div></dl>
+        <p class="card-footnote quota-note" id="week-note">Read from the account API.</p>
+      </section>
+        </div>
       </article>
     </section>
     <footer class="status-strip" data-i18n-aria="strip" aria-label="Live statistics">
@@ -70,12 +72,6 @@
         <svg class="icon"><use href="#gauge"/></svg><span class="chip-content"><span class="chip-primary"><span class="session-rounds" id="session-steps">—</span><strong id="strip-tps">—</strong><span class="unit">tok/s</span></span><span class="chip-secondary" id="strip-model"><span data-i18n="session">Session statistics</span></span></span>
       </button>
       <button class="metric-chip" type="button" data-card="cache" aria-controls="cache-card" aria-expanded="false"><svg class="icon"><use href="#cache"/></svg><span class="chip-content"><span class="chip-primary"><span id="strip-cache-total">— tok</span></span><span class="chip-secondary"><span data-i18n="cache">Cache hit</span> <strong id="strip-cache">—</strong></span></span></button>
-      <button class="metric-chip" type="button" data-card="five" aria-controls="five-card" aria-expanded="false">
-        <svg class="icon"><use href="#clock"/></svg><span class="chip-content"><span class="chip-primary">5h <strong id="strip-five">—</strong></span><span class="chip-secondary timer" id="strip-five-timer">—</span></span>
-      </button>
-      <button class="metric-chip" type="button" data-card="week" aria-controls="week-card" aria-expanded="false">
-        <svg class="icon"><use href="#calendar"/></svg><span class="chip-content"><span class="chip-primary"><span data-i18n="weekShort">Wk</span> <strong id="strip-week">—</strong></span><span class="chip-secondary timer" id="strip-week-timer">—</span></span>
-      </button>
       <button class="metric-chip" type="button" data-card="context" aria-controls="context-card" aria-expanded="false"><svg class="icon"><use href="#gauge"/></svg><span class="chip-content"><span class="chip-primary"><span data-i18n="contextShort">Ctx</span> <strong id="strip-context">—</strong></span><span class="chip-secondary" data-i18n="context">Context window</span></span></button>
     </footer>
     <p class="health-note" id="health-note" role="status">Waiting for the first update</p>

@@ -81,11 +81,23 @@ test('disable disposes UI, intervals and navigation hooks; reenable attaches onc
 
 test('iframe and malformed binding events never reach metric collection', async () => {
   const { ui, state, connections } = fixture(); await ui.tick(); const c = connections[0];
-  const message = { method: 'Runtime.bindingCalled', params: { name: '__agPulseRuntimeCall', executionContextId: 8,
+  const message = { method: 'Runtime.bindingCalled', params: { name: '__agPulseRuntimeCallV2', executionContextId: 8,
     payload: JSON.stringify({ id: 1, type: 'metrics', input: { conversationId: null } }) } };
   await ui.event(c, message); assert.equal(state.calls, 0);
   message.params.executionContextId = 7; message.params.payload = 'not-json'; await ui.event(c, message); assert.equal(state.calls, 0);
   message.params.payload = JSON.stringify({ id: 2, type: 'metrics', input: { conversationId: null } }); await ui.event(c, message); assert.equal(state.calls, 1);
+  await ui.stop();
+});
+
+test('a sidecar left running before an update cannot answer the new protocol binding', async () => {
+  const { ui, state, connections } = fixture(); await ui.tick(); const c = connections[0];
+  const message = { method: 'Runtime.bindingCalled', params: { name: '__agPulseRuntimeCall', executionContextId: 7,
+    payload: JSON.stringify({ id: 1, type: 'metrics', input: { conversationId: null } }) } };
+  await ui.event(c, message); assert.equal(state.calls, 0);
+  message.params.name = '__agPulseRuntimeCallV2'; await ui.event(c, message); assert.equal(state.calls, 1);
+  const source = makeRendererSource('module.exports = function(){return {};};', 'module.exports = function(){};');
+  assert.ok(source.includes('window.__agPulseRuntimeCallV2('));
+  assert.equal(source.includes('window.__agPulseRuntimeCall('), false);
   await ui.stop();
 });
 
@@ -100,7 +112,7 @@ test('navigation to a remote origin cannot obtain metrics before the next discov
   const { ui, state, connections } = fixture(); await ui.tick(); const c = connections[0];
   await ui.event(c, { method: 'Runtime.executionContextsCleared' });
   await ui.event(c, { method: 'Runtime.executionContextCreated', params: { context: { id: 9, origin: 'https://example.com', auxData: { isDefault: true, frameId: 'main' } } } });
-  await ui.event(c, { method: 'Runtime.bindingCalled', params: { name: '__agPulseRuntimeCall', executionContextId: 9,
+  await ui.event(c, { method: 'Runtime.bindingCalled', params: { name: '__agPulseRuntimeCallV2', executionContextId: 9,
     payload: JSON.stringify({ id: 1, type: 'metrics', input: { conversationId: null } }) } });
   assert.equal(state.calls, 0); assert.equal(c.contexts.size, 0); await ui.stop();
 });
@@ -120,7 +132,7 @@ test('WebSocket disconnect rejects outstanding commands instead of hanging', asy
 
 test('renderer injection does not depend on a particular host version or expose credentials', () => {
   const source = makeRendererSource('module.exports = function(){return {};};', 'module.exports = function(){};');
-  assert.ok(source.includes('__agPulseRuntimeCall')); assert.ok(source.includes('window.top'));
+  assert.ok(source.includes('__agPulseRuntimeCallV2')); assert.ok(source.includes('window.top'));
   assert.equal(source.includes('csrf'), false); assert.equal(source.includes('access_token'), false);
   assert.throws(() => makeRendererSource('changed format', 'module.exports = function(){};'));
 });
