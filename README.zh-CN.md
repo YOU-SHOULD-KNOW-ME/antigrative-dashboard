@@ -1,15 +1,15 @@
 <div align="center">
 
-<img src="docs/assets/hero.png" width="100%" alt="Antigrative Dashboard：速度与额度，就在模型选择旁。">
+<img src="docs/assets/hero-zh.png?v=0.5.0-compact" width="100%" alt="Antigrative Dashboard v0.5：速度、缓存和上下文，就在模型选择旁。">
 
 # Antigrative Dashboard
 
-把生成速率、缓存命中率、上下文窗口占用、5 小时余额和周余额，放在模型选择的同一行。<br>
+模型选择旁只显示生成速率、缓存和上下文占用；悬停上下文，一并查看上下文、5 小时和周额度详情。<br>
 缩略信息常驻；鼠标悬停，才展开详细统计。
 
 [![Version 0.5.0](https://img.shields.io/badge/version-0.5.0-91adff?style=flat-square&labelColor=252936)](CHANGELOG.md)
 [![Platforms](https://img.shields.io/badge/host-Windows%20%7C%20Linux%20%7C%20macOS-83d8b9?style=flat-square&labelColor=252936)](COMPATIBILITY.md)
-[![Antigravity 2.21.1](https://img.shields.io/badge/Antigravity-2.21.1-c5a0ff?style=flat-square&labelColor=252936)](COMPATIBILITY.md)
+[![Antigravity 2.21.1 / 2.22.0](https://img.shields.io/badge/Antigravity-2.21.1%20%2F%202.22.0-c5a0ff?style=flat-square&labelColor=252936)](COMPATIBILITY.md)
 [![MIT](https://img.shields.io/badge/license-MIT-d4d9e6?style=flat-square&labelColor=252936)](LICENSE)
 
 [看看效果](#看看效果) · [开始安装](#安装) · [启用与停用](#可插拔) · [兼容性](#兼容性) · [常见问题](#常见问题)
@@ -18,9 +18,9 @@
 
 ## 看看效果
 
-<img src="docs/assets/widget.png" width="100%" alt="与模型选择同一行的速率、5h 余额、周余额，以及悬停展开的统计卡。">
+<img src="docs/assets/widget-zh.png?v=0.5.0-compact" width="100%" alt="最新版三个常驻控件：速度、缓存、上下文，以及缓存悬浮卡。">
 
-<sub>封面和效果图使用示意数据重绘，不展示真实账户额度、账号或对话。实际插件的数据来自本机 Antigravity 接口。</sub>
+<sub>封面和效果图直接使用当前插件源码渲染，数据为示例，不展示真实账户、额度或对话。实际插件的数据来自本机 Antigravity 接口。</sub>
 
 **不用打开一个监控面板，继续你的对话。**
 
@@ -35,18 +35,18 @@
 - **切换对话。** 统计跟随当前会话，新对话不沿用上一段对话的速率。
 - **更新后自动连接。** 适配器保存在用户插件目录，默认安装不修改 App 归档。
 - **对话统计持久化。** 每个账号、每个对话分别保存 tok/s 与 cache，重新加载后可恢复。
-- **适合紧凑窗口。** 窗口空间不足时，缩略条隐藏倒计时；完整倒计时始终在悬停卡中。
+- **适合紧凑窗口。** 常驻仅三个控件；上下文细节、5h 与周额度余额、重置倒计时统一放在上下文悬浮卡中。
 - **不上传采集数据。** 后台使用本机 loopback 接口，数值留在你的电脑。
 
 ### 上下文窗口占用
 
-<img src="docs/assets/context.png" width="100%" alt="Context usage ring and used/remaining detail card">
+<img src="docs/assets/context-zh.png?v=0.5.0-compact" width="100%" alt="上下文窗口占用与 5h、周额度合并在同一张悬浮卡中">
 
 <sub>示例为 44% 占用，非真实对话数据。实际读取宿主最近请求开始时的估计值；缺少容量会明确显示不可用。</sub>
 
 ## 安装
 
-适用于 **Windows / Linux / macOS 的 Antigravity 桌面 App 2.21.1 + Python 3.10+**。三系统共用同一个 release ZIP，无 pip / npm 第三方依赖，后台使用 App 自带 Node.js。完整验证范围见 [COMPATIBILITY.md](COMPATIBILITY.md)。
+适用于 **Windows / Linux / macOS 的 Antigravity 桌面 App 2.21.1 / 2.22.0 + Python 3.10+**。三系统共用同一个 release ZIP，无 pip / npm 第三方依赖，后台使用 App 自带 Node.js。各平台完整验证范围见 [COMPATIBILITY.md](COMPATIBILITY.md)。
 
 Linux / macOS 使用 `python3 manage.py install` 或 `sh install.sh`，启停和卸载命令同样把 `python` 换成 `python3`。无需 sudo，不修改应用归档。
 
@@ -72,16 +72,16 @@ python manage.py install
 ```text
 请帮我安装并启用 Antigrative Dashboard。
 仓库：https://github.com/YOU-SHOULD-KNOW-ME/antigrative-dashboard
-目标：在 Antigravity 模型选择旁显示 tok/s、5h 余额与倒计时、周余额与倒计时。
+目标：在模型选择旁显示 tok/s、缓存和上下文；悬停上下文统一查看其详情、5h 和周额度及倒计时。
 
 1. 读取 README.md 和 COMPATIBILITY.md，确认 Windows、Linux 或 macOS、Antigravity 桌面
-   App 2.21.1、Python 3.10+。不要自动升级、降级或替换我的 App。
+   App 2.21.1 / 2.22.0、Python 3.10+。不要自动升级、降级或替换我的 App。
 2. 将项目克隆 / 解压到固定目录，不在临时下载目录运行。
 3. 用 python manage.py status 检查已有状态，再执行 python manage.py install。
    保留其他插件配置，使用自带备份和完整性校验。
 4. 安装后完全重启 Antigravity；如果有任务正在执行，先告知需要重启，
    不要强制结束任务。
-5. 验证新对话只显示额度，有请求的对话显示 TPS；悬停显示详情。
+5. 验证新对话的上下文入口、有请求对话的 TPS / 缓存 / 上下文；悬停上下文同时显示两种额度。
    打开额度组菜单等待多次轮询，确认不会被刷新关闭。
 6. 报告安装结果、版本、运行时连接状态和实机验证范围。
 ```
@@ -108,7 +108,7 @@ python manage.py install
 
 ## 上下文窗口
 
-状态栏显示环形占用指示与百分比；悬停查看“已用 / 剩余”比例、已用 Token 与容量，以及采样模型。数值来自最近请求开始时的 `contextWindowMetadata.estimatedTokensUsed` / `maxContextTokens`，由宿主估计。不是会话累计输入量，也不是生成中的实时 Token 计数。
+状态栏显示环形占用指示与百分比；悬停查看“已用 / 剩余”比例、已用 Token 与容量、采样模型，以及 5h 和周额度余额、倒计时、重置时间。额度组选择和刷新也在同一张悬浮卡中。数值来自最近请求开始时的 `contextWindowMetadata.estimatedTokensUsed` / `maxContextTokens`，由宿主估计。不是会话累计输入量，也不是生成中的实时 Token 计数。
 
 缺少容量时显示“容量不可用”，不按模型名称猜测上限。压缩上下文后允许占用下降；切换对话不会沿用上一个对话的数值。上下文与 tok/s、缓存统计一起按账户和对话保存，历史恢复值注明保存时间。
 
@@ -141,7 +141,7 @@ Antigravity 的 `inputTokens` 是未缓存输入。缓存率 = 缓存读取 ÷�
 
 ## 兼容性
 
-当前实机验证：**Windows 11 / Antigravity App 2.21.1**。
+当前实机验证：**Windows 11 / Antigravity App 2.21.1、2.22.0**；2.22.0 的真实上下文读取和合并悬浮卡已验收。Linux/macOS 的完整登录界面仍需用户实机验证，自动化覆盖范围见兼容性文档。
 
 不适用于 Antigravity IDE、VS Code 扩展或 DSH。Linux / macOS 已适配原生路径、进程与端口发现、SDK 加载和 shell 安装器；三系统 CI 验证代码与生命周期，完整登录 App 的端到端验证范围见兼容性文档。
 参考 DSH Rail Music 的项目组织与文档风格，但安装接口不同，不能使用 `dsh plugin add` 安装 Antigrative Dashboard。

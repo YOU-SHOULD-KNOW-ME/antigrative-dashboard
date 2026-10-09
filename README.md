@@ -1,15 +1,15 @@
 <div align="center">
 
-<img src="docs/assets/hero.png" width="100%" alt="Antigrative Dashboard: speed and quota, right beside your model.">
+<img src="docs/assets/hero.png?v=0.5.0-compact" width="100%" alt="Antigrative Dashboard v0.5: speed, cache and context beside the model selector.">
 
 # Antigrative Dashboard
 
-Token throughput, cache hits, context window, five-hour quota, and weekly quota — in the model selector row.<br>
+Token throughput, cache hits and context usage in the model selector row. Hover over context for five-hour and weekly quotas too.<br>
 Keep the summary visible. Hover for the details.
 
 [![Version 0.5.0](https://img.shields.io/badge/version-0.5.0-91adff?style=flat-square&labelColor=252936)](CHANGELOG.md)
 [![Platforms](https://img.shields.io/badge/host-Windows%20%7C%20Linux%20%7C%20macOS-83d8b9?style=flat-square&labelColor=252936)](COMPATIBILITY.md)
-[![Antigravity 2.21.1](https://img.shields.io/badge/Antigravity-2.21.1-c5a0ff?style=flat-square&labelColor=252936)](COMPATIBILITY.md)
+[![Antigravity 2.21.1 / 2.22.0](https://img.shields.io/badge/Antigravity-2.21.1%20%2F%202.22.0-c5a0ff?style=flat-square&labelColor=252936)](COMPATIBILITY.md)
 [![MIT](https://img.shields.io/badge/license-MIT-d4d9e6?style=flat-square&labelColor=252936)](LICENSE)
 
 [Preview](#preview) · [Install](#install) · [Enable or remove](#plug-and-unplug) · [Compatibility](#compatibility) · [FAQ](#faq) · [中文](README.zh-CN.md)
@@ -18,7 +18,7 @@ Keep the summary visible. Hover for the details.
 
 ## Preview
 
-<img src="docs/assets/widget.png" width="100%" alt="A compact stats strip in the model selector row, with hover cards for throughput and quota.">
+<img src="docs/assets/widget.png?v=0.5.0-compact" width="100%" alt="The latest three-control toolbar and its token cache hover card.">
 
 <sub>Artwork uses illustrative data, not real account quotas or conversations. The installed widget reads metrics from your local Antigravity app. The widget defaults to English. Use the EN / 中 button to switch languages; your choice is saved.</sub>
 
@@ -31,25 +31,25 @@ Keep the summary visible. Hover for the details.
 ### Small details that matter
 
 - **Token usage, DSH-style.** Compact total tokens and cache hit rate; hover for uncached input, cache reads, output, and optional cache writes.
-- **Context window.** A Codex-style usage percentage and hover card: used/remaining fraction and tokens versus capacity. Uses the host estimate for the latest request, never cumulative input tokens.
+- **Context and quotas together.** A Codex-style usage percentage; hover for used/remaining fractions, tokens versus capacity, and both quota windows with reset times. Uses the host estimate for the latest request, never cumulative input tokens.
 - **English or Chinese.** English by default, with one-click switching and a saved preference.
 - **Stable menus.** Quota-group menus stay open across polling cycles while countdowns continue ticking.
 - **Actual account data.** Remaining quota comes from the account API, not an estimate based on text length. Expired windows do not automatically become 100%.
 - **Conversation-aware.** Switch chats without carrying the previous chat's throughput into a new one.
 - **Survives updates.** Plugin-owned runtime attachment reconnects after app updates, without modifying the application archive.
 - **Persistent conversations.** TPS and cache statistics are saved separately for each conversation and account; reloads can recover saved statistics.
-- **Compact-window support.** Summary countdowns hide when space is limited; full countdowns remain available in hover cards.
+- **Compact-window support.** Only three summary controls; quota balances and countdowns stay in the combined context hover card.
 - **Local collection.** The collector talks to loopback endpoints. It does not upload your metrics to a third-party service.
 
 ### Context window
 
-<img src="docs/assets/context.png" width="100%" alt="Context usage ring and used/remaining detail card">
+<img src="docs/assets/context.png?v=0.5.0-compact" width="100%" alt="Context usage and both five-hour and weekly quota details in one hover card">
 
 <sub>Illustrative 44% sample. Uses the host estimate at the latest request start; capacity may be unavailable.</sub>
 
 ## Install
 
-Supported: **Windows, Linux and macOS; Antigravity desktop App 2.21.1; Python 3.10+**. The same release ZIP works on all three systems. No third-party pip or npm packages are needed to install or run the plugin. The sidecar uses the app's bundled Node.js runtime. See [COMPATIBILITY.md](COMPATIBILITY.md).
+Supported: **Windows, Linux and macOS; Antigravity desktop App 2.21.1 / 2.22.0; Python 3.10+**. The same release ZIP works on all three systems. No third-party pip or npm packages are needed to install or run the plugin. The sidecar uses the app's bundled Node.js runtime. See [COMPATIBILITY.md](COMPATIBILITY.md) for the per-platform verification scope.
 
 > The inline model-row position has no public plugin mounting API. A standard Antigravity sidecar now attaches the widget through the existing local renderer debugging endpoint. Default installation does not modify `resources/app.asar`. This is unofficial; future changes to the host DOM, debugging channel, SDK or metrics API may require an adapter update. The native side panel remains a fallback.
 
@@ -73,17 +73,17 @@ The installer copies and enables the plugin and restores any exactly verified le
 ```text
 Install and enable Antigrative Dashboard on this computer.
 Repository: https://github.com/YOU-SHOULD-KNOW-ME/antigrative-dashboard
-Goal: show tok/s, five-hour quota and reset countdown, and weekly quota and
-reset countdown in the Antigravity model selector row.
+Goal: show tok/s, cache and context in the Antigravity model selector row;
+hover context for its details and five-hour/weekly quotas with reset countdowns.
 
 1. Read README.md and COMPATIBILITY.md. Verify Windows, Linux or macOS, Antigravity desktop
-   (tested with App 2.21.1), and Python 3.10+. Do not upgrade, downgrade, or replace my app.
+   (tested with App 2.21.1 / 2.22.0), and Python 3.10+. Do not upgrade, downgrade, or replace my app.
 2. Clone or extract the project to a permanent directory.
 3. Inspect python manage.py status, then run python manage.py install.
    Preserve other plugin settings and use the built-in backup validation.
 4. Fully restart Antigravity. If a task is running, report the required
    restart and do not forcibly interrupt it.
-5. Verify new-chat quota, existing-chat TPS, and hover cards. Leave the
+5. Verify new-chat context entry, existing-chat TPS/cache/context, and the combined quota hover card. Leave the
    quota-group menu open across several polls and confirm it stays open.
 6. Report the app version, installation result, runtime integration status, and what was
    actually verified on this machine.
@@ -138,7 +138,7 @@ Records contain whitelisted statistics and model/status only; no prompts, titles
 
 ## Compatibility
 
-Verified on **Windows 11 / Antigravity desktop App 2.21.1**. Not an Antigravity IDE, VS Code, or DSH extension. Linux and macOS now have native user paths, backend/port discovery and shell installers. Automated checks run on all three operating systems; Windows is the host with a real signed-in app available for UI verification. See the validation boundaries in COMPATIBILITY.md.
+Verified on **Windows 11 / Antigravity desktop App 2.21.1 and 2.22.0**, including real context readings and the combined hover card. Not an Antigravity IDE, VS Code, or DSH extension. Linux and macOS have native user paths, backend/port discovery and shell installers. Automated checks run on all three operating systems; full signed-in Linux/macOS GUI verification is still open. See COMPATIBILITY.md.
 Repository presentation is inspired by [DSH Rail Music](https://github.com/YOU-SHOULD-KNOW-ME/dsh-rail-music); installation APIs differ. `dsh plugin add` cannot install this project.
 
 [Full compatibility and recovery details →](COMPATIBILITY.md)
@@ -182,7 +182,7 @@ python manage.py package
 ```
 
 ZIP and SHA256 files are generated in `dist/`. Packaging uses an allowlist and excludes credentials, account settings, logs, SDK caches, and application archives.
-Generating the illustrative README images is an optional developer task requiring Pillow and Windows fonts; it is not an installation dependency.
+Generating README images is an optional developer task: `node tools/build-readme-assets.mjs` requires Playwright (or an absolute `PLAYWRIGHT_MODULE` path). It renders the actual widget code with illustrative metrics and produces English/Chinese assets. This is not an installation dependency.
 
 [Development guide →](docs/DEVELOPMENT.md) · [Changelog →](CHANGELOG.md)
 
