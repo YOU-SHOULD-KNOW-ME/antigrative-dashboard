@@ -3,6 +3,7 @@ import { pathToFileURL } from 'node:url';
 import { readFile, writeFile, mkdir, stat } from 'node:fs/promises';
 import { join } from 'node:path';
 import { homedir } from 'node:os';
+import { installedAgentExecutable, platformPaths } from '../../compat/platform.mjs';
 
 export async function loadSidecarSdk() {
   try { return await import('sidecar_sdk'); }
@@ -25,8 +26,8 @@ async function loadBundledSdk() {
   // 2.19.1 contains the official SDK resources in language_server.exe, but some
   // Windows installations omit its ESM resolver. Recover those same installed
   // resources into private runtime storage. No SDK is downloaded or redistributed.
-  const exe = process.env.ANTIGRAVITY_AGENTAPI_EXE || join(process.env.LOCALAPPDATA || join(homedir(),'AppData','Local'),'Programs','antigravity','resources','bin','language_server.exe');
-  const root = join(process.env.ANTIGRAVITY_EXECUTABLE_DATA_DIR || join(homedir(),'.gemini','antigravity','sidecar_data','antigravity-pulse','panel','data'),'sdk');
+  const exe = installedAgentExecutable();
+  const root = join(platformPaths().data,'sdk');
   const info = await stat(exe);
   const stamp = `${info.size}:${info.mtimeMs}`;
   let cached = false;

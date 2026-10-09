@@ -1,4 +1,5 @@
 // Pure transforms. No credentials, prompts, or message text enter the public result.
+import { contextMetrics } from './context.mjs';
 export function seconds(value) {
   if (typeof value === 'number') return Number.isFinite(value) && value >= 0 ? value : null;
   if (typeof value === 'string' && /^\d+(?:\.\d+)?s$/.test(value)) return Number(value.slice(0, -1));
@@ -103,7 +104,10 @@ export function trajectoryMetrics(response) {
     rateBasis: samples.length && samples.every(s => s.basis === 'response') ? 'response' : 'all-output',
     streamingSeconds, modelSeconds, toolSeconds, ttftSeconds: ttftSamples ? ttftSeconds / ttftSamples : null,
     latestShortSample: latest?.shortSample ?? false, model: latest?.model || null,
-    context: lastChat?.chatStartMetadata?.contextWindowMetadata || null,
+    context: contextMetrics(lastChat?.chatStartMetadata?.contextWindowMetadata, {
+      model:lastChat?.modelDisplayName || lastChat?.responseModel || String(lastChat?.model || ''),
+      sampledAt:lastChat?.chatStartMetadata?.createdAt,
+    }),
     complete: Number(response.numTotalGeneratorMetadata ?? generators.length) === generators.length,
   };
 }

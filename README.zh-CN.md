@@ -4,11 +4,11 @@
 
 # Antigrative Dashboard
 
-把生成速率、缓存命中率、5 小时余额和周余额，放在模型选择的同一行。<br>
+把生成速率、缓存命中率、上下文窗口占用、5 小时余额和周余额，放在模型选择的同一行。<br>
 缩略信息常驻；鼠标悬停，才展开详细统计。
 
-[![Version 0.4.0](https://img.shields.io/badge/version-0.4.0-91adff?style=flat-square&labelColor=252936)](CHANGELOG.md)
-[![Windows](https://img.shields.io/badge/host-Windows-83d8b9?style=flat-square&labelColor=252936)](COMPATIBILITY.md)
+[![Version 0.5.0](https://img.shields.io/badge/version-0.5.0-91adff?style=flat-square&labelColor=252936)](CHANGELOG.md)
+[![Platforms](https://img.shields.io/badge/host-Windows%20%7C%20Linux%20%7C%20macOS-83d8b9?style=flat-square&labelColor=252936)](COMPATIBILITY.md)
 [![Antigravity 2.21.1](https://img.shields.io/badge/Antigravity-2.21.1-c5a0ff?style=flat-square&labelColor=252936)](COMPATIBILITY.md)
 [![MIT](https://img.shields.io/badge/license-MIT-d4d9e6?style=flat-square&labelColor=252936)](LICENSE)
 
@@ -38,9 +38,17 @@
 - **适合紧凑窗口。** 窗口空间不足时，缩略条隐藏倒计时；完整倒计时始终在悬停卡中。
 - **不上传采集数据。** 后台使用本机 loopback 接口，数值留在你的电脑。
 
+### 上下文窗口占用
+
+<img src="docs/assets/context.png" width="100%" alt="Context usage ring and used/remaining detail card">
+
+<sub>示例为 44% 占用，非真实对话数据。实际读取宿主最近请求开始时的估计值；缺少容量会明确显示不可用。</sub>
+
 ## 安装
 
-适用于 **Windows 的 Antigravity 桌面 App 2.21.1 + Python 3.10+**。无 pip / npm 第三方依赖，后台使用 App 自带 Node.js。完整支持范围见 [COMPATIBILITY.md](COMPATIBILITY.md)。
+适用于 **Windows / Linux / macOS 的 Antigravity 桌面 App 2.21.1 + Python 3.10+**。三系统共用同一个 release ZIP，无 pip / npm 第三方依赖，后台使用 App 自带 Node.js。完整验证范围见 [COMPATIBILITY.md](COMPATIBILITY.md)。
+
+Linux / macOS 使用 `python3 manage.py install` 或 `sh install.sh`，启停和卸载命令同样把 `python` 换成 `python3`。无需 sudo，不修改应用归档。
 
 > 模型选择旁的内嵌位置没有公开插件挂载接口。现在由标准 sidecar 通过已有本地渲染调试端口挂载控件，默认安装不再修改 `resources/app.asar`。未来宿主 DOM、调试通道、SDK 或统计接口改变时仍可能需要适配；原生侧面板作为备用入口。
 
@@ -66,7 +74,7 @@ python manage.py install
 仓库：https://github.com/YOU-SHOULD-KNOW-ME/antigrative-dashboard
 目标：在 Antigravity 模型选择旁显示 tok/s、5h 余额与倒计时、周余额与倒计时。
 
-1. 读取 README.md 和 COMPATIBILITY.md，确认 Windows、Antigravity 桌面
+1. 读取 README.md 和 COMPATIBILITY.md，确认 Windows、Linux 或 macOS、Antigravity 桌面
    App 2.21.1、Python 3.10+。不要自动升级、降级或替换我的 App。
 2. 将项目克隆 / 解压到固定目录，不在临时下载目录运行。
 3. 用 python manage.py status 检查已有状态，再执行 python manage.py install。
@@ -98,7 +106,13 @@ python manage.py install
 
 `python manage.py install --panel-only` 关闭内嵌挂载，只安装原生 sidecar 面板。需要账号原生 UI Extensions 已开放；这个模式不能保证出现模型旁的缩略条。
 
-## 语言与缓存
+## 上下文窗口
+
+状态栏显示环形占用指示与百分比；悬停查看“已用 / 剩余”比例、已用 Token 与容量，以及采样模型。数值来自最近请求开始时的 `contextWindowMetadata.estimatedTokensUsed` / `maxContextTokens`，由宿主估计。不是会话累计输入量，也不是生成中的实时 Token 计数。
+
+缺少容量时显示“容量不可用”，不按模型名称猜测上限。压缩上下文后允许占用下降；切换对话不会沿用上一个对话的数值。上下文与 tok/s、缓存统计一起按账户和对话保存，历史恢复值注明保存时间。
+
+### 语言与缓存
 
 默认英文。状态条的 **EN** 按钮切换中文，**中** 切回英文，选择会保存。缓存卡按 DSH 逻辑显示总 token、缓存命中、未缓存输入、缓存读取与输出；缓存写入非零时显示额外一行。
 
@@ -129,7 +143,7 @@ Antigravity 的 `inputTokens` 是未缓存输入。缓存率 = 缓存读取 ÷�
 
 当前实机验证：**Windows 11 / Antigravity App 2.21.1**。
 
-不适用于 Antigravity IDE、VS Code 扩展或 DSH；未适配 macOS / Linux。
+不适用于 Antigravity IDE、VS Code 扩展或 DSH。Linux / macOS 已适配原生路径、进程与端口发现、SDK 加载和 shell 安装器；三系统 CI 验证代码与生命周期，完整登录 App 的端到端验证范围见兼容性文档。
 参考 DSH Rail Music 的项目组织与文档风格，但安装接口不同，不能使用 `dsh plugin add` 安装 Antigrative Dashboard。
 
 [完整边界与更新策略 →](COMPATIBILITY.md)

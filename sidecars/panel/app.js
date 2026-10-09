@@ -14,7 +14,7 @@ if (!host) document.body.classList.add('standalone');
 function showCard(name) {
   clearTimeout(leaveTimer);
   for (const chip of chips) chip.setAttribute('aria-expanded', String(chip.dataset.card === name));
-  for (const nameKey of ['speed','cache','five','week']) $(`${nameKey}-card`).hidden = name !== nameKey;
+  for (const nameKey of ['speed','cache','five','week','context']) $(`${nameKey}-card`).hidden = name !== nameKey;
   document.querySelector('.rest-state').style.visibility = name ? 'hidden' : '';
 }
 for (const chip of chips) {
@@ -85,6 +85,16 @@ function render() {
   const saveWarning=snapshot.persistenceError?' '+t('saveFailed'):'';
   $('speed-basis').textContent = basis+(speed?.missingTiming?' '+t('missingTime',{n:speed.missingTiming}):'')+(speed?.latestShortSample?' '+t('shortSample'):'')+savedNote+saveWarning;
   const cache=speed?.cache;
+  const context=speed?.context,hasCapacity=typeof context?.usedFraction==='number';
+  $('strip-context').textContent=hasCapacity?`${Math.round(context.usedFraction*100)}%`:'—';
+  $('context-summary').textContent=hasCapacity?t('contextUsed',{used:Math.round(context.usedFraction*100),remaining:Math.round(context.remainingFraction*100)}):t('contextUnknown');
+  $('context-tokens').textContent=context?t('contextTokens',{used:compact(context.usedTokens),max:context.maxTokens===null?'—':compact(context.maxTokens)}):'—';
+  $('context-model').textContent=context?.model||'—';
+  const restored=context&&(speed.contextRestored===true||speed.restoredFromHistory&&speed.contextRestored!==false);
+  $('context-note').textContent=(context?t('contextBasis'):t('contextUnavailable'))+(restored?' '+t('contextSaved',{time:speed.savedAt?language.resetDate(speed.savedAt):'—'}):'')+(hasCapacity&&context.usedFraction>1?' '+t('contextExceeded'):'');
+  $('context-fill').style.width=hasCapacity?`${Math.min(1,context.usedFraction)*100}%`:'0%';
+  $('context-fill').style.background=hasCapacity&&context.usedFraction>=.9?'#e99b9b':'';
+  if(hasCapacity){$('context-track').setAttribute('aria-valuenow',String(Math.min(100,context.usedFraction*100)));$('context-track').setAttribute('aria-valuemin','0');$('context-track').setAttribute('aria-valuemax','100');}else $('context-track').removeAttribute('aria-valuenow');
   $('strip-cache').textContent=percent(cache?.hitRate);$('cache-rate').textContent=percent(cache?.hitRate);
   $('strip-cache-total').textContent=cache?.measuredRequests?`${compact(cache.totalTokens)} tok`:'— tok';
   for(const [field,id]of[['cachedTokens','cache-read'],['uncachedTokens','cache-miss'],['cacheWriteTokens','cache-write'],['outputTokens','cache-output']])$(id).textContent=cache?.measuredRequests?`${count(cache[field])} tok`:'—';

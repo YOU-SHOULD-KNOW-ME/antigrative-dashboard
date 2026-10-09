@@ -44,7 +44,7 @@ dd { margin:0; color:#e6e7e9; font-size:11px; text-align:right; font-variant-num
 .quota-track { height:4px; border-radius:2px; background:#ffffff13; overflow:hidden; margin-bottom:14px; }
 .quota-track i { display:block; height:100%; width:0; border-radius:2px; background:var(--pulse-accent); }
 .reset-countdown { font-weight:600; color:#d9e4ff; }
-.status-strip { margin:0 6px; padding:4px 0; display:grid; grid-template-columns:1.1fr 1fr 1fr 1.1fr; border-top:1px solid #ffffff0b; }
+.status-strip { margin:0 6px; padding:4px 0; display:grid; grid-template-columns:1.1fr 1fr 1fr 1.1fr .8fr; border-top:1px solid #ffffff0b; }
 .metric-chip { position:relative; display:flex; align-items:center; justify-content:center; gap:7px; min-width:0; padding:5px 5px; border:0; border-radius:5px; background:transparent; color:#aeb2bb; text-align:left; transition:background-color 120ms ease, color 120ms ease; }
 .metric-chip:hover,.metric-chip[aria-expanded=true] { background:#333539; color:#dce0e7; }
 .metric-chip + .metric-chip::before { position:absolute; left:-1px; top:8px; bottom:8px; width:1px; background:#ffffff0b; content:""; }
@@ -61,5 +61,6 @@ dd { margin:0; color:#e6e7e9; font-size:11px; text-align:right; font-variant-num
 @media (min-width:600px) { .session-rounds { display:inline; color:#9096a0; margin-right:3px; } .chip-primary { font-size:12px; } .chip-secondary { font-size:10px; } .card-stage { min-height:228px; } }
 @media (max-width:360px) { .widget { margin:8px; width:calc(100% - 16px); } .metric-chip { gap:4px; padding:5px 3px; } .metric-chip .icon { width:11px; } .chip-primary { font-size:10px; } dt,dd { font-size:10px; } select { max-width:120px; } }
 @media (prefers-reduced-motion:reduce) { * { transition:none !important; } }
+@media (max-width:460px) { .status-strip { grid-template-columns:repeat(3,minmax(0,1fr)); } }
 
 .widget-header{height:auto;min-height:43px;flex-wrap:wrap;gap:6px;padding-block:8px}.brand{font-size:10px}.header-controls{margin-left:auto}.metric-chip{gap:4px}.chip-primary{font-size:10px}.card-stage{min-height:250px}

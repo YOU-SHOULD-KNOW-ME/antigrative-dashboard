@@ -2,6 +2,7 @@ import { readFile, mkdir, writeFile, rename, unlink } from 'node:fs/promises';
 import { join } from 'node:path';
 import { homedir } from 'node:os';
 import { randomUUID } from 'node:crypto';
+import { safeContext } from './context.mjs';
 
 const GUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const SCOPE = /^[0-9a-f]{64}$/;
@@ -22,11 +23,12 @@ export function safeMetrics(value, conversationId) {
   result.rateBasis = value.rateBasis === 'response' ? 'response' : 'all-output';
   result.model = typeof value.model === 'string' ? value.model.slice(0,256) : null;
   result.status = typeof value.status === 'string' && /^[A-Z0-9_]+$/.test(value.status) ? value.status : null;
+  result.context = safeContext(value.context) || null;
   return result;
 }
 
 export function usableMetrics(metrics) {
-  return number(metrics?.tps) && metrics.measuredRequests > 0 || metrics?.cache?.measuredRequests > 0;
+  return number(metrics?.tps) && metrics.measuredRequests > 0 || metrics?.cache?.measuredRequests > 0 || !!safeContext(metrics?.context);
 }
 
 export function shouldKeepSaved(saved, fresh) {
@@ -68,7 +70,12 @@ export class SessionHistory {
     const metrics = safeMetrics(value,id), file = this.file(scope,id);
     if (!usableMetrics(metrics)) return null;
     const previous = await this.load(scope,id);
-    if (previous && shouldKeepSaved(previous.metrics,metrics)) return previous;
+    if (previous && shouldKeepSaved(previous.metrics,metrics)) {
+      // Regression guards protect cumulative TPS/cache. A valid current context
+      // can shrink after compaction; it must still replace the prior snapshot.
+      if (!metrics.context) return previous;
+      Object.assign(metrics,previous.metrics,{context:metrics.context});
+    }
     if (previous && JSON.stringify(previous.metrics) === JSON.stringify(metrics)) return previous;
     const record = {schema:1,account:scope,conversationId:id.toLowerCase(),savedAt:new Date().toISOString(),metrics};
     const temporary = file + '.' + randomUUID() + '.tmp';

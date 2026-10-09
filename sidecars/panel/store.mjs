@@ -80,10 +80,15 @@ export class MetricsStore {
       const fresh = trajectoryMetrics(raw);
       if (shouldKeepSaved(entry.data,fresh)) {
         entry.updatedAt = Date.now();
-        entry.data = {...entry.data,restoredFromHistory:true,savedAt:entry.savedAt || null};
+        entry.data = {...entry.data,context:fresh.context,contextRestored:false,restoredFromHistory:true,savedAt:entry.savedAt || null};
+        if (fresh.context) {
+          try { const saved=await this.history.save(scope,id,entry.data); if(saved)entry.savedAt=saved.savedAt; }
+          catch { this.persistenceError='统计暂时无法保存到本地'; }
+        }
+        if (!current()) throw new Error('后台已重新连接，请等待刷新');
         return entry.data;
       }
-      entry.data = {...fresh,conversationId:id,restoredFromHistory:false}; entry.updatedAt = Date.now();
+      entry.data = {...fresh,conversationId:id,contextRestored:false,restoredFromHistory:false}; entry.updatedAt = Date.now();
       try { const saved = await this.history.save(scope,id,entry.data); if (saved) entry.savedAt = saved.savedAt; if (current()) this.persistenceError = null; }
       catch { this.persistenceError = '统计暂时无法保存到本地'; }
       if (!current()) throw new Error('后台已重新连接，请等待刷新');

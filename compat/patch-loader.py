@@ -11,9 +11,15 @@ import json
 import os
 from pathlib import Path
 import struct
+import importlib.util
 
 HERE = Path(__file__).resolve().parent
-APP = Path(os.environ['LOCALAPPDATA']) / 'Programs' / 'antigravity' / 'resources' / 'app.asar'
+_spec = importlib.util.spec_from_file_location('pulse_platform', HERE / 'platform_paths.py')
+_platform = importlib.util.module_from_spec(_spec)
+_spec.loader.exec_module(_platform)
+_paths = _platform.platform_paths()
+APP = _paths['app']
+BACKUPS = _paths['backups']
 MARKER = '// AG_PULSE_INLINE_V1'
 SUPPORTED_VERSIONS = {'2.19.1'}
 
@@ -37,7 +43,7 @@ def unpatched_original(current):
     if MARKER.encode() not in preload:
         return current
     digest=hashlib.sha256(current).hexdigest()
-    backups=Path(os.environ['LOCALAPPDATA'])/'AntigravityPulseBackups'
+    backups=BACKUPS
     for directory in sorted(backups.iterdir(),reverse=True):
         note_path=directory/'patch.json'
         if not note_path.is_file():continue
@@ -138,7 +144,7 @@ def main():
     if current==patched:
         print('Antigrative Dashboard adapter is already current.')
         return
-    backup=Path(os.environ['LOCALAPPDATA'])/'AntigravityPulseBackups'/datetime.datetime.now().strftime('%Y%m%d-%H%M%S')
+    backup=BACKUPS/datetime.datetime.now().strftime('%Y%m%d-%H%M%S')
     backup.mkdir(parents=True,exist_ok=False)
     (backup/'app.asar').write_bytes(original)
     original_header, original_base = archive(original)

@@ -1,29 +1,28 @@
-# Antigrative Dashboard v0.4.0
+# Antigrative Dashboard v0.5.0
 
-App updates no longer overwrite the default inline adapter. TPS and cache statistics persist separately for every conversation and account.
+Context window occupancy joins tok/s, cache usage and quotas. The same plugin ZIP now supports Windows, Linux and macOS desktop installations.
 
 ## Install / update
 
-Download `antigrative-dashboard-0.4.0.zip` and its `.zip.sha256`, verify the checksum and extract to a permanent directory.
+Download `antigrative-dashboard-0.5.0.zip` and its `.zip.sha256`, verify the checksum and extract to a permanent directory.
 
-```powershell
-python manage.py install
-```
+Windows: `python manage.py install` (or `./install.ps1`).
+Linux / macOS: `python3 manage.py install` (or `sh install.sh`). No sudo.
 
-Fully quit and reopen Antigravity when no task is running. Default installation no longer modifies app.asar. Exactly verified legacy patches are safely migrated. Saved statistics remain in the separate sidecar data directory.
+Fully quit and reopen Antigravity when no task is running. Default installation does not modify app.asar, and per-conversation history remains in the separate user data directory.
 
-## Changes
+## New features
 
-- Runtime attachment discovers changing renderer ports, retries missed startup injection and replaces old hooks on plugin updates.
-- Current backend credentials are paired with ports owned by the standalone process, fixing stale-token 401 errors.
-- Atomic per-account/per-conversation history restores TPS and cache; empty or regressing data cannot erase useful samples.
-- Saved values show a timestamp; real zero cache hits stay visible. Disk errors preserve live values and show a warning.
-- Quota/list failures no longer block selected-conversation collection.
-- `node tools/check-live-history.mjs` backfills recoverable metadata and checks restart restoration.
-- Expanded tests and documented [robustness analysis](docs/ROBUSTNESS.md).
+- **Context occupancy:** compact ring + usage percentage. Hover for used/remaining fractions, tokens/capacity, sampled model and data basis. English/Chinese labels.
+- **Honest measurements:** use the host estimate at the latest request start. No invented capacity, no cumulative-token substitution, no claim of per-token streaming updates. Compaction can reduce occupancy.
+- **Persistent context:** whitelisted numeric snapshots are saved per account/conversation. History fallbacks show their timestamp, and chat switching clears prior values immediately.
+- **Native desktop platforms:** Windows CIM, Linux `/proc`, macOS `ps`/`lsof`; token and port must belong to the same standalone backend. Platform-native profiles/settings and SDK discovery.
+- **Portable lifecycle:** POSIX scripts, custom app/profile overrides, one shared ZIP and three-OS CI. Official Linux/macOS desktop resources and embedded SDK are checked before release.
 
-## Compatibility
+## Compatibility and verification
 
-Windows / Antigravity desktop 2.21.1 / Python 3.10+. Uses native Node, with built-in WebSocket for inline attachment. Future DOM, debugging, SDK or RPC changes may still need adaptation. The native side panel remains a fallback when the host SDK supports it.
+Targets Antigravity **desktop App 2.21.1**, Python 3.10+, and the host's bundled Node with WebSocket (Node 24 recommended). Not the IDE/VS Code extension or iOS. macOS means Apple computers.
 
-No conversations, credentials, history records, host logs, SDK cache or application archive are included.
+Automated native Linux/macOS checks cover process/port discovery, lifecycle, app resources and SDK loading. Full signed-in host GUI verification on those platforms is not claimed; it requires Linux/macOS user machines. Current Windows UI validation and future host API/DOM limitations are described in [COMPATIBILITY.md](COMPATIBILITY.md).
+
+No conversation content, credentials, saved user statistics, host SDK/binaries or logs are included in the release.

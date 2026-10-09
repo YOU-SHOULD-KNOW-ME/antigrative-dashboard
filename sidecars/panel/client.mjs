@@ -1,11 +1,8 @@
-import { execFile } from 'node:child_process';
-import { promisify } from 'node:util';
 import { readFile } from 'node:fs/promises';
-import { homedir } from 'node:os';
-import { join } from 'node:path';
 import { request } from 'node:http';
+import { platformPaths } from '../../compat/platform.mjs';
+import { discoverProcesses } from './discovery.mjs';
 
-const exec = promisify(execFile);
 const SERVICE = '/exa.language_server_pb.LanguageServerService/';
 export function serverFromDiscovery(log, processes) {
   const rows = (Array.isArray(processes) ? processes : [processes]).filter(p => /--standalone\b/.test(p.CommandLine || ''));
@@ -30,16 +27,12 @@ export class AntigravityClient {
   }
 
   async discoverNow() {
-    if (process.platform !== 'win32') throw new Error('当前采集适配器支持 Windows');
-    const logPath = join(process.env.APPDATA || join(homedir(), 'AppData', 'Roaming'), 'Antigravity', 'logs', 'language_server.log');
-    const log = await readFile(logPath, 'utf8');
+    const log = await readFile(platformPaths().log, 'utf8');
     // A sidecar can outlive a renderer/backend restart. Its injected token may
     // then refer to the previous LS instance; pair the current log port with
     // the current standalone process credential instead of mixing generations.
-    const script = "Get-CimInstance Win32_Process -Filter \"Name='language_server.exe'\" | ForEach-Object { $agProcess = $_; [pscustomobject]@{ProcessId=$agProcess.ProcessId; CommandLine=$agProcess.CommandLine; Ports=@(Get-NetTCPConnection -State Listen -OwningProcess $agProcess.ProcessId -ErrorAction SilentlyContinue | Select-Object -ExpandProperty LocalPort)} } | ConvertTo-Json -Compress";
-    const { stdout } = await exec('powershell.exe', ['-NoProfile', '-NonInteractive', '-Command', script], { windowsHide: true, timeout: 8000, maxBuffer: 1048576 });
-    if (!stdout.trim()) throw new Error('请先打开 Antigravity');
-    const parsed = JSON.parse(stdout.replace(/^\uFEFF/, ''));
+    const parsed = await discoverProcesses();
+    if (!parsed || Array.isArray(parsed) && !parsed.length) throw new Error('请先打开 Antigravity');
     // Credentials stay in process memory. They are never logged, persisted, or
     // returned to a browser; all calls go exclusively to 127.0.0.1.
     this.server = serverFromDiscovery(log,parsed);

@@ -23,7 +23,7 @@ test('restart restores per-conversation TPS and valid zero cache; records contai
   const store=new MetricsStore(client(),{history}); const first=await store.snapshot({conversationId:id});
   assert.equal(first.speed.tps,50);assert.equal(first.speed.cache.hitRate,0);
   const record=await readFile(history.file(scope('a@example.test'),id),'utf8');
-  for(const secret of ['private title','a@example.test','csrf','context','prompt']) assert.equal(record.includes(secret),false);
+  for(const secret of ['private title','a@example.test','csrf','tokenBreakdown','prompt']) assert.equal(record.includes(secret),false);
   const restarted=new MetricsStore(client(async()=>{throw new Error('trajectory unavailable');}),{history:new SessionHistory(dir)});
   const restored=await restarted.snapshot({conversationId:id});
   assert.equal(restored.speed.tps,50);assert.equal(restored.speed.cache.hitRate,0);assert.equal(restored.speed.restoredFromHistory,true);assert.ok(restored.speed.savedAt);

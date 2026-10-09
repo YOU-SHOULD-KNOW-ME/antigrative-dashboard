@@ -6,6 +6,7 @@ import { homedir } from 'node:os';
 import { MetricsStore } from './store.mjs';
 import { loadSidecarSdk } from './sdk.mjs';
 import { RuntimeUi, makeRendererSource } from '../../compat/runtime-ui.mjs';
+import { platformPaths } from '../../compat/platform.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const store = new MetricsStore();
@@ -19,14 +20,14 @@ const inlineSource=()=>{
 const i18nModule=()=>{const s=readFileSync(join(HERE,'..','..','compat','i18n.cjs'),'utf8');return 'export const createI18n='+s.slice(s.indexOf('module.exports = ')+'module.exports = '.length);};
 const runtimeSettings = () => {
   let settings = {};
-  try { settings = JSON.parse(readFileSync(join(process.env.LOCALAPPDATA || join(homedir(),'AppData','Local'),'AntigravityPulse','settings.json'),'utf8').replace(/^\uFEFF/,'')); } catch {}
+  try { settings = JSON.parse(readFileSync(platformPaths().settings,'utf8').replace(/^\uFEFF/,'')); } catch {}
   try { if (JSON.parse(readFileSync(join(homedir(),'.gemini','config','config.json'),'utf8').replace(/^\uFEFF/,'')).plugins?.['antigravity-pulse']?.enabled === false) settings.enabled = false; } catch {}
   return settings;
 };
 const integration = new RuntimeUi({
   snapshot: input => store.snapshot(input),
   source: makeRendererSource(readFileSync(join(HERE,'..','..','compat','i18n.cjs'),'utf8'),readFileSync(join(HERE,'..','..','compat','inline-widget.cjs'),'utf8')),
-  dataDir: process.env.ANTIGRAVITY_EXECUTABLE_DATA_DIR || join(homedir(),'.gemini','antigravity','sidecar_data','antigravity-pulse','panel','data'),
+  dataDir: platformPaths().data,
   enabled: () => { const s = runtimeSettings(); return s.enabled !== false && s.inline !== false && s.mode !== 'legacy'; },
 });
 const metrics = async input => ({ ...await store.snapshot(input), integration: integration.health });

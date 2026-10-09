@@ -4,11 +4,11 @@
 
 # Antigrative Dashboard
 
-Token throughput, cache hits, five-hour quota, and weekly quota — in the model selector row.<br>
+Token throughput, cache hits, context window, five-hour quota, and weekly quota — in the model selector row.<br>
 Keep the summary visible. Hover for the details.
 
-[![Version 0.4.0](https://img.shields.io/badge/version-0.4.0-91adff?style=flat-square&labelColor=252936)](CHANGELOG.md)
-[![Windows](https://img.shields.io/badge/host-Windows-83d8b9?style=flat-square&labelColor=252936)](COMPATIBILITY.md)
+[![Version 0.5.0](https://img.shields.io/badge/version-0.5.0-91adff?style=flat-square&labelColor=252936)](CHANGELOG.md)
+[![Platforms](https://img.shields.io/badge/host-Windows%20%7C%20Linux%20%7C%20macOS-83d8b9?style=flat-square&labelColor=252936)](COMPATIBILITY.md)
 [![Antigravity 2.21.1](https://img.shields.io/badge/Antigravity-2.21.1-c5a0ff?style=flat-square&labelColor=252936)](COMPATIBILITY.md)
 [![MIT](https://img.shields.io/badge/license-MIT-d4d9e6?style=flat-square&labelColor=252936)](LICENSE)
 
@@ -31,6 +31,7 @@ Keep the summary visible. Hover for the details.
 ### Small details that matter
 
 - **Token usage, DSH-style.** Compact total tokens and cache hit rate; hover for uncached input, cache reads, output, and optional cache writes.
+- **Context window.** A Codex-style usage percentage and hover card: used/remaining fraction and tokens versus capacity. Uses the host estimate for the latest request, never cumulative input tokens.
 - **English or Chinese.** English by default, with one-click switching and a saved preference.
 - **Stable menus.** Quota-group menus stay open across polling cycles while countdowns continue ticking.
 - **Actual account data.** Remaining quota comes from the account API, not an estimate based on text length. Expired windows do not automatically become 100%.
@@ -40,9 +41,15 @@ Keep the summary visible. Hover for the details.
 - **Compact-window support.** Summary countdowns hide when space is limited; full countdowns remain available in hover cards.
 - **Local collection.** The collector talks to loopback endpoints. It does not upload your metrics to a third-party service.
 
+### Context window
+
+<img src="docs/assets/context.png" width="100%" alt="Context usage ring and used/remaining detail card">
+
+<sub>Illustrative 44% sample. Uses the host estimate at the latest request start; capacity may be unavailable.</sub>
+
 ## Install
 
-Supported: **Windows, Antigravity desktop App 2.21.1, Python 3.10+**. No third-party pip or npm packages are needed to install or run the plugin. The sidecar uses the app's bundled Node.js runtime. See [COMPATIBILITY.md](COMPATIBILITY.md).
+Supported: **Windows, Linux and macOS; Antigravity desktop App 2.21.1; Python 3.10+**. The same release ZIP works on all three systems. No third-party pip or npm packages are needed to install or run the plugin. The sidecar uses the app's bundled Node.js runtime. See [COMPATIBILITY.md](COMPATIBILITY.md).
 
 > The inline model-row position has no public plugin mounting API. A standard Antigravity sidecar now attaches the widget through the existing local renderer debugging endpoint. Default installation does not modify `resources/app.asar`. This is unofficial; future changes to the host DOM, debugging channel, SDK or metrics API may require an adapter update. The native side panel remains a fallback.
 
@@ -53,6 +60,8 @@ git clone https://github.com/YOU-SHOULD-KNOW-ME/antigrative-dashboard.git
 cd antigrative-dashboard
 python manage.py install
 ```
+
+On Linux / macOS, use `python3 manage.py install` or `sh install.sh` (and `python3` for the lifecycle commands below). Never run the installer with sudo.
 
 Fully quit and reopen Antigravity. Open a conversation: the strip appears beside the model selector. PowerShell users can also run `./install.ps1`.
 
@@ -67,7 +76,7 @@ Repository: https://github.com/YOU-SHOULD-KNOW-ME/antigrative-dashboard
 Goal: show tok/s, five-hour quota and reset countdown, and weekly quota and
 reset countdown in the Antigravity model selector row.
 
-1. Read README.md and COMPATIBILITY.md. Verify Windows, Antigravity desktop
+1. Read README.md and COMPATIBILITY.md. Verify Windows, Linux or macOS, Antigravity desktop
    (tested with App 2.21.1), and Python 3.10+. Do not upgrade, downgrade, or replace my app.
 2. Clone or extract the project to a permanent directory.
 3. Inspect python manage.py status, then run python manage.py install.
@@ -106,6 +115,7 @@ The stable internal plugin ID remains `antigravity-pulse` for compatibility with
 
 | Metric | Definition |
 | --- | --- |
+| Context window | Latest request-start `estimatedTokensUsed` / `maxContextTokens`; unknown capacity stays unavailable |
 | Cache hit | Cached-read tokens divided by uncached input + cache reads + cache writes; token-weighted across requests |
 | Token total | Normalized total input plus output tokens, including thinking output |
 | Session TPS | Sum of response tokens from valid requests divided by their total streaming duration |
@@ -122,13 +132,13 @@ Thinking tokens are separate. If a model does not expose response tokens, the de
 
 ## Saved conversation statistics
 
-Completed-request TPS and cache counts are saved automatically in `~/.gemini/antigravity/sidecar_data/antigravity-pulse/panel/data/history-v1/<account-hash>/<conversation-id>.json`. Reloading, restarting, updating or reinstalling the plugin preserves them. Empty or regressing backend data cannot erase a useful saved sample. Saved fallbacks show their saved time in the details. A real 0% cache hit remains 0%.
+Completed-request TPS, cache counts and whitelisted context estimates are saved automatically in `~/.gemini/antigravity/sidecar_data/antigravity-pulse/panel/data/history-v1/<account-hash>/<conversation-id>.json`. Reloading, restarting, updating or reinstalling the plugin preserves them. Empty or regressing backend data cannot erase a useful saved sample. Saved fallbacks show their saved time in the details. A real 0% cache hit remains 0%.
 
 Records contain whitelisted statistics and model/status only; no prompts, titles, emails or credentials. The current account must be authenticated before its saved files are loaded. Already missing timing cannot be reconstructed. To backfill all conversations still available from the local API and check restart restoration, run `node tools/check-live-history.mjs` with Antigravity open.
 
 ## Compatibility
 
-Verified on **Windows 11 / Antigravity desktop App 2.21.1**. Not an Antigravity IDE, VS Code, or DSH extension. macOS and Linux are not adapted.
+Verified on **Windows 11 / Antigravity desktop App 2.21.1**. Not an Antigravity IDE, VS Code, or DSH extension. Linux and macOS now have native user paths, backend/port discovery and shell installers. Automated checks run on all three operating systems; Windows is the host with a real signed-in app available for UI verification. See the validation boundaries in COMPATIBILITY.md.
 Repository presentation is inspired by [DSH Rail Music](https://github.com/YOU-SHOULD-KNOW-ME/dsh-rail-music); installation APIs differ. `dsh plugin add` cannot install this project.
 
 [Full compatibility and recovery details →](COMPATIBILITY.md)

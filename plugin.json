@@ -1,7 +1,7 @@
 {
   "name": "antigravity-pulse",
   "display_name": "Antigrative Dashboard",
-  "description": "DSH-style token throughput, cache hit rate, and five-hour / weekly quota. English by default, with Chinese switching.",
-  "version": "0.4.0",
+  "description": "Token throughput, cache hit, context window and quotas on Windows, Linux and macOS. English / Chinese switching.",
+  "version": "0.5.0",
   "logo": "assets/logo.svg"
 }

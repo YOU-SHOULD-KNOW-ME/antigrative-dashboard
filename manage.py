@@ -11,16 +11,20 @@ import sys
 import zipfile
 
 SOURCE = Path(__file__).resolve().parent
-HOME = Path.home()
-LOCAL = Path(os.environ.get('LOCALAPPDATA', HOME / 'AppData' / 'Local'))
+_path_spec = importlib.util.spec_from_file_location('pulse_paths', SOURCE / 'compat' / 'platform_paths.py')
+_paths_module = importlib.util.module_from_spec(_path_spec)
+_path_spec.loader.exec_module(_paths_module)
+_paths = _paths_module.platform_paths()
+HOME = _paths['home']
+LOCAL = _paths['local']
 PLUGIN = HOME / '.gemini' / 'config' / 'plugins' / 'antigravity-pulse'
 CONFIG = HOME / '.gemini' / 'config' / 'config.json'
-SETTINGS = LOCAL / 'AntigravityPulse' / 'settings.json'
-APP = LOCAL / 'Programs' / 'antigravity' / 'resources' / 'app.asar'
-BACKUPS = LOCAL / 'AntigravityPulseBackups'
+SETTINGS = _paths['settings']
+APP = _paths['app']
+BACKUPS = _paths['backups']
 RUNTIME_FILES = ('assets', 'compat', 'sidecars', 'plugin.json')
 DIST_FILES = ('plugin.json', 'assets', 'sidecars', 'compat', 'manage.py', 'install.ps1',
-              'uninstall.ps1', 'README.md', 'LICENSE', 'CHANGELOG.md', 'COMPATIBILITY.md', 'docs', 'package.json',
+              'uninstall.ps1', 'install.sh', 'uninstall.sh', 'README.md', 'LICENSE', 'CHANGELOG.md', 'COMPATIBILITY.md', 'docs', 'package.json',
               '.gitignore', '.gitattributes', '.github', 'tests', 'tools', 'GITHUB_RELEASE.md', 'README.zh-CN.md')
 IGNORED = {'__pycache__', '.data', 'node_modules', '.git', 'dist', 'data', 'history-v1', 'sdk'}
 
@@ -46,6 +50,7 @@ def adapter():
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
     module.APP = APP
+    module.BACKUPS = BACKUPS
     return module
 
 def original_for_current(current):
@@ -95,8 +100,10 @@ def install(panel_only=False, legacy_loader=False):
         raise RuntimeError('Existing customization configuration has an incompatible shape.')
     if not panel_only:
         if not APP.is_file():
-            raise RuntimeError('Antigravity desktop app not found. See COMPATIBILITY.md.')
+            raise RuntimeError('Antigravity desktop app not found. Use --app-path /path/to/resources/app.asar for a custom installation. See COMPATIBILITY.md.')
     if legacy_loader:
+        if sys.platform != 'win32':
+            raise RuntimeError('The historical app.asar loader is Windows-only. Use the default runtime adapter.')
         module = adapter()
         module.build(module.unpatched_original(APP.read_bytes()))
     elif not panel_only:
@@ -112,9 +119,14 @@ def install(panel_only=False, legacy_loader=False):
         else:
             shutil.copy2(source, target)
     if legacy_loader:
-        subprocess.run([sys.executable, str(SOURCE / 'compat' / 'patch-loader.py'), '--apply'], check=True)
+        subprocess.run([sys.executable, str(SOURCE / 'compat' / 'patch-loader.py'), '--apply'], check=True,
+                       env={**os.environ, 'AG_PULSE_APP_ASAR': str(APP)})
     settings = json_read(SETTINGS)
     settings.update({'inline': not panel_only, 'mode': 'legacy' if legacy_loader else 'runtime'})
+    if APP.is_file():
+        settings['appResources'] = str(APP.parent)
+    if os.environ.get('AG_PULSE_PROFILE'):
+        settings['profile'] = str(_paths['profile'])
     atomic_json(SETTINGS, settings)
     set_enabled(True)
     print('Installed:', PLUGIN)
@@ -181,14 +193,18 @@ def package(output=None):
     print('SHA256:', digest)
 
 def main():
+    global APP
     parser = argparse.ArgumentParser(description='Antigrative Dashboard lifecycle manager')
     sub = parser.add_subparsers(dest='action', required=True)
     p = sub.add_parser('install'); group = p.add_mutually_exclusive_group()
     group.add_argument('--panel-only', action='store_true')
     group.add_argument('--legacy-loader', action='store_true', help='Opt in to the old, version-specific app.asar adapter')
+    p.add_argument('--app-path', type=Path, help='Path to the desktop app resources/app.asar for a custom installation')
     for action in ('enable', 'disable', 'status', 'uninstall'): sub.add_parser(action)
     p = sub.add_parser('package'); p.add_argument('--output')
     args = parser.parse_args()
+    if args.action == 'install' and args.app_path:
+        APP = args.app_path.expanduser().resolve()
     try:
         if args.action == 'install': install(args.panel_only, args.legacy_loader)
         elif args.action == 'enable': set_enabled(True)

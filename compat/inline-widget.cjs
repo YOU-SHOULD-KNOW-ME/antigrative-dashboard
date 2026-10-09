@@ -15,7 +15,7 @@ module.exports = function installAgPulseInlineWidget() {
   let node=null,root=null,data=null,pending=false,cardName=null,hoverTimer=null,lastConversation=null,lastFetch=0,lastExpiredRefresh=0,resizeObserver=null,groupMenu=null;
   let chosen=localStorage.getItem('ag-pulse-group'),group=null;
   const icon=(name)=>({speed:'<path d="M3 12a6 6 0 1 1 10 0M8 9l3-4"/>',cache:'<ellipse cx="8" cy="4" rx="5" ry="2"/><path d="M3 4v8c0 2 10 2 10 0V4M3 8c0 2 10 2 10 0"/>',five:'<circle cx="8" cy="8" r="5.6"/><path d="M8 4.7v3.6l2.3 1.4"/>',week:'<rect x="2.5" y="3.5" width="11" height="10" rx="2"/><path d="M5 2v3m6-3v3M3 7h10"/>'}[name]);
-  const svg=name=>`<svg viewBox="0 0 16 16" aria-hidden="true">${icon(name)}</svg>`;
+  const svg=name=>`<svg viewBox="0 0 16 16" aria-hidden="true">${name==='context'?'<circle cx="8" cy="8" r="5.6"/><path d="M8 2.4V8l4.8 2.8"/>':icon(name)}</svg>`;
   const pct=n=>typeof n==='number'&&Number.isFinite(n)?`${(n*100).toFixed(1)}%`:'—';
   const rate=n=>typeof n==='number'&&Number.isFinite(n)?n.toLocaleString('en-US',{maximumFractionDigits:1,minimumFractionDigits:1}):'—';
   const count=n=>typeof n==='number'&&Number.isFinite(n)?n.toLocaleString('en-US'):'—';
@@ -53,8 +53,10 @@ module.exports = function installAgPulseInlineWidget() {
     if(!cardName)return;
     const button=root.querySelector(`[data-card="${cardName}"]`),card=$(`${cardName}-card`),rect=button.getBoundingClientRect();
     const width=Math.min(310,window.innerWidth-24);card.style.width=`${width}px`;
+    card.style.maxHeight=`${Math.max(80,window.innerHeight-24)}px`;card.style.overflowY='auto';
     card.style.left=`${Math.min(window.innerWidth-width-12,Math.max(12,rect.left+rect.width/2-width/2))}px`;
-    card.style.top=`${Math.max(12,rect.top-card.offsetHeight-9)}px`;
+    const above=rect.top-card.offsetHeight-9,below=rect.bottom+9;
+    card.style.top=`${above>=12?above:below+card.offsetHeight<=window.innerHeight-12?below:Math.max(12,Math.min(window.innerHeight-card.offsetHeight-12,below))}px`;
   }
   function mount(){
     const editor=document.querySelector('[aria-label="Message input"]');
@@ -78,12 +80,14 @@ module.exports = function installAgPulseInlineWidget() {
       :host{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","Microsoft YaHei",sans-serif;color:#b9bcc4;font-size:11px}*{box-sizing:border-box}button,select{font:inherit}button{cursor:pointer}svg{width:13px;height:13px;fill:none;stroke:currentColor;stroke-width:1.2;stroke-linecap:round;stroke-linejoin:round;flex:none}button:focus-visible,select:focus-visible{outline:2px solid #88aaff;outline-offset:2px}
       .bar{display:flex;justify-content:flex-start;width:100%;align-items:center;gap:7px;min-height:28px;padding:2px 0}.chip{display:flex;align-items:center;gap:6px;color:#aaaeb6;background:none;border:0;border-radius:5px;padding:3px 6px;white-space:nowrap;line-height:18px}.chip:hover,.chip[aria-expanded=true]{background:#292b2e;color:#d9dce2}.chip strong{font-weight:500;font-variant-numeric:tabular-nums}.dim{color:#858b94}.countdown{font-size:10px;font-variant-numeric:tabular-nums}.dot{width:4px;height:4px;background:#777c84;border-radius:50%;flex:none}.dot.live{background:#8bb19b}.dot.stale{background:#dbb47e}.group{color:#858b94;font-size:10px;margin-right:1px}.card{position:fixed;z-index:2147483000;padding:13px 14px 11px;border-radius:13px;background:linear-gradient(145deg,#2a2c2f,#303235);box-shadow:0 8px 32px #0005;border:1px solid #ffffff08;color:#e1e3e7;font-size:12px}.card[hidden]{display:none}dl>[hidden]{display:none}.heading{display:flex;align-items:center;justify-content:space-between;padding-bottom:10px;margin-bottom:9px;border-bottom:1px solid #ffffff15;font-weight:600}.heading span{display:flex;align-items:center;gap:7px}.tag{font-size:10px;font-weight:400;color:#adb2ba}dl{margin:0}dl div{display:flex;align-items:baseline;justify-content:space-between;gap:10px;margin:8px 0}dt{color:#b8bdc5;font-size:11px}dd{margin:0;font-size:11px;font-variant-numeric:tabular-nums;text-align:right}.emphasis dd{font-weight:600;color:#dbe5ff}.footnote{font-size:10px;color:#969da8;line-height:1.6;margin:10px 0 0}.balance{display:flex;align-items:baseline;gap:8px;margin:12px 0}.balance strong{font-size:27px;font-weight:550;letter-spacing:-.6px;font-variant-numeric:tabular-nums}.balance span{color:#a7adb7;font-size:11px}.track{height:4px;border-radius:3px;background:#ffffff15;margin:12px 0 14px;overflow:hidden}.track i{height:100%;display:block;background:#85a8ff;width:0}select{color:#c2c7d1;background:#383b3f;border:0;border-radius:4px;font-size:10px;padding:3px 5px;max-width:120px}.toolbar{display:flex;align-items:center;gap:7px}.refresh{color:#afb6c2;border:0;background:transparent;padding:0 3px;font-size:14px}.reset{color:#dbe5ff}.rounds,.group,.dot.live{display:none}.chip[hidden]{display:none}.toolbar{position:relative}.group-trigger{color:#c2c7d1;background:#383b3f;border:0;border-radius:5px;font-size:10px;padding:4px 7px;white-space:nowrap}.group-menu{position:absolute;top:calc(100% + 5px);right:22px;min-width:132px;padding:4px;background:#303338;border:1px solid #555a64;border-radius:7px;box-shadow:0 6px 20px #0005;z-index:10}.group-menu[hidden]{display:none}.group-menu button{display:block;width:100%;padding:7px 9px;border:0;border-radius:4px;background:none;color:#d4d8df;text-align:left;white-space:nowrap}.group-menu button:hover,.group-menu button[aria-selected=true]{background:#444950}.chip{padding:2px 4px;font-size:10px;gap:4px;min-width:0}.bar{gap:3px}.language-button{border:0;background:none;color:#8e9cb3;border-radius:4px;font-size:9px;padding:3px 4px;margin-left:auto;cursor:pointer;flex:none}.language-button:hover{color:#dbe4f6;background:#30343b}:host(.compact) .countdown{display:none}:host(.narrow) .cache-total{display:none}:host(.narrow) [data-card="cache"] .dim{display:none}:host(.narrow) .chip svg{display:none}:host(.narrow) .chip{padding:2px 3px;font-size:9px}:host(.narrow) .bar{gap:0}
 
+    .context-ring{display:inline-block;flex:none;width:12px;height:12px;border-radius:50%;background:conic-gradient(#9fadc7 var(--used-angle,0deg),#565c67 0);mask:radial-gradient(circle,transparent 43%,#000 47%)}:host(.narrow) .context-label{display:none}
     </style><div class="bar" data-i18n-aria="strip" aria-label="Dashboard statistics">
       <span class="dot" id="dot" title="Connecting"></span><span class="group" id="group-label"></span>
       <button class="chip" data-card="speed" hidden aria-controls="speed-card" aria-expanded="false">${svg('speed')}<span class="rounds dim" id="rounds"></span><strong id="tps">—</strong><span>tok/s</span></button>
       <button class="chip" data-card="cache" hidden aria-controls="cache-card" aria-expanded="false">${svg('cache')}<span class="cache-total" id="cache-total">— tok</span><span class="dim">·</span><span data-i18n="cache">Cache hit</span><strong id="cache-rate">—</strong></button>
       <button class="chip" data-card="five" aria-controls="five-card" aria-expanded="false">${svg('five')}<span>5h</span><strong id="five">—</strong><span class="countdown dim" id="five-timer">—</span></button>
       <button class="chip" data-card="week" aria-controls="week-card" aria-expanded="false">${svg('week')}<span data-i18n="weekShort">Wk</span><strong id="week">—</strong><span class="countdown dim" id="week-timer">—</span></button>
+      <button class="chip" data-card="context" hidden aria-controls="context-card" aria-expanded="false"><span class="context-ring" id="context-ring" aria-hidden="true"></span><span class="context-label" data-i18n="contextShort">Ctx</span><strong id="context-percent">—</strong></button>
       <button class="language-button" id="language-toggle" aria-label="Language">EN</button>
     </div><section class="card" id="speed-card" role="region" data-i18n-aria="session" aria-label="Session statistics" hidden>
       <div class="heading"><span>${svg('speed')}<span data-i18n="session">Session statistics</span></span><span class="tag" id="samples">—</span></div>
@@ -91,6 +95,11 @@ module.exports = function installAgPulseInlineWidget() {
     </section><section class="card" id="cache-card" role="region" data-i18n-aria="cacheTitle" aria-label="Token cache" hidden>
       <div class="heading"><span>${svg('cache')}<span data-i18n="cacheTitle">Token cache</span></span><span class="tag" id="cache-coverage">—</span></div>
       <dl>${[['cacheRate','cache-detail-rate'],['cacheMiss','cache-miss'],['cacheRead','cache-read'],['cacheOutput','cache-output'],['cacheWrite','cache-write']].map(([key,id])=>`<div ${id==='cache-write'?'id="cache-write-row" hidden':''}><dt data-i18n="${key}">${t(key)}</dt><dd id="${id}">—</dd></div>`).join('')}</dl><p class="footnote" id="cache-note">${t('cacheBasis')}</p>
+    </section><section class="card context-card" id="context-card" role="region" data-i18n-aria="context" hidden>
+      <div class="heading"><span>${svg('context')}<span data-i18n="context">Context window</span></span></div>
+      <strong id="context-summary">—</strong><p id="context-tokens">—</p>
+      <div class="track" role="progressbar" data-i18n-aria="context" id="context-track"><i id="context-fill"></i></div>
+      <dl><div><dt data-i18n="contextModel">Sampled model</dt><dd id="context-model">—</dd></div></dl><p class="footnote" id="context-note">—</p>
     </section>${['five','week'].map(name=>`<section class="card" id="${name}-card" role="region" data-i18n-aria="${name}" aria-label="${t(name)}" hidden><div class="heading"><span>${svg(name)}<span data-i18n="${name}">${t(name)}</span></span><div class="toolbar"><button class="group-trigger" data-i18n-aria="group" aria-label="Quota group" aria-haspopup="listbox" aria-expanded="false">Quota ▾</button><div class="group-menu" role="listbox" data-i18n-aria="selectGroup" aria-label="Select quota group" hidden></div><button class="refresh" data-i18n-aria="refresh" aria-label="Refresh quota" title="Refresh quota">↻</button></div></div><div class="balance"><strong id="${name}-balance">—</strong><span data-i18n="remaining">remaining</span></div><div class="track" role="progressbar" data-i18n-aria="${name}" aria-label="${t(name)}" id="${name}-track"><i id="${name}-fill"></i></div><dl><div><dt data-i18n="resetIn">Resets in</dt><dd class="reset" id="${name}-countdown">—</dd></div><div><dt data-i18n="resetTime">Reset time (UTC+8)</dt><dd id="${name}-reset">—</dd></div></dl><p class="footnote" id="${name}-note">${t('loadingQuota')}</p></section>`).join('')}`;
     row.insertBefore(node,branch.nextSibling);
     report('mounted',{editorFound:true,composerFound:true});
@@ -125,6 +134,18 @@ module.exports = function installAgPulseInlineWidget() {
     const speed=data.speed;
     root.querySelector('[data-card="speed"]').hidden=!lastConversation;
     root.querySelector('[data-card="cache"]').hidden=!lastConversation;
+    const context=speed?.context, hasCapacity=typeof context?.usedFraction==='number';
+    root.querySelector('[data-card="context"]').hidden=!lastConversation;
+    text('context-percent',hasCapacity?`${Math.round(context.usedFraction*100)}%`:'—');
+    $('context-ring').style.setProperty('--used-angle',`${hasCapacity?Math.min(1,context.usedFraction)*360:0}deg`);
+    text('context-summary',hasCapacity?t('contextUsed',{used:Math.round(context.usedFraction*100),remaining:Math.round(context.remainingFraction*100)}):t('contextUnknown'));
+    text('context-tokens',context?t('contextTokens',{used:compact(context.usedTokens),max:context.maxTokens===null?'—':compact(context.maxTokens)}):'—');
+    text('context-model',context?.model||'—');
+    const restored=context&&(speed.contextRestored===true||speed.restoredFromHistory&&speed.contextRestored!==false);
+    text('context-note',(context?t('contextBasis'):t('contextUnavailable'))+(restored?' '+t('contextSaved',{time:speed.savedAt?language.resetDate(speed.savedAt):'—'}):'')+(hasCapacity&&context.usedFraction>1?' '+t('contextExceeded'):''));
+    $('context-fill').style.width=hasCapacity?`${Math.min(1,context.usedFraction)*100}%`:'0%';
+    $('context-fill').style.background=hasCapacity&&context.usedFraction>=.9?'#e99b9b':'';
+    if(hasCapacity){$('context-track').setAttribute('aria-valuenow',String(Math.min(100,context.usedFraction*100)));$('context-track').setAttribute('aria-valuemin','0');$('context-track').setAttribute('aria-valuemax','100');}else $('context-track').removeAttribute('aria-valuenow');
     text('tps',rate(speed?.tps));text('rounds',speed?t('rounds',{rounds:speed.rounds,steps:speed.steps}):'');
     text('samples',speed?t('sample',{rounds:speed.rounds,steps:speed.steps,requests:speed.measuredRequests}):t('waitingRequest'));text('model-time',seconds(speed?.modelSeconds));text('tool-time',seconds(speed?.toolSeconds));text('ttft',seconds(speed?.ttftSeconds));text('session-rate',`${rate(speed?.tps)} tok/s`);text('latest-rate',`${rate(speed?.latestTps)} tok/s`);text('tokens',speed?`${count(speed.counts.responseOutput)} / ${count(speed.counts.thinkingOutput)} tok`:'—');
     const basis=t(speed?.rateBasis==='all-output'?'allBasis':'responseBasis');
@@ -153,7 +174,7 @@ module.exports = function installAgPulseInlineWidget() {
   async function refresh(force=false){
     if(pending||!node?.isConnected)return;
     const conversation=location.pathname.match(/\/c\/([0-9a-f-]{36})/i)?.[1]||null;
-    if(conversation!==lastConversation){lastConversation=conversation;data=null;group=null;text('tps','—');text('rounds','');hide();}
+    if(conversation!==lastConversation){lastConversation=conversation;data={connection:'offline',groups:[],speed:null};group=null;hide();render();}
     pending=true;lastFetch=Date.now();
     try{const result=await window.agPulseHost.getMetrics({conversationId:conversation,force});if(conversation!==lastConversation)return;node.style.visibility=result.enabled===false?'hidden':'';if(result.enabled===false){hide();return;}if(!conversation)result.speed=null;data=result;render();}
     catch{if(data){data.connection='stale';data.error=t('reconnecting');render();}}

@@ -1,0 +1,45 @@
+name: Official host resources
+on:
+  push:
+  pull_request:
+  workflow_call:
+permissions:
+  contents: read
+jobs:
+  resources:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            artifact: linux-x64/Antigravity.tar.gz
+          - os: macos-latest
+            artifact: darwin-arm/Antigravity.dmg
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Inspect official desktop 2.21.1 resource layout
+        shell: bash
+        env:
+          HOST_ARTIFACT: ${{ matrix.artifact }}
+        run: |
+          set -euo pipefail
+          root="$RUNNER_TEMP/antigravity-host"
+          mkdir -p "$root"
+          curl --fail --location --retry 3 "https://storage.googleapis.com/antigravity-public/antigravity-hub/2.21.1-5614635819335680/$HOST_ARTIFACT" -o "$root/download"
+          if [[ "$RUNNER_OS" == Linux ]]; then
+            tar -xzf "$root/download" -C "$root"
+            resources=$(find "$root" -path '*/resources/app.asar' -print -quit)
+            resources=$(dirname "$resources")
+          else
+            hdiutil attach "$root/download" -mountpoint "$root/mount" -nobrowse -readonly
+            resources=$(find "$root/mount" -path '*/Contents/Resources/app.asar' -print -quit)
+            resources=$(dirname "$resources")
+          fi
+          test -f "$resources/app.asar"
+          echo "AG_PULSE_APP_RESOURCES=$resources" >> "$GITHUB_ENV"
+          echo "ANTIGRAVITY_EXECUTABLE_DATA_DIR=$RUNNER_TEMP/ag-sdk-check" >> "$GITHUB_ENV"
+      - run: node tools/check-host-resources.mjs

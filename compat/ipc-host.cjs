@@ -5,6 +5,9 @@ module.exports = function installAgPulseIpc(electron, authorities) {
   const fs = require('node:fs');
   const path = require('node:path');
   const os = require('node:os');
+  const local = process.platform === 'win32' ? process.env.LOCALAPPDATA || path.join(os.homedir(),'AppData','Local')
+    : process.platform === 'darwin' ? path.join(os.homedir(),'Library','Application Support')
+    : process.env.XDG_DATA_HOME || path.join(os.homedir(),'.local','share');
   const GUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
   const offline = message => ({ connection:'offline', error:message, groups:[],speed:null,serverTime:new Date().toISOString() });
   electron.ipcMain.on('ag-pulse:diagnostic',(event,state={})=>{
@@ -23,7 +26,7 @@ module.exports = function installAgPulseIpc(electron, authorities) {
     try { origin = new URL(event.senderFrame?.url || event.sender.getURL()); } catch { return offline('来源不可用'); }
     if (!['127.0.0.1','localhost','[::1]'].includes(origin.hostname) || !['http:','https:'].includes(origin.protocol)) return offline('仅允许 Antigravity 本地界面');
     for(const [file,disabled] of [
-      [path.join(process.env.LOCALAPPDATA||path.join(os.homedir(),'AppData','Local'),'AntigravityPulse','settings.json'),s=>s.enabled===false],
+      [path.join(local,'AntigravityPulse','settings.json'),s=>s.enabled===false],
       [path.join(os.homedir(),'.gemini','config','config.json'),s=>s.plugins?.['antigravity-pulse']?.enabled===false],
     ]) {
       try {if(disabled(JSON.parse(fs.readFileSync(file,'utf8').replace(/^\uFEFF/,''))))return {...offline('Antigrative Dashboard 已停用'),enabled:false};}catch{}

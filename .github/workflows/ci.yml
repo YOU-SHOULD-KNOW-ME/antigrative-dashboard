@@ -4,7 +4,11 @@ permissions:
   contents: read
 jobs:
   test:
-    runs-on: windows-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, ubuntu-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -18,5 +22,5 @@ jobs:
       - run: python manage.py package
       - uses: actions/upload-artifact@v4
         with:
-          name: antigrative-dashboard
+          name: antigrative-dashboard-${{ matrix.os }}
           path: dist/*

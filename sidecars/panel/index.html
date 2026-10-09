@@ -58,6 +58,12 @@
         <dl><div><dt><span data-i18n="resetIn">Resets in</span></dt><dd class="reset-countdown" id="week-countdown">—</dd></div><div><dt><span data-i18n="resetTime">Reset time (UTC+8)</span></dt><dd id="week-reset">—</dd></div></dl>
         <p class="card-footnote quota-note" id="week-note">Read from the account API.</p>
       </article>
+      <article class="detail-card" id="context-card" role="region" data-i18n-aria="context" hidden>
+        <div class="card-heading"><span data-i18n="context">Context window</span></div>
+        <strong id="context-summary">—</strong><p id="context-tokens">—</p>
+        <div class="quota-track" role="progressbar" data-i18n-aria="context" id="context-track"><i id="context-fill"></i></div>
+        <dl><div><dt data-i18n="contextModel">Sampled model</dt><dd id="context-model">—</dd></div></dl><p class="card-footnote" id="context-note">—</p>
+      </article>
     </section>
     <footer class="status-strip" data-i18n-aria="strip" aria-label="Live statistics">
       <button class="metric-chip speed-chip" type="button" data-card="speed" aria-controls="speed-card" aria-expanded="false">
@@ -70,6 +76,7 @@
       <button class="metric-chip" type="button" data-card="week" aria-controls="week-card" aria-expanded="false">
         <svg class="icon"><use href="#calendar"/></svg><span class="chip-content"><span class="chip-primary"><span data-i18n="weekShort">Wk</span> <strong id="strip-week">—</strong></span><span class="chip-secondary timer" id="strip-week-timer">—</span></span>
       </button>
+      <button class="metric-chip" type="button" data-card="context" aria-controls="context-card" aria-expanded="false"><svg class="icon"><use href="#gauge"/></svg><span class="chip-content"><span class="chip-primary"><span data-i18n="contextShort">Ctx</span> <strong id="strip-context">—</strong></span><span class="chip-secondary" data-i18n="context">Context window</span></span></button>
     </footer>
     <p class="health-note" id="health-note" role="status">Waiting for the first update</p>
     <p class="health-note" id="integration-note" role="status"></p>

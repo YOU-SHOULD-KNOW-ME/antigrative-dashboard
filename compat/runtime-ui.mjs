@@ -2,7 +2,7 @@
 import { readFile, mkdir, writeFile } from 'node:fs/promises';
 import { request } from 'node:http';
 import { join } from 'node:path';
-import { homedir } from 'node:os';
+import { platformPaths } from './platform.mjs';
 import { createHash } from 'node:crypto';
 
 const LOOPBACK = new Set(['127.0.0.1', 'localhost', '[::1]']);
@@ -123,7 +123,7 @@ export function makeRendererSource(i18n, widget) {
 }
 
 export class RuntimeUi {
-  constructor({ snapshot, source, profile = join(process.env.APPDATA || join(homedir(), 'AppData', 'Roaming'), 'Antigravity'),
+  constructor({ snapshot, source, profile = platformPaths().profile,
     dataDir, enabled = async () => true, discover = discoverTargets, connect = (url, options) => new CdpConnection(url, options), interval = 3000 } = {}) {
     this.snapshot = snapshot; this.source = source; this.profile = profile; this.dataDir = dataDir; this.enabled = enabled;
     this.discover = discover; this.connect = connect; this.interval = interval; this.sessions = new Map(); this.running = false;
