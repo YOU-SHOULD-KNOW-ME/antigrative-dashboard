@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased — CI maintenance
+
+- Allow up to 30 seconds for the CLI shell-transport test on Windows CI, where cold CMD/PowerShell/Node startup exceeded the previous 10-second limit. Keep the exit-code and exact rendered-output assertions, with no automatic test retry. Desktop and CLI runtime behavior is unchanged.
+
 ## 0.6.3 — 2026-10-10
 
 - Fix a small position jump when reversing a density transition: capture the currently painted copies before the flex layout changes, and retain source metadata for outgoing labels.

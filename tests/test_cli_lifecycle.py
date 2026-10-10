@@ -46,8 +46,12 @@ class CliLifecycleTests(unittest.TestCase):
     def test_shell_command_runs_installed_adapter_with_spaces_cjk_and_ampersand(self):
         cli.install(ROOT, self.home, language='zh-CN')
         command = cli.read(self.settings)['statusLine']['command']
+        # This checks shell quoting and rendered output, not cold-start speed.
+        # Windows CI launches CMD, PowerShell and Node; a busy runner can exceed
+        # 10 seconds even when the identical command succeeds on the next run.
+        startup_timeout = 30 if os.name == 'nt' and os.environ.get('CI') else 10
         result = subprocess.run(command, shell=True, input=json.dumps({'context_window': {'used_percentage': 12.5}}),
-                                capture_output=True, encoding='utf-8', timeout=10)
+                                capture_output=True, encoding='utf-8', timeout=startup_timeout)
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertIn('上下文 12.5%', re.sub(r'\x1b\[[\d;]+m', '', result.stdout))
 
