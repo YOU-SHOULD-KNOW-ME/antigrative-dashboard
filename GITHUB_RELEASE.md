@@ -1,4 +1,16 @@
-# Antigrative Dashboard v0.6.1
+# Antigrative Dashboard v0.6.2
+
+## Responsive motion without resize stutter
+
+- Add a **240ms interruptible transition** between full statistics and three interactive icons. Values fade out, speed/cache/context icons move into place, and the native model name fades in after the outgoing labels clear. Icon details remain clickable throughout.
+- Fix **resize-drag stutter and trailing copies**: continuing to drag no longer cancels and rebuilds animations every frame. Keep one animation clock per actual density change and crop the existing visual ribbon to current safe bounds.
+- Capture visual elements only for density changes. Avoid repeatedly expanding the strip to measure it while shrinking; filter unrelated control rectangles before reading visibility styles.
+- Use **12px of recovery headroom** to avoid full/icon flicker near the threshold. Content, language and native control changes can trigger fresh fit checks.
+- Preserve host layout styles. Inert, accessibility-hidden visual copies never intercept input; protect native actions and immediately cancel on unsafe placement, navigation, reparenting or disposal.
+- Retain full default motion, with short fades for the system reduced-motion preference. Metric polls and ordinary message scrolling do not replay transitions.
+- Add browser regressions for continuous resize/translation, threshold jitter, animation-layer counts, outgoing-label cleanup and restoration of the full layout. Windows local desktop drag and transition changes passed user acceptance; publishing requires Windows/Linux/macOS automated gates. Signed-in Linux/macOS GUI acceptance remains separate.
+
+## Includes the v0.6.1 fixes
 
 ## Subagent layout and responsive controls
 
@@ -16,7 +28,7 @@
 
 ## Install or update
 
-Download `antigrative-dashboard-0.6.1.zip` and `.zip.sha256`, verify the checksum and extract. Run from the extracted directory:
+Download `antigrative-dashboard-0.6.2.zip` and `.zip.sha256`, verify the checksum and extract. Run from the extracted directory:
 
 ```sh
 python manage.py install
@@ -34,7 +46,9 @@ Use `python3` on Linux/macOS. Fully quit and reopen Antigravity when no task is 
 
 ## 中文摘要
 
-v0.6.1 修复 Issue #5 子代理工具栏重叠，展示子代理自己的速度、缓存率和上下文，额度注明账号共享。窄窗口先保留仪表盘、数据库、上下文圆圈三个可交互图标，连图标都放不下才隐藏，拉宽后恢复；语言可在上下文详情中切换。
+v0.6.2 为完整统计与三个图标加入平滑过渡：文字淡出、图标收拢、模型名称淡入，支持反向切换且按钮始终可点击。修复拖动时逐帧重建动画造成的卡顿与残影；复用同一次过渡，仅调整安全裁剪。恢复完整数值留出 12px 余量，避免临界宽度来回闪切。默认完整动画保留，Windows 本地验收已通过。
+
+包含 v0.6.1 的 Issue #5 子代理工具栏重叠修复，展示子代理自己的速度、缓存率和上下文，额度注明账号共享。窄窗口先保留仪表盘、数据库、上下文圆圈三个可交互图标，连图标都放不下才隐藏，拉宽后恢复；语言可在上下文详情中切换。
 
 同时修复滚动时把输入框后面的消息按钮误判为碰撞，以及父子对话切换等待旧请求的问题。旧请求成功、失败及返回同一对话后的晚到响应都不能覆盖新数值。Windows 真实界面已验证；Linux/macOS 共用代码并运行 CI，登录后的实机 GUI 验收仍未完成。
 

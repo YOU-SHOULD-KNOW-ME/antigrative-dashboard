@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.6.2 — 2026-10-10
+
+- Animate responsive full-statistics / three-icon changes with a 240ms interruptible transition: fade outgoing values, move the existing icon shapes and ease the native model name back into view. Keep icon hit targets active throughout.
+- Clip inert motion copies away from native composer actions; immediately cancel on unsafe placement, navigation, reparenting or disposal. Preserve host layout styles and avoid replaying motion on metric polls or scrolling alone.
+- Add production-renderer browser coverage for in-flight geometry, rapid reversal, outgoing-label cleanup, native hit targets and system reduced-motion feedback. Run `npm run preview:motion` for an interactive local demonstration.
+- Fix resize-drag stutter and trailing motion copies: keep one animation clock per density change, clip the existing ribbon as the composer moves, capture visual pieces only for actual transitions, and avoid probing full layout repeatedly while shrinking. Use 12px of recovery headroom to prevent density chatter; retain the complete default transition.
+
 ## 0.6.1 — 2026-10-10
 
 - Refresh immediately on parent/subagent navigation instead of inheriting the old polling clock or waiting for its in-flight request. Guard success, failure and cleanup by navigation generation, and avoid listing every conversation when an exact ID is supplied. Preserve queued manual refresh feedback.

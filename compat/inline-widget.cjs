@@ -19,6 +19,9 @@ module.exports = function installAgPulseInlineWidget() {
   let chosen=localGet('ag-pulse-group'),group=null;
   let refreshRequest=null,manualRequest=null,requestEpoch=0,disposed=false;
   let composer=null,layoutFrame=null;
+  let densityFrame=null,densityMotion=null,densityProbe=null;
+  const densityMedia=matchMedia('(prefers-reduced-motion: reduce)');
+  const densityEase='cubic-bezier(0.32,0.72,0,1)';
   const preferences=language.connectPreferences({
     read:()=>window.agPulseHost.getPreferences(),write:input=>window.agPulseHost.setPreferences(input),
     cache:value=>localSet('ag-pulse-language',value),changed:()=>{if(root){localize();render();tick();position();}},
@@ -40,6 +43,7 @@ module.exports = function installAgPulseInlineWidget() {
     const id=conversationId();
     if(id===lastConversation)return false;
     lastConversation=id;requestEpoch++;pending=false;refreshRequest=null;lastFetch=0;
+    stopDensityMotion();densityFrame=null;densityProbe=null;
     manualRequest=null;refreshBusy(false);
     data={connection:'offline',groups:[],speed:null};group=null;hide();
     // Navigation has its own refresh budget. A request from the old composer
@@ -53,10 +57,98 @@ module.exports = function installAgPulseInlineWidget() {
     for(const e of root.querySelectorAll('[data-i18n-aria][title]'))e.title=t(e.dataset.i18nAria);
     for(const button of root.querySelectorAll('[data-language-toggle]')){button.textContent=language.language==='en'?'EN':'中';button.title=t('switchLanguage')+(preferences.error?' · '+t('languageSaveFailed'):'');button.setAttribute('aria-label',t('language'));button.dataset.saveFailed=String(preferences.error);}
   }
+  function stopDensityMotion(){
+    const motion=densityMotion;densityMotion=null;
+    if(!motion)return;
+    for(const animation of motion.animations)animation.cancel();
+    motion.stage.remove();delete node?.dataset.motion;
+  }
+  function densitySnapshot(previous){
+    const pieces=new Map();
+    for(const chip of root.querySelectorAll('.bar .chip'))for(const element of chip.children){
+      if(!element.getClientRects().length)continue;
+      const style=getComputedStyle(element);
+      pieces.set(element,{rect:element.getBoundingClientRect(),opacity:1,font:style.font,color:style.color,icon:element.matches('svg,.context-ring')});
+    }
+    return {pieces,rect:node.getBoundingClientRect(),model:composer.model,modelRect:previous?.model===composer.model?previous.modelRect:composer.model?.getBoundingClientRect(),row:composer.row};
+  }
+  function densityBounds(next){
+    const row=next.row.getBoundingClientRect(),target=next.rect;
+    let left=Math.max(row.left,composer.anchor?.getBoundingClientRect().right||0),right=Math.min(row.right,innerWidth);
+    for(const control of document.querySelectorAll('button,[role="button"],a[href],input,select')){
+      if(control===next.model||next.model?.contains(control)||control.contains(next.model))continue;
+      const r=control.getBoundingClientRect();
+      if(r.width<=0||r.height<=0||Math.min(target.bottom,r.bottom)-Math.max(target.top,r.top)<=1)continue;
+      if(control.closest('[hidden],[inert]')||getComputedStyle(control).visibility==='hidden')continue;
+      if(!next.row.parentElement.contains(control)){
+        if(Math.min(right,r.right)-Math.max(left,r.left)<=0)continue;
+        const x=(Math.max(left,r.left)+Math.min(right,r.right))/2,y=(Math.max(target.top,r.top)+Math.min(target.bottom,r.bottom))/2;
+        const hit=document.elementFromPoint(x,y);
+        if(hit!==control&&!control.contains(hit))continue;
+      }
+      if(r.right<=target.left+1)left=Math.max(left,r.right);
+      else if(r.left>=target.right-1)right=Math.min(right,r.left);
+      else return null;
+    }
+    return right-left>=target.width-2?{left,right}:null;
+  }
+  function clipDensityMotion(next){
+    if(!densityMotion)return;
+    const bounds=densityBounds(next);
+    if(!bounds){stopDensityMotion();return;}
+    // The ribbon follows its parent 1:1 while dragging. Keep its existing
+    // compositor animation and clock; only crop to current safe host bounds.
+    const stage=densityMotion.stage,r=stage.getBoundingClientRect();
+    stage.style.clipPath=`inset(0px ${Math.max(0,r.right-bounds.right)}px 0px ${Math.max(0,bounds.left-r.left)}px)`;
+  }
+  function animateDensity(previous,next){
+    // A narrow composer gives its space straight back to native controls. Only
+    // inert visual copies move; the real icons immediately have safe hit boxes.
+    // Copies share a clipped ribbon with the model selector's reveal, never the
+    // send/mic/add controls. Neither flex widths nor host styles are animated.
+    const interrupted=densityMotion;
+    if(interrupted)for(const [element,piece]of interrupted.pieces){
+      const old=previous.pieces.get(element)||next.pieces.get(element);
+      if(old)previous.pieces.set(element,{...old,rect:piece.getBoundingClientRect(),opacity:Number(getComputedStyle(piece).opacity)});
+    }
+    const modelOpacity=next.model?getComputedStyle(next.model).opacity:'1';
+    stopDensityMotion();
+    if(!Element.prototype.animate)return;
+    const bounds=densityBounds(next);if(!bounds)return;
+    const {left,right}=bounds,target=next.rect;
+    const reduce=densityMedia.matches,duration=reduce?120:240;
+    const stage=document.createElement('div');stage.className='density-stage';stage.inert=true;stage.setAttribute('aria-hidden','true');
+    stage.style.cssText=`left:${left-target.left}px;top:0;width:${right-left}px;height:${target.height}px`;
+    root.append(stage);
+    const motion={stage,animations:[],pieces:new Map()};densityMotion=motion;node.dataset.motion='density';
+    const play=(element,frames,options={})=>{const animation=element.animate(frames,{duration,easing:densityEase,...options});motion.animations.push(animation);return animation;};
+    for(const element of new Set([...previous.pieces.keys(),...next.pieces.keys()])){
+      const from=previous.pieces.get(element),to=next.pieces.get(element),piece=to||from;
+      const visual=element.cloneNode(true),end=to?.rect||from.rect;
+      for(const part of [visual,...visual.querySelectorAll('*')])for(const attribute of [...part.attributes])if(attribute.name==='id'||attribute.name.startsWith('data-')||attribute.name.startsWith('aria-'))part.removeAttribute(attribute.name);
+      const endX=Math.max(left,Math.min(right-end.width,end.left)),endY=end.top-target.top;
+      visual.classList.add('density-piece');visual.style.cssText+=`;position:absolute;left:${endX-left}px;top:${endY}px;width:${end.width}px;height:${end.height}px;font:${piece.font};color:${piece.color};margin:0;pointer-events:none;display:block`;
+      stage.append(visual);motion.pieces.set(element,visual);
+      const start=from?.rect||end;
+      const startX=Math.max(left,Math.min(right-start.width,start.left));
+      const dx=reduce?0:startX-endX,dy=reduce?0:start.top-end.top;
+      const startOpacity=from?.opacity??0,endOpacity=to?1:0;
+      play(visual,[{transform:`translate(${dx}px,${dy}px)`,opacity:startOpacity},{transform:'translate(0,0)',opacity:endOpacity}],{fill:'both',...(piece.icon?{}:{duration:to?duration:80})});
+      if(to)play(element,[{opacity:0},{opacity:0}],{fill:'both'});
+    }
+    // The host model name often goes from a caret to a full label as space is
+    // returned. Let the outgoing labels leave before revealing that name.
+    if(next.model&&previous.model===next.model&&(Math.abs(next.modelRect.width-previous.modelRect.width)>8||interrupted&&Number(modelOpacity)<.999)){
+      play(next.model,[{opacity:interrupted?modelOpacity:0},{opacity:1}],{delay:reduce||interrupted?0:100,duration:reduce?120:interrupted?240:140,fill:'backwards'});
+    }
+    const finish=play(stage,[{opacity:1},{opacity:1}]);
+    finish.onfinish=()=>{if(densityMotion===motion){stopDensityMotion();position();}};
+  }
   function fit(){
     if(!node?.isConnected)return;
-    const bar=root.querySelector('.bar');
-    node.classList.remove('compact','narrow','context-only','icons-only');
+    const bar=root.querySelector('.bar'),oldDensity=node.dataset.density,oldReady=node.dataset.layout==='ready';
+    let previous=densityFrame;
+    if(['compact','narrow','context-only'].some(c=>node.classList.contains(c)))node.classList.remove('compact','narrow','context-only');
     // Flex shrink alone does not constrain nowrap children or protect controls
     // positioned outside the flex flow (e.g. Agent Manager window buttons).
     const fits=()=>{
@@ -65,9 +157,9 @@ module.exports = function installAgPulseInlineWidget() {
       if(bar.scrollWidth>bar.clientWidth+2||rect.width<=0||rect.left< -1||rect.right>innerWidth+1||rect.top< -1||rect.bottom>innerHeight+1||rect.left<row.left-1||rect.right>row.right+1)return false;
       if(composer.kind==='subagent'&&intersects(composer.anchor.getBoundingClientRect()))return false;
       for(const control of document.querySelectorAll('button,[role="button"],a[href],input,select,[contenteditable="true"]')){
-        if(control.closest('[hidden],[inert]')||!control.getClientRects().length||getComputedStyle(control).visibility==='hidden')continue;
         const other=control.getBoundingClientRect();
-        if(!intersects(other))continue;
+        if(other.width<=0||other.height<=0||!intersects(other))continue;
+        if(control.closest('[hidden],[inert]')||getComputedStyle(control).visibility==='hidden')continue;
         // Scrolling messages can put clipped/covered links underneath the
         // fixed composer. Their rectangles alone are not a visible collision.
         // Always reserve local actions; other controls must actually paint at
@@ -82,10 +174,29 @@ module.exports = function installAgPulseInlineWidget() {
       return true;
     };
     let safe=fits();
-    if(!safe){node.classList.add('icons-only');safe=fits();}
+    const rowWidth=composer.row.getBoundingClientRect().width;
+    const probeKey=()=>node.style.cssText+'|'+language.language+'|'+lastConversation+'|'+bar.textContent+'|'+$('dot').className+'|'+getComputedStyle(composer.row).gap+'|'+Array.from(composer.row.querySelectorAll('button,[role="button"],a[href],input,select')).filter(c=>c!==composer.model&&!c.contains(composer.model)).map(c=>c.getBoundingClientRect().width).join(',');
+    if(oldDensity==='icons'){
+      const key=probeKey();
+      // Twelve pixels of recovery headroom prevents threshold chatter. Shrinking
+      // or scrolling in icon mode never toggles back to full just to measure it.
+      if(!densityProbe||key!==densityProbe.key||rowWidth>=densityProbe.width+12){
+        previous=densitySnapshot(previous);node.classList.remove('icons-only');safe=fits();
+        if(!safe){node.classList.add('icons-only');safe=fits();densityProbe={key,width:rowWidth};}
+        else densityProbe=null;
+      }
+    }else if(!safe){
+      previous=densitySnapshot(previous);node.classList.add('icons-only');safe=fits();densityProbe={key:probeKey(),width:rowWidth};
+    }
     node.dataset.density=node.classList.contains('icons-only')?'icons':'full';
     const state=safe?'ready':'blocked';
     if(node.dataset.layout!==state){node.dataset.layout=state;node.inert=!safe;if(!safe)hide();}
+    const changed=safe&&oldReady&&previous?.row===composer.row&&oldDensity!==node.dataset.density;
+    const next=changed?densitySnapshot():{rect:node.getBoundingClientRect(),model:composer.model,modelRect:composer.model?.getBoundingClientRect(),row:composer.row};
+    if(changed)animateDensity(previous,next);
+    else if(!safe||previous?.row!==composer.row||previous?.model!==composer.model)stopDensityMotion();
+    else if(densityMotion)clipDensityMotion(next);
+    densityFrame=next;
   }
   function scheduleLayout(){
     if(layoutFrame!==null)return;
@@ -185,13 +296,13 @@ module.exports = function installAgPulseInlineWidget() {
   }
   function mount(){
     const found=findComposer();
-    if(!found){composer=null;resizeObserver?.disconnect();if(node?.isConnected){hide();themeController?.dispose();themeController=null;node.remove();}return;}
+    if(!found){stopDensityMotion();densityFrame=null;densityProbe=null;composer=null;resizeObserver?.disconnect();if(node?.isConnected){hide();themeController?.dispose();themeController=null;node.remove();}return;}
     composer=found;
     if(syncConversation())render();
     const {editor,model,row,branch}=found;
     if(node)node.dataset.scope=found.kind;
     if(node?.isConnected&&node.parentElement===row&&node.previousElementSibling===branch)return;
-    if(node){hide();row.insertBefore(node,branch.nextSibling);observeComposer();themeController?.dispose();themeController=theme.attach(node,{embedded:true});if(data?.theme)themeController.setHostTheme(data.theme);fit();position();return;}
+    if(node){stopDensityMotion();densityFrame=null;densityProbe=null;hide();row.insertBefore(node,branch.nextSibling);observeComposer();themeController?.dispose();themeController=theme.attach(node,{embedded:true});if(data?.theme)themeController.setHostTheme(data.theme);fit();position();return;}
     resizeObserver?.disconnect();node?.remove();node=document.createElement('div');node.id=ID;
     node.dataset.scope=found.kind;
     node.style.cssText='display:flex;align-items:center;flex:0 1 auto;min-width:0;max-width:100%;height:28px;margin:0 5px;position:relative;';
@@ -201,6 +312,7 @@ module.exports = function installAgPulseInlineWidget() {
       .bar{display:flex;justify-content:flex-start;width:100%;align-items:center;gap:7px;min-height:28px;padding:2px 0}.chip{display:flex;align-items:center;gap:6px;color:var(--pulse-chip);background:none;border:0;border-radius:5px;padding:3px 6px;white-space:nowrap;line-height:18px}.chip:hover,.chip[aria-expanded=true]{background:var(--pulse-hover);color:var(--pulse-hover-text)}.chip strong{font-weight:500;font-variant-numeric:tabular-nums}.dim{color:var(--pulse-muted)}.countdown{font-size:10px;font-variant-numeric:tabular-nums}.dot{width:4px;height:4px;background:var(--pulse-dot);border-radius:50%;flex:none}.dot.live{background:var(--pulse-success)}.dot.stale{background:var(--pulse-warning)}.group{color:var(--pulse-muted);font-size:10px;margin-right:1px}.card{position:fixed;inset:auto;margin:0;z-index:2147483000;padding:13px 14px 11px;border-radius:13px;background:linear-gradient(145deg,var(--pulse-card),var(--pulse-card-end));box-shadow:0 8px 32px var(--pulse-shadow);border:1px solid var(--pulse-border);color:var(--pulse-foreground);font-size:12px}.card::backdrop{background:transparent;pointer-events:none}.card[hidden]{display:none}dl>[hidden]{display:none}.heading{display:flex;align-items:center;justify-content:space-between;padding-bottom:10px;margin-bottom:9px;border-bottom:1px solid var(--pulse-separator);font-weight:600}.heading span{display:flex;align-items:center;gap:7px}.tag{font-size:10px;font-weight:400;color:var(--pulse-muted)}dl{margin:0}dl div{display:flex;align-items:baseline;justify-content:space-between;gap:10px;margin:8px 0}dt{color:var(--pulse-label);font-size:11px}dd{margin:0;font-size:11px;font-variant-numeric:tabular-nums;text-align:right}.emphasis dd{font-weight:600;color:var(--pulse-emphasis)}.footnote{font-size:10px;color:var(--pulse-subtle);line-height:1.6;margin:10px 0 0}.balance{display:flex;align-items:baseline;gap:8px;margin:12px 0}.balance strong{font-size:27px;font-weight:550;letter-spacing:-.6px;font-variant-numeric:tabular-nums}.balance span{color:var(--pulse-muted);font-size:11px}.track{height:4px;border-radius:3px;background:var(--pulse-track);margin:12px 0 14px;overflow:hidden}.track i{height:100%;display:block;background:var(--pulse-accent);width:0}select{color:var(--pulse-control-text);background:var(--pulse-control);border:0;border-radius:4px;font-size:10px;padding:3px 5px;max-width:120px}.toolbar{display:flex;align-items:center;gap:7px}.refresh{color:var(--pulse-muted);border:0;background:transparent;padding:0 3px;font-size:14px}.reset{color:var(--pulse-emphasis)}.rounds,.group,.dot.live{display:none}.chip[hidden]{display:none}.toolbar{position:relative}.group-trigger{color:var(--pulse-control-text);background:var(--pulse-control);border:0;border-radius:5px;font-size:10px;padding:4px 7px;white-space:nowrap}.group-menu{position:absolute;top:calc(100% + 5px);right:22px;min-width:132px;padding:4px;background:var(--pulse-menu);border:1px solid var(--pulse-border);border-radius:7px;box-shadow:0 6px 20px var(--pulse-shadow);z-index:10}.group-menu[hidden]{display:none}.group-menu button{display:block;width:100%;padding:7px 9px;border:0;border-radius:4px;background:none;color:var(--pulse-foreground);text-align:left;white-space:nowrap}.group-menu button:hover,.group-menu button[aria-selected=true]{background:var(--pulse-selected)}.chip{padding:2px 4px;font-size:10px;gap:4px;min-width:0}.bar{gap:3px}.language-button{border:0;background:none;color:var(--pulse-muted);border-radius:4px;font-size:9px;padding:3px 4px;margin-left:auto;cursor:pointer;flex:none}.language-button:hover{color:var(--pulse-hover-text);background:var(--pulse-hover)}:host(.compact) .countdown{display:none}:host(.narrow) .cache-total{display:none}:host(.narrow) [data-card="cache"] .dim{display:none}:host(.narrow) .chip svg{display:none}:host(.narrow) .chip{padding:2px 3px;font-size:9px}:host(.narrow) .bar{gap:0}
 
     :host([data-layout=blocked]){visibility:hidden!important;pointer-events:none!important}.bar{overflow:clip;min-width:0;max-width:100%}
+    .density-stage{position:absolute;overflow:clip;pointer-events:none;user-select:none}.density-piece{pointer-events:none!important}
     .scope-note{margin:0 0 10px;color:var(--pulse-muted);font-size:10px}:host([data-scope=main]) .scope-note{display:none}
     .language-button[data-save-failed=true]{color:var(--pulse-warning);text-decoration:underline dotted}.context-ring{display:inline-block;flex:none;width:12px;height:12px;border-radius:50%;background:conic-gradient(var(--pulse-ring) var(--used-angle,0deg),var(--pulse-ring-track) 0);mask:radial-gradient(circle,transparent 43%,#000 47%)}:host(.narrow) .context-label{display:none}
     .bar{gap:6px}.chip{font-size:11px;gap:5px;padding:3px 5px}.context-card>strong{font-size:16px}.context-card>p{margin:8px 0}.quota-heading{margin-top:14px;padding-top:12px;border-top:1px solid var(--pulse-separator)}.quota-title{display:flex;align-items:center;gap:6px;font-size:11px}.quota-title>span:first-child{display:flex;align-items:center;gap:6px;margin-right:auto}.quota-title strong{font-variant-numeric:tabular-nums;font-size:13px}.quota-section+.quota-section{border-top:1px solid var(--pulse-separator);margin-top:12px;padding-top:12px}.quota-section .track{margin:8px 0}.quota-section .footnote{margin-top:6px}.quota-section dl div{margin:6px 0}.context-label{white-space:nowrap}
@@ -348,12 +460,14 @@ module.exports = function installAgPulseInlineWidget() {
   const onKey=e=>{if(e.key==='Escape')hide();}, onPointer=e=>{if(node&&!e.composedPath().includes(node))hide();};
   document.addEventListener('keydown',onKey);document.addEventListener('pointerdown',onPointer);
   window.addEventListener('resize',scheduleLayout);document.addEventListener('scroll',scheduleLayout,true);
+  densityMedia.addEventListener('change',stopDensityMotion);
   const timerId=setInterval(()=>{mount();fit();tick();position();if(conversationId()!==lastConversation||Date.now()-lastFetch>(document.hidden?10000:2200))refresh();},1000);
   window.__agPulseDispose=()=>{
-    disposed=true;requestEpoch++;pending=false;refreshRequest=null;
+    disposed=true;requestEpoch++;pending=false;refreshRequest=null;stopDensityMotion();densityFrame=null;densityProbe=null;
     clearInterval(timerId);clearTimeout(hoverTimer);if(layoutFrame!==null)cancelAnimationFrame(layoutFrame);observer.disconnect();resizeObserver?.disconnect();themeController?.dispose();preferences.dispose();hide();node?.remove();
     document.removeEventListener('keydown',onKey);document.removeEventListener('pointerdown',onPointer);
     document.removeEventListener('scroll',scheduleLayout,true);window.removeEventListener('resize',scheduleLayout);
+    densityMedia.removeEventListener('change',stopDensityMotion);
     document.removeEventListener('DOMContentLoaded',mount);node=null;root=null;composer=null;
     window.__agPulseInlineInstalled=false;delete window.__agPulseDispose;
   };
