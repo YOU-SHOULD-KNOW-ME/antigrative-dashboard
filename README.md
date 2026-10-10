@@ -1,6 +1,6 @@
 <div align="center">
 
-<img src="docs/assets/hero.png?v=0.5.0-compact" width="100%" alt="Antigrative Dashboard v0.5: speed, cache and context beside the model selector.">
+<img src="docs/assets/hero.png?v=0.6.3" width="100%" alt="Antigrative Dashboard v0.6.3: current speed, cache and context controls beside the input.">
 
 # Antigrative Dashboard
 
@@ -20,9 +20,17 @@ Keep the summary visible. Hover for the details.
 
 ## Preview
 
-<img src="docs/assets/widget.png?v=0.5.1-compact" width="100%" alt="The latest three-control toolbar and its token cache hover card.">
+<img src="docs/assets/responsive.png?v=0.6.3" width="100%" alt="Current three-icon layout in a narrow main chat and separate statistics beside a subagent input.">
 
-<sub>Artwork uses illustrative data, not real account quotas or conversations. The installed widget reads metrics from your local Antigravity app. The widget defaults to English. Use the EN / 中 button to switch languages; your choice is saved.</sub>
+<table>
+<tr><th width="50%">Speed and cache</th><th width="50%">Context and shared quotas</th></tr>
+<tr>
+<td width="50%" valign="top"><img src="docs/assets/speed.png?v=0.6.3" width="100%" alt="Current generation speed detail card"><br><img src="docs/assets/widget.png?v=0.6.3" width="100%" alt="Current token usage and cache detail card"></td>
+<td width="50%" valign="top"><img src="docs/assets/context.png?v=0.6.3" width="100%" alt="Current context, five-hour and weekly quota details, with the saved-language control"></td>
+</tr>
+</table>
+
+<sub>Rendered from the current widget source with illustrative host layouts and data. Main and subagent samples use separate statistics; quotas are account-wide. The 44% context sample uses the latest request-start estimate, not cumulative input. The widget defaults to English; EN / 中 saves your choice.</sub>
 
 **Keep working. The numbers are already there.**
 
@@ -45,12 +53,6 @@ Keep the summary visible. Hover for the details.
 - **Compact-window support.** Full statistics reduce to three clickable icons (speed, cache and context) when space is limited. Hover or click for details; language switching stays available in the context card. The strip hides only if the icons cannot fit safely and restores when space returns. Message controls hidden behind the composer do not cause scroll flicker.
 - **Theme adaptation.** Controls, cards and quota menus follow Antigravity's light/dark mode and custom background, card, text and accent colors, with readable text and OS fallback in standalone previews. Live changes require no restart or conversation reload.
 - **Local collection.** The collector talks to loopback endpoints. It does not upload your metrics to a third-party service.
-
-### Context window
-
-<img src="docs/assets/context.png?v=0.5.1-compact" width="460" alt="Context usage and both five-hour and weekly quota details in one hover card">
-
-<sub>Illustrative 44% sample. Uses the host estimate at the latest request start; capacity may be unavailable.</sub>
 
 ## Antigravity CLI status line
 

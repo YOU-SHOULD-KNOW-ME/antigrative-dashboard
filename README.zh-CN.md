@@ -1,6 +1,6 @@
 <div align="center">
 
-<img src="docs/assets/hero-zh.png?v=0.5.0-compact" width="100%" alt="Antigrative Dashboard v0.5：速度、缓存和上下文，就在模型选择旁。">
+<img src="docs/assets/hero-zh.png?v=0.6.3" width="100%" alt="Antigrative Dashboard v0.6.3：最新版速度、缓存和上下文控件，就在输入框旁。">
 
 # Antigrative Dashboard
 
@@ -20,9 +20,17 @@
 
 ## 看看效果
 
-<img src="docs/assets/widget-zh.png?v=0.5.1-compact" width="100%" alt="最新版三个常驻控件：速度、缓存、上下文，以及缓存悬浮卡。">
+<img src="docs/assets/responsive-zh.png?v=0.6.3" width="100%" alt="最新版主对话窄窗口三图标布局，以及子代理输入框旁的独立统计。">
 
-<sub>封面和效果图直接使用当前插件源码渲染，数据为示例，不展示真实账户、额度或对话。实际插件的数据来自本机 Antigravity 接口。</sub>
+<table>
+<tr><th width="50%">生成速度与缓存</th><th width="50%">上下文与共享额度</th></tr>
+<tr>
+<td width="50%" valign="top"><img src="docs/assets/speed-zh.png?v=0.6.3" width="100%" alt="最新版生成速度详情卡"><br><img src="docs/assets/widget-zh.png?v=0.6.3" width="100%" alt="最新版 Token 用量与缓存详情卡"></td>
+<td width="50%" valign="top"><img src="docs/assets/context-zh.png?v=0.6.3" width="100%" alt="最新版上下文、5h 和周额度详情，以及持久化语言切换入口"></td>
+</tr>
+</table>
+
+<sub>使用当前控件源码和示意宿主布局渲染，数值为示例。主对话与子代理统计分别展示，账号额度共享；44% 上下文读取最近请求开始时的估计值，不是累计输入。实际插件的数据来自本机 Antigravity 接口，中英文选择会保存。</sub>
 
 **不用打开一个监控面板，继续你的对话。**
 
@@ -42,12 +50,6 @@
 - **跟随主题配色。** 控件、悬浮卡和额度菜单跟随 Antigravity 的深浅模式及自定义背景、卡片、文字和强调色，并保持文字可读；独立预览跟随系统，切换主题无需重启或重新加载对话。
 - **语言设置跨重启保留。** 中英文选择写入独立的 `AntigravityPulse/preferences.json` 用户配置，控件和侧面板共用；不依赖应用每次启动的本地端口。
 - **不上传采集数据。** 后台使用本机 loopback 接口，数值留在你的电脑。
-
-### 上下文窗口占用
-
-<img src="docs/assets/context-zh.png?v=0.5.1-compact" width="460" alt="上下文窗口占用与 5h、周额度合并在同一张悬浮卡中">
-
-<sub>示例为 44% 占用，非真实对话数据。实际读取宿主最近请求开始时的估计值；缺少容量会明确显示不可用。</sub>
 
 ## Antigravity CLI 状态栏
 

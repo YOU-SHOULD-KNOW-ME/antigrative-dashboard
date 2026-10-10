@@ -2,6 +2,7 @@
 
 ## Unreleased — CI maintenance
 
+- Refresh English/Chinese README artwork from the v0.6.3 widget: full and icon layouts, separate subagent statistics, speed/cache details and combined context/quotas. Use one color theme and a compact two-column detail layout; read the version from the manifest when regenerating images.
 - Allow up to 30 seconds for the CLI shell-transport test on Windows CI, where cold CMD/PowerShell/Node startup exceeded the previous 10-second limit. Keep the exit-code and exact rendered-output assertions, with no automatic test retry. Desktop and CLI runtime behavior is unchanged.
 
 ## 0.6.3 — 2026-10-10
