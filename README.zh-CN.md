@@ -1,13 +1,13 @@
 <div align="center">
 
-<img src="docs/assets/hero-zh.png?v=0.6.3" width="100%" alt="Antigrative Dashboard v0.6.3：最新版速度、缓存和上下文控件，就在输入框旁。">
+<img src="docs/assets/hero-zh.png?v=0.6.3" width="100%" alt="Antigrative Dashboard v0.6.4：最新版速度、缓存和上下文控件，就在输入框旁。">
 
 # Antigrative Dashboard
 
 模型选择旁只显示生成速率、缓存和上下文占用；悬停上下文，一并查看上下文、5 小时和周额度详情。<br>
 缩略信息常驻；鼠标悬停，才展开详细统计。
 
-[![Version 0.6.3](https://img.shields.io/badge/version-0.6.3-91adff?style=flat-square&labelColor=252936)](CHANGELOG.md)
+[![Version 0.6.4](https://img.shields.io/badge/version-0.6.4-91adff?style=flat-square&labelColor=252936)](CHANGELOG.md)
 [![Platforms](https://img.shields.io/badge/host-Windows%20%7C%20Linux%20%7C%20macOS-83d8b9?style=flat-square&labelColor=252936)](COMPATIBILITY.md)
 [![Antigravity 2.21.1 / 2.22.0](https://img.shields.io/badge/Antigravity-2.21.1%20%2F%202.22.0-c5a0ff?style=flat-square&labelColor=252936)](COMPATIBILITY.md)
 [![MIT](https://img.shields.io/badge/license-MIT-d4d9e6?style=flat-square&labelColor=252936)](LICENSE)
@@ -16,7 +16,7 @@
 
 </div>
 
-**v0.6.3 更新：** 完整数值与三个图标之间加入可打断的平滑过渡，模型名称配合淡入；连续拖动不再重复重建动画，避免拖尾残影和临界宽度闪切。包含 v0.6.1 的子代理重叠、父子对话切换等待和滚动误隐藏修复（[#5](https://github.com/YOU-SHOULD-KNOW-ME/antigrative-dashboard/issues/5)）。[完整更新说明](https://github.com/YOU-SHOULD-KNOW-ME/antigrative-dashboard/releases/tag/v0.6.3)。
+**v0.6.4 更新：** 移除状态条重复语言按钮，加入轻量首次双语引导（[#6](https://github.com/YOU-SHOULD-KNOW-ME/antigrative-dashboard/issues/6)），English / 简体中文切换保留在上下文详情底部。同时修复侧边栏挤压子代理输入框时，原生标签换行、图标缩小的问题；保留已有平滑自适应过渡。[完整更新说明](https://github.com/YOU-SHOULD-KNOW-ME/antigrative-dashboard/releases/tag/v0.6.4)。
 
 ## 看看效果
 
@@ -129,7 +129,9 @@ python manage.py install
 
 ### 语言与缓存
 
-默认英文。状态条的 **EN** 按钮切换中文，**中** 切回英文，选择会保存。缓存卡按 DSH 逻辑显示总 token、缓存命中、未缓存输入、缓存读取与输出；缓存写入非零时显示额外一行。
+默认英文。首次使用时，主对话上下文控件旁会出现轻量双语提示；点击后打开详情并定位到底部的 **English / 简体中文** 按钮。语言选择会保存，之后仍可随时在上下文详情底部切换。选择语言或关闭提示后不再重复引导；关闭提示不会改变已有语言，保存失败会显示提示并允许重试。子代理界面不重复显示首次引导。
+
+缓存卡按 DSH 逻辑显示总 token、缓存命中、未缓存输入、缓存读取与输出；缓存写入非零时显示额外一行。
 
 Antigravity 的 `inputTokens` 是未缓存输入。缓存率 = 缓存读取 ÷（未缓存输入 + 缓存读取 + 缓存写入），不是把缓存写入算作命中。总 token = 总输入 + 输出。
 

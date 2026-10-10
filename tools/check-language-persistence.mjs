@@ -47,23 +47,23 @@ try {
   server=await serve();const firstOrigin=server.url;
   let context=await browser.newContext();let page=await context.newPage();page.on('pageerror',error=>errors.push(error.message));
   await page.goto(server.url+'/toolbar-preview');let host=page.locator('#ag-pulse-status-bar');
-  await host.locator('#language-toggle').waitFor();await host.locator('#language-toggle').click();
+  await host.locator('[data-card=context]').click();await host.locator('#card-language-zh').click();
   await page.waitForFunction(async()=>{const p=await(await fetch('/api/preferences')).json();return p.language==='zh-CN';});
   assert.equal((await server.store.get()).language,'zh-CN');
   await context.close();await server.close();server=await serve();assert.notEqual(server.url,firstOrigin);
   context=await browser.newContext();page=await context.newPage();page.on('pageerror',error=>errors.push(error.message));
   await page.goto(server.url+'/toolbar-preview');host=page.locator('#ag-pulse-status-bar');
   await page.waitForFunction(()=>document.getElementById('ag-pulse-status-bar')?.lang==='zh-CN');
-  assert.equal(await host.locator('#language-toggle').textContent(),'中');
+  await host.locator('[data-card=context]').click();assert.equal(await host.locator('#card-language-zh').getAttribute('aria-pressed'),'true');
   const panel=await context.newPage();panel.on('pageerror',error=>errors.push(error.message));await panel.goto(server.url+'/');
   await panel.waitForFunction(()=>document.documentElement.lang==='zh-CN');
   await panel.locator('#language-toggle').click();
   await page.waitForFunction(()=>document.getElementById('ag-pulse-status-bar')?.lang==='en');
   assert.equal((await server.store.get()).language,'en');
   await context.close();await server.close();server=await serve();context=await browser.newContext();page=await context.newPage();
-  await page.goto(server.url+'/toolbar-preview');host=page.locator('#ag-pulse-status-bar');await host.locator('#language-toggle').waitFor();
-  assert.equal(await host.locator('#language-toggle').textContent(),'EN');
-  await host.locator('#language-toggle').click();await host.locator('#language-toggle').click();await host.locator('#language-toggle').click();
+  await page.goto(server.url+'/toolbar-preview');host=page.locator('#ag-pulse-status-bar');await host.locator('[data-card=context]').click();
+  assert.equal(await host.locator('#card-language-en').getAttribute('aria-pressed'),'true');
+  await host.locator('#card-language-zh').click();await host.locator('#card-language-en').click();await host.locator('#card-language-zh').click();
   // The first click also saves zh-CN. Seeing that transient disk value does not
   // mean the remaining two serialized writes finished; closing the browser at
   // that point can abort the final write and produce a false restart failure.
@@ -73,7 +73,7 @@ try {
     await new Promise(resolve=>setTimeout(resolve,50));
   }
   assert.equal((await server.store.get()).language,'zh-CN');
-  assert.equal(await host.locator('#language-toggle').textContent(),'中');
+  assert.equal(await host.locator('#card-language-zh').getAttribute('aria-pressed'),'true');
   await context.close();await server.close();server=await serve();context=await browser.newContext();page=await context.newPage();await page.goto(server.url+'/');
   await page.waitForFunction(()=>document.documentElement.lang==='zh-CN');
   assert.equal(await page.locator('#language-toggle').textContent(),'中');assert.deepEqual(errors,[]);

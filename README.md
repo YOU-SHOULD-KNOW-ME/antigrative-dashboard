@@ -1,13 +1,13 @@
 <div align="center">
 
-<img src="docs/assets/hero.png?v=0.6.3" width="100%" alt="Antigrative Dashboard v0.6.3: current speed, cache and context controls beside the input.">
+<img src="docs/assets/hero.png?v=0.6.3" width="100%" alt="Antigrative Dashboard v0.6.4: current speed, cache and context controls beside the input.">
 
 # Antigrative Dashboard
 
 Token throughput, cache hits and context usage in the model selector row. Hover over context for five-hour and weekly quotas too.<br>
 Keep the summary visible. Hover for the details.
 
-[![Version 0.6.3](https://img.shields.io/badge/version-0.6.3-91adff?style=flat-square&labelColor=252936)](CHANGELOG.md)
+[![Version 0.6.4](https://img.shields.io/badge/version-0.6.4-91adff?style=flat-square&labelColor=252936)](CHANGELOG.md)
 [![Platforms](https://img.shields.io/badge/host-Windows%20%7C%20Linux%20%7C%20macOS-83d8b9?style=flat-square&labelColor=252936)](COMPATIBILITY.md)
 [![Antigravity 2.21.1 / 2.22.0](https://img.shields.io/badge/Antigravity-2.21.1%20%2F%202.22.0-c5a0ff?style=flat-square&labelColor=252936)](COMPATIBILITY.md)
 [![MIT](https://img.shields.io/badge/license-MIT-d4d9e6?style=flat-square&labelColor=252936)](LICENSE)
@@ -16,7 +16,7 @@ Keep the summary visible. Hover for the details.
 
 </div>
 
-**v0.6.3:** Smooth, interruptible transitions between full statistics and three interactive icons, with a coordinated model-name reveal. Continuous resizing keeps one animation clock and avoids trailing copies or density flicker. Includes the subagent placement, conversation-switching and scroll fixes from v0.6.1 ([#5](https://github.com/YOU-SHOULD-KNOW-ME/antigrative-dashboard/issues/5)). [Full release notes](https://github.com/YOU-SHOULD-KNOW-ME/antigrative-dashboard/releases/tag/v0.6.3).
+**v0.6.4:** Remove the duplicate toolbar language button and add a small bilingual first-use guide ([#6](https://github.com/YOU-SHOULD-KNOW-ME/antigrative-dashboard/issues/6)). English / 简体中文 choices remain at the bottom of context details. Narrow subagent composers now preserve native label and icon sizes, releasing plugin space when necessary. Includes the existing smooth responsive transitions. [Full release notes](https://github.com/YOU-SHOULD-KNOW-ME/antigrative-dashboard/releases/tag/v0.6.4).
 
 ## Preview
 
@@ -51,6 +51,7 @@ Keep the summary visible. Hover for the details.
 - **Survives updates.** Plugin-owned runtime attachment reconnects after app updates, without modifying the application archive.
 - **Persistent conversations.** TPS and cache statistics are saved separately for each conversation and account; reloads can recover saved statistics.
 - **Compact-window support.** Full statistics reduce to three clickable icons (speed, cache and context) when space is limited. Hover or click for details; language switching stays available in the context card. The strip hides only if the icons cannot fit safely and restores when space returns. Message controls hidden behind the composer do not cause scroll flicker.
+- **Discoverable language settings.** English is the default. A compact bilingual first-use tip beside context opens the English / 简体中文 choices at the bottom of its detail card. Choosing a language or closing the tip saves completion, so it does not return on restart. Closing the tip does not change the language; failed saves offer a retry. Subagent composers do not repeat the tip.
 - **Theme adaptation.** Controls, cards and quota menus follow Antigravity's light/dark mode and custom background, card, text and accent colors, with readable text and OS fallback in standalone previews. Live changes require no restart or conversation reload.
 - **Local collection.** The collector talks to loopback endpoints. It does not upload your metrics to a third-party service.
 

@@ -1,12 +1,12 @@
 // Production renderer: composer ownership, route isolation and subagent layout.
 import {createServer} from 'node:http';
-import {readFile} from 'node:fs/promises';
+import {readFile,mkdir} from 'node:fs/promises';
 import {dirname,join} from 'node:path';
 import {fileURLToPath,pathToFileURL} from 'node:url';
 import assert from 'node:assert/strict';
 import {trajectoryMetrics} from '../sidecars/panel/metrics.mjs';
 const repo=join(dirname(fileURLToPath(import.meta.url)),'..');
-const sources=await Promise.all(['i18n.cjs','theme.cjs','inline-widget.cjs'].map(f=>readFile(join(repo,'compat',f),'utf8')));
+const sources=await Promise.all(['i18n.cjs','theme.cjs','inline-widget.cjs'].map(f=>readFile(f==='inline-widget.cjs'&&process.env.AG_PULSE_SUBAGENT_SOURCE?process.env.AG_PULSE_SUBAGENT_SOURCE:join(repo,'compat',f),'utf8')));
 const extract=s=>s.slice(s.indexOf('module.exports = ')+17).trim().replace(/;$/,'');
 const install=`window.__agPulseI18nFactory=(${extract(sources[0])});window.__agPulseThemeFactory=(${extract(sources[1])});(${extract(sources[2])})();`;
 const parent='11111111-1111-1111-1111-111111111111',child='22222222-2222-2222-2222-222222222222';
@@ -19,7 +19,7 @@ const server=createServer((req,res)=>{
   res.writeHead(200,{'Content-Type':'text/html;charset=utf-8'});
   res.end(`<!doctype html><style>${css}</style><div class="decoy"><button role="combobox" aria-haspopup="listbox">Uncommitted</button><button class="protected">⛶</button></div><main>${composer()}</main><script>
     history.replaceState({},'', '/c/${child}');window.samples=${JSON.stringify({[parent]:sample(parent),[child]:sample(child)})};window.markup=${JSON.stringify({parent:composer(false),child:composer()})};window.testRequests=[];window.testPending=[];window.testFailures=[];window.testHold=false;window.testWrong=false;
-    window.agPulseHost={getMetrics:input=>{testRequests.push(input.conversationId);const result=structuredClone(samples[testWrong?'${parent}':input.conversationId]||{connection:'live',groups:[],speed:null});return testHold?new Promise((resolve,reject)=>{testPending.push(()=>resolve(result));testFailures.push(()=>reject(new Error('Old request failed')))}):Promise.resolve(result)},getPreferences:async()=>({language:'${lang}',revision:1}),setPreferences:async x=>({...x,revision:2}),report:()=>{}};
+    window.agPulseHost={getMetrics:input=>{testRequests.push(input.conversationId);const result=structuredClone(samples[testWrong?'${parent}':input.conversationId]||{connection:'live',groups:[],speed:null});return testHold?new Promise((resolve,reject)=>{testPending.push(()=>resolve(result));testFailures.push(()=>reject(new Error('Old request failed')))}):Promise.resolve(result)},getPreferences:async()=>({language:'${lang}',languageGuideDismissed:true,revision:1}),setPreferences:async x=>({...x,revision:2}),report:()=>{}};
     window.switchConversation=(id,kind)=>{history.pushState({},'', '/c/'+id);document.querySelector('main').innerHTML=markup[kind]};
   </script><script src="/widget.js"></script>`);
 });
@@ -49,6 +49,27 @@ try{
     if(width===370){assert.equal(state.iconsOnly,true);assert.equal(state.state,'ready',JSON.stringify(await strip.evaluate(e=>{const rect=x=>{const r=x.getBoundingClientRect();return [r.x,r.y,r.width,r.height]};return {node:rect(e),badge:rect(document.querySelector('.identity')),row:rect(e.parentElement),bar:rect(e.shadowRoot.querySelector('.bar')),scrollWidth:e.shadowRoot.querySelector('.bar').scrollWidth,controls:[...document.querySelectorAll('.protected')].map(rect)};})));assert.equal(await strip.locator('.chip:visible').count(),3);}
     if(width===1100)assert.equal(state.state,'ready');
    }
+   // Real host labels wrap at hyphens and its SVGs are allowed to shrink.
+   // No nowrap/min-width protection is supplied by the fixture here.
+   await page.addStyleTag({content:'.identity{white-space:normal;min-width:0}.identity svg{width:14px;height:14px;flex-shrink:1}'});
+   const nativeCases=[];
+   for(const width of [1100,700,535,480,370,340,300,320,535,1100]){
+    await page.setViewportSize({width,height:800});await page.waitForTimeout(120);
+    const geometry=await strip.evaluate(e=>{
+     const badge=document.querySelector('.identity'),label=badge.querySelector('span'),range=document.createRange();range.selectNodeContents(label);
+     const lines=new Set([...range.getClientRects()].filter(r=>r.width>0).map(r=>Math.round(r.top)));
+     return {lines:lines.size,iconWidth:badge.querySelector('svg').getBoundingClientRect().width,badgeHeight:badge.getBoundingClientRect().height,stripWidth:e.getBoundingClientRect().width,layout:e.dataset.layout,density:e.dataset.density};
+    });
+    assert.equal(geometry.lines,1,`Native subagent label wrapped at ${width}: ${JSON.stringify(geometry)}`);
+    assert.ok(geometry.iconWidth>=13.5,`Native badge icon shrank at ${width}: ${JSON.stringify(geometry)}`);
+    if(width===300){assert.equal(geometry.layout,'blocked');assert.equal(geometry.stripWidth,0,'Hidden strip must release native flex space');}
+    if(width===370){
+     await mkdir(join(repo,'.data','issue6'),{recursive:true});
+     await page.locator('.composer').screenshot({path:join(repo,'.data','issue6',`native-badge-fixed-${lang}.png`)});
+    }
+    nativeCases.push({width,...geometry});
+   }
+   assert.equal(nativeCases.at(-1).density,'full','Full statistics restore after closing sidebar');
    // A child request may finish after navigation. It cannot replace parent data.
    await page.evaluate(()=>{testHold=true;document.getElementById('ag-pulse-status-bar').shadowRoot.querySelector('.refresh').click()});
    await page.waitForFunction(()=>testPending.length>0);
@@ -97,7 +118,7 @@ try{
    // Search editors / a missing send marker are not supported composers.
    await page.evaluate(()=>{document.querySelector('[data-testid=send-button]').removeAttribute('data-testid')});
    await strip.waitFor({state:'detached'});
-   results.push({language:lang,subagentMetrics:true,scopedDetails:true,iconsOnly:true,routeIsolation:true,navigationDoesNotWaitForOldRequest:true,sameIdReturnIsolated:true,lateFailureIsolated:true,wrongResponseRejected:true,auxiliaryDecoyRejected:true});
+   results.push({language:lang,subagentMetrics:true,scopedDetails:true,iconsOnly:true,nativeLabelSingleLine:true,nativeIconSizePreserved:true,hiddenSpaceReleased:true,nativeCases,routeIsolation:true,navigationDoesNotWaitForOldRequest:true,sameIdReturnIsolated:true,lateFailureIsolated:true,wrongResponseRejected:true,auxiliaryDecoyRejected:true});
   }finally{await page.close();}
  }
  assert.deepEqual(errors,[]);console.log(JSON.stringify({cases:results,pageErrors:errors},null,2));

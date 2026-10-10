@@ -41,7 +41,7 @@ const server=createServer((req,res)=>{
   res.writeHead(200,{'Content-Type':'text/html; charset=utf-8'});
   res.end(`<!doctype html><html><head><style>${css}</style></head><body>${cases[key]}<script>
     history.replaceState({},'', '/c/${id}');window.testReports=[];
-    window.agPulseHost={getMetrics:async()=>(${JSON.stringify(metrics)}),getPreferences:async()=>({language:'zh-CN',revision:1}),setPreferences:async value=>({...value,revision:2}),report:value=>window.testReports.push(value)};
+    window.agPulseHost={getMetrics:async()=>(${JSON.stringify(metrics)}),getPreferences:async()=>({language:'zh-CN',languageGuideDismissed:true,revision:1}),setPreferences:async value=>({...value,revision:2}),report:value=>window.testReports.push(value)};
   </script><script src="/widget.js"></script></body></html>`);
 });
 server.listen(0,'127.0.0.1');await new Promise(resolve=>server.once('listening',resolve));

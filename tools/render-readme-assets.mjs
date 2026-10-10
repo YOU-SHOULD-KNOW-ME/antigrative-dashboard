@@ -1,5 +1,5 @@
 // Production widget in illustrative host fixtures. No account data is read.
-// Stage for review: node tools/build-readme-assets.mjs --output=.data/readme-review
+// Stage for review: node tools/render-readme-assets.mjs --output=.data/readme-review
 import {createServer} from 'node:http';
 import {readFile,mkdir,writeFile} from 'node:fs/promises';
 import {dirname,join,resolve} from 'node:path';
@@ -37,7 +37,7 @@ function fixture(lang,scope,width){
  return `<!doctype html><html lang="${zh?'zh-CN':'en'}"><meta charset="utf-8"><style>
  *{box-sizing:border-box}body{margin:0;padding:14px;background:#17191d;color:#c7cbd3;font:12px "Segoe UI","Microsoft YaHei",sans-serif}.composer{width:${width}px;max-width:100%;padding:12px;border:1px solid #363b44;border-radius:16px;background:#20242a;margin:0 auto}.editor{height:44px;padding:2px 4px;outline:none;color:#949da9;font-size:13px}.actions,.left,.right{display:flex;align-items:center;gap:5px;height:30px}.left{flex:1;min-width:0}.right{flex:none;gap:8px}.model-branch{display:flex;flex:1 1 200px;min-width:20px;max-width:200px;overflow:hidden}.model-branch button{width:100%;overflow:hidden;text-align:left}.model-branch span{padding-left:5px}.identity{display:flex;align-items:center;gap:6px;padding:4px 6px;flex:none;font-size:11px}.identity svg{width:14px;height:14px;fill:none;stroke:currentColor}.protected{width:28px;flex:none;display:grid;place-items:center}button{font:inherit;border:0;background:transparent;color:#b9c1cd;height:28px;padding:0 4px;white-space:nowrap}.send{border-radius:50%;background:#343c49;color:#d5dcea}
  </style><body data-theme="dark"><section class="composer" data-testid="agent-input-box"><div><div role="textbox" contenteditable="true" class="editor" aria-label="Message input">${zh?'输入消息，@ 提及，/ 选择操作':'Ask anything, @ to mention, / for actions'}</div></div><div class="actions"><div class="left"><button class="protected" aria-label="Add context">${hostIcon('add')}</button>${anchor}</div><div class="right"><button class="protected" aria-label="Record voice memo">${hostIcon('mic')}</button><button class="protected send" data-testid="send-button" aria-label="Send message" disabled>${hostIcon('send')}</button></div></div></section><script>
- history.replaceState({},'', '/c/${ids[scope]}');Date.now=()=>${now};window.agPulseHost={getMetrics:async()=>(${JSON.stringify(sample(scope))}),getPreferences:async()=>({language:'${zh?'zh-CN':'en'}',revision:1}),setPreferences:async x=>({...x,revision:2}),report:()=>{}};
+ history.replaceState({},'', '/c/${ids[scope]}');Date.now=()=>${now};window.agPulseHost={getMetrics:async()=>(${JSON.stringify(sample(scope))}),getPreferences:async()=>({language:'${zh?'zh-CN':'en'}',languageGuideDismissed:true,revision:1}),setPreferences:async x=>({...x,revision:2}),report:()=>{}};
  </script><script src="/widget.js"></script></body></html>`;
 }
 function board(lang,kind){
@@ -67,6 +67,8 @@ async function ready(frame,scope,density){
  await frame.waitForFunction(({scope,density})=>{const w=document.getElementById('ag-pulse-status-bar');return w?.dataset.layout==='ready'&&w.dataset.scope===scope&&w.dataset.density===density&&!w.dataset.motion;},{scope,density});
  const state=await frame.evaluate(()=>{const w=document.getElementById('ag-pulse-status-bar'),r=w.getBoundingClientRect();return {scope:w.dataset.scope,density:w.dataset.density,context:w.shadowRoot.getElementById('context-percent').textContent,cache:w.shadowRoot.getElementById('cache-rate').textContent,tps:w.shadowRoot.getElementById('tps').textContent,nativeTargetsSafe:[...document.querySelectorAll('.protected')].every(b=>{const q=b.getBoundingClientRect();return Math.min(r.right,q.right)-Math.max(r.left,q.left)<=1||Math.min(r.bottom,q.bottom)-Math.max(r.top,q.top)<=1;})};});
  assert.equal(state.nativeTargetsSafe,true);assert.equal(state.context,scope==='subagent'?'12%':'44%');diagnostics.push(state);
+ const language=await frame.evaluate(()=>{const root=document.getElementById('ag-pulse-status-bar').shadowRoot,card=root.getElementById('context-card'),row=card.querySelector('.card-language'),quota=card.querySelector('.quota-details');return {toolbarRemoved:!root.getElementById('language-toggle'),explicitChoices:!!root.getElementById('card-language-en')&&!!root.getElementById('card-language-zh'),footerAfterQuota:!!(quota.compareDocumentPosition(row)&Node.DOCUMENT_POSITION_FOLLOWING),guideHidden:root.getElementById('language-guide').hidden};});
+ assert.deepEqual(language,{toolbarRemoved:true,explicitChoices:true,footerAfterQuota:true,guideHidden:true});
 }
 async function save(page,name,clip){await page.screenshot({path:join(output,name),...(clip?{clip}:{fullPage:true})});files.push(name);}
 try{

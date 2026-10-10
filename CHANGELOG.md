@@ -1,8 +1,12 @@
 # Changelog
 
-## Unreleased — CI maintenance
+## 0.6.4 — 2026-10-10
 
-- Refresh English/Chinese README artwork from the v0.6.3 widget: full and icon layouts, separate subagent statistics, speed/cache details and combined context/quotas. Use one color theme and a compact two-column detail layout; read the version from the manifest when regenerating images.
+- Address [#6](https://github.com/YOU-SHOULD-KNOW-ME/antigrative-dashboard/issues/6): remove the duplicate toolbar language button; retain explicit English / 简体中文 choices at the bottom of context details. Add a compact bilingual first-use tip beside the context chip so users can find the setting despite the English default. Opening the tip locates and focuses the language choices without stealing focus on initial display.
+- Persist guide completion independently of the renderer origin. Closing the tip keeps the current language; successfully choosing either language completes onboarding. Failed saves remain visible and retryable. Show the guide in the main composer only; existing saved language choices are retained.
+- Protect native subagent labels and SVG sizes when the sidebar narrows the composer. Reserve their natural width, switch to three icons earlier, release all plugin flex space if the icons cannot fit, and restore full statistics when space returns. Avoid repeated full-layout probes and no-op class mutations during continuous dragging.
+- Add first-use, dismissal, explicit language choice, save-failure retry, fresh-origin/backend persistence and native-label/icon geometry regressions.
+- Refresh English/Chinese README and release artwork from the v0.6.4 widget, without the duplicate toolbar language button: full and icon layouts, separate subagent statistics, speed/cache details and combined context/quotas with language choices at the bottom. Use one color theme and compact two-column details; read the version from the manifest when regenerating images.
 - Allow up to 30 seconds for the CLI shell-transport test on Windows CI, where cold CMD/PowerShell/Node startup exceeded the previous 10-second limit. Keep the exit-code and exact rendered-output assertions, with no automatic test retry. Desktop and CLI runtime behavior is unchanged.
 
 ## 0.6.3 — 2026-10-10

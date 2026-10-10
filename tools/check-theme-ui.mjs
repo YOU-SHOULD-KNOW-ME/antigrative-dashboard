@@ -16,13 +16,13 @@ const id='11111111-1111-1111-1111-111111111111';
 let previewHostTheme={};
 const sample=()=>({ connection:'live',theme:previewHostTheme,quotaUpdatedAt:new Date().toISOString(), groups:['gemini','3p'].map((id,index)=>({id,name:index?'Claude / GPT':'Gemini',windows:{'5h':{available:true,remaining:index?.417:.834,resetAt:new Date(Date.now()+3600000).toISOString()},weekly:{available:true,remaining:index?.308:.617,resetAt:new Date(Date.now()+86400000).toISOString()}}})), speed:trajectoryMetrics({trajectory:{cascadeId:id,generatorMetadata:[{chatModel:{modelDisplayName:'Gemini 3.8 Flash High',chatStartMetadata:{contextWindowMetadata:{estimatedTokensUsed:112000,maxContextTokens:256000}},usage:{inputTokens:13441,cacheReadTokens:614458,responseOutputTokens:5230,outputTokens:7259,thinkingOutputTokens:2029,apiProvider:'API_PROVIDER_GOOGLE_GEMINI'},streamingDuration:'50s'}}]}}) });
 const staticFiles={'/':'index.html','/app.js':'app.js','/styles.css':'styles.css','/format.mjs':'format.mjs'};
-let previewPreferences={language:null,revision:0};
+let previewPreferences={language:null,languageGuideDismissed:true,revision:0};
 const fixtureCss=`body[data-theme=light]{background:#f6f7f9;color:#505867}body[data-theme=light] .rounded-composer{background:#fff;border-color:#cdd3dc}body[data-theme=light] button{color:#4e5969}body[data-theme=light] .send{background:#e7ebf2}body[data-theme=dark]{background:#111;color:#aaa}body[data-theme=dark] .rounded-composer{background:#202020;border-color:#303030}body[data-theme=dark] button{color:#bbb}body[data-theme=dark] .send{background:#303030}`;
 const server=createServer(async(req,res)=>{
   try {
     const path=new URL(req.url,'http://127.0.0.1').pathname;let content,type='text/javascript';
     if(path==='/api/preferences'){
-      if(req.method==='POST'){let body='';for await(const chunk of req)body+=chunk;previewPreferences={language:JSON.parse(body).language,revision:previewPreferences.revision+1};}
+      if(req.method==='POST'){let body='';for await(const chunk of req)body+=chunk;previewPreferences={language:JSON.parse(body).language,languageGuideDismissed:true,revision:previewPreferences.revision+1};}
       content=JSON.stringify(previewPreferences);type='application/json';
     }
     else if(path==='/api/metrics'){content=JSON.stringify(sample());type='application/json';}
@@ -277,7 +277,7 @@ try {
       assert.equal(foreground,mode==='light'?'rgb(32, 38, 49)':'rgb(225, 227, 231)');
       await host.locator(`#${card}-card`).screenshot({path:join(output,`${mode}-${card}.png`)});
     }
-    await host.locator('#language-toggle').click();await contextChip.hover();
+    await contextChip.hover();await host.locator('#card-language-zh').click();
     assert.match(await host.locator('#context-summary').textContent(),/44%/);
     await page.screenshot({path:join(output,`${mode}-inline.png`)});
     await host.locator('.group-trigger').click();

@@ -31,7 +31,7 @@ const server=createServer((req,res)=>{
   const key=url.pathname.slice(1);
   if(!fixtures[key]){res.writeHead(404);res.end();return;}
   res.writeHead(200,{'Content-Type':'text/html;charset=utf-8'});
-  res.end(`<!doctype html><style>${css}</style>${fixtures[key]}<script>history.replaceState({},'', '/c/${id}');window.clicks=0;document.querySelectorAll('.protected').forEach(e=>e.onclick=()=>window.clicks++);window.agPulseHost={getMetrics:async()=>(${JSON.stringify(metrics)}),getPreferences:async()=>({language:'${url.searchParams.get('lang')==='en'?'en':'zh-CN'}',revision:1}),setPreferences:async x=>({...x,revision:2}),report:()=>{}};</script><script src="/widget.js"></script>`);
+  res.end(`<!doctype html><style>${css}</style>${fixtures[key]}<script>history.replaceState({},'', '/c/${id}');window.clicks=0;document.querySelectorAll('.protected').forEach(e=>e.onclick=()=>window.clicks++);window.agPulseHost={getMetrics:async()=>(${JSON.stringify(metrics)}),getPreferences:async()=>({language:'${url.searchParams.get('lang')==='en'?'en':'zh-CN'}',languageGuideDismissed:true,revision:1}),setPreferences:async x=>({...x,revision:2}),report:()=>{}};</script><script src="/widget.js"></script>`);
 });
 server.listen(0,'127.0.0.1');await new Promise(resolve=>server.once('listening',resolve));
 const {chromium}=await import(process.env.PLAYWRIGHT_MODULE?pathToFileURL(process.env.PLAYWRIGHT_MODULE).href:'playwright');
@@ -74,7 +74,7 @@ try{
       await page.waitForFunction(()=>document.getElementById('ag-pulse-status-bar')?.dataset.density==='icons');
       assert.equal(await strip.getAttribute('data-layout'),'ready');
       assert.equal(await strip.locator('.chip:visible').count(),3);
-      assert.equal(await strip.locator('#language-toggle').isVisible(),false);
+      assert.equal(await strip.locator('#language-toggle').count(),0);
       assert.equal(await strip.locator('#tps').isVisible(),false);
       for(const name of ['speed','cache','context']){
         const chip=strip.locator(`[data-card=${name}]`);assert.ok(await chip.getAttribute('aria-label'));
@@ -82,9 +82,9 @@ try{
       }
       await strip.locator('[data-card=context]').click();
       const oldLanguage=await strip.getAttribute('lang');
-      await strip.locator('#card-language-toggle').click();
+      await strip.locator(oldLanguage==='en'?'#card-language-zh':'#card-language-en').click();
       await page.waitForFunction(old=>document.getElementById('ag-pulse-status-bar')?.lang!==old,oldLanguage);
-      await strip.locator('#card-language-toggle').click();
+      await strip.locator(oldLanguage==='en'?'#card-language-en':'#card-language-zh').click();
       await page.waitForFunction(old=>document.getElementById('ag-pulse-status-bar')?.lang===old,oldLanguage);
       await page.keyboard.press('Escape');
       await strip.evaluate(e=>{e.style.flex='0 0 40px';e.style.maxWidth='40px'});

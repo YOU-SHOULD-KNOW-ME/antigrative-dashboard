@@ -1,63 +1,50 @@
-# Antigrative Dashboard v0.6.3
+# Antigrative Dashboard v0.6.4
 
-## Release gate correction
+## Language settings and first-use guidance
 
-- v0.6.2 was not published: the macOS animation-reversal check failed. Its tag remains unchanged; v0.6.3 includes the accepted responsive changes and the correction.
-- Capture interrupted visual positions **before** changing flex layout, eliminating the small reversal jump. Retain source metadata for outgoing labels so rapid reversals can reconstruct their current appearance.
-- Sample intermediate animation frames at exact WAAPI times instead of wall-clock sleeps. Tighten the reversal continuity gate from 45px to **under 1px**; continuous dragging, rapid switching and cleanup still run in real time.
+- Address [issue #6](https://github.com/YOU-SHOULD-KNOW-ME/antigrative-dashboard/issues/6): remove the duplicate toolbar language button. Keep explicit **English / 简体中文** choices at the **bottom of context details**, near the context trigger.
+- English remains the default. To help first-time Chinese users discover the setting, a small bilingual tip points to the context chip. Clicking it opens details, scrolls to the language choices and focuses them. Initial tip display does not take focus from the composer.
+- Selecting either language, including the current language, completes onboarding. Closing the tip keeps the saved language. Completion persists across restarts and renderer origins; failed saves remain visible and retryable.
+- Show the compact guide only in the main composer. Existing saved language choices remain intact; subagent composers do not repeat the guide.
 
-## Responsive motion without resize stutter
+## Current interface
 
-- Add a **240ms interruptible transition** between full statistics and three interactive icons. Values fade out, speed/cache/context icons move into place, and the native model name fades in after the outgoing labels clear. Icon details remain clickable throughout.
-- Fix **resize-drag stutter and trailing copies**: continuing to drag no longer cancels and rebuilds animations every frame. Keep one animation clock per actual density change and crop the existing visual ribbon to current safe bounds.
-- Capture visual elements only for density changes. Avoid repeatedly expanding the strip to measure it while shrinking; filter unrelated control rectangles before reading visibility styles.
-- Use **12px of recovery headroom** to avoid full/icon flicker near the threshold. Content, language and native control changes can trigger fresh fit checks.
-- Preserve host layout styles. Inert, accessibility-hidden visual copies never intercept input; protect native actions and immediately cancel on unsafe placement, navigation, reparenting or disposal.
-- Retain full default motion, with short fades for the system reduced-motion preference. Metric polls and ordinary message scrolling do not replay transitions.
-- Add browser regressions for continuous resize/translation, threshold jitter, animation-layer counts, outgoing-label cleanup and restoration of the full layout. Windows local desktop drag and transition changes passed user acceptance; publishing requires Windows/Linux/macOS automated gates. Signed-in Linux/macOS GUI acceptance remains separate.
+<img src="https://raw.githubusercontent.com/YOU-SHOULD-KNOW-ME/antigrative-dashboard/v0.6.4/docs/assets/hero.png" width="100%" alt="v0.6.4 toolbar without the duplicate language switch">
 
-## Includes the v0.6.1 fixes
+<table><tr><td width="50%" valign="top"><img src="https://raw.githubusercontent.com/YOU-SHOULD-KNOW-ME/antigrative-dashboard/v0.6.4/docs/assets/speed.png" width="100%" alt="Generation speed details"><br><img src="https://raw.githubusercontent.com/YOU-SHOULD-KNOW-ME/antigrative-dashboard/v0.6.4/docs/assets/widget.png" width="100%" alt="Token and cache details"></td><td width="50%" valign="top"><img src="https://raw.githubusercontent.com/YOU-SHOULD-KNOW-ME/antigrative-dashboard/v0.6.4/docs/assets/context.png" width="100%" alt="Context and quota details with English and Chinese choices at the bottom"></td></tr></table>
 
-## Subagent layout and responsive controls
+Figures render the current production widget with illustrative host layouts and sample data.
 
-- Fix [issue #5](https://github.com/YOU-SHOULD-KNOW-ME/antigrative-dashboard/issues/5): the auxiliary pane's Git filter could be mistaken for a model selector, placing the strip over the top toolbar. Mount only beside a valid local composer; reject headers, distant toolbars and ambiguous layouts.
-- Show current subagent throughput, cache and context beside its input box. Detail cards identify **current subagent statistics** and **account-wide shared quotas**. Parent values are never used as a child fallback.
-- When full statistics cannot fit, keep **three interactive icons: speed gauge, token database and context ring**. Hover, click or focus for details. Language switching remains in the context card. Hide only when the icons cannot fit safely or collide with host actions; restore when space returns.
-- Fix disappearance during message scrolling. A message control clipped or covered behind the composer no longer counts as a visible collision. Local composer actions and actually painted floating controls remain protected.
-- Preserve host flex/min-width styles. Recheck after resizing, scrolling, DOM changes and composer replacement; dismiss details when placement is unsafe.
+## Native subagent controls in narrow layouts
 
-## Conversation switching
+- Reserve natural space for the native subagent label and icons. Switch to three plugin icons before the native label wraps or its SVG shrinks.
+- Release the plugin's width, flex space and margins if the three icons cannot fit safely. Restore icons or full statistics when the sidebar closes and space returns.
+- Preserve responsive transitions. Exclude changing width reservations from full-layout probe keys and avoid redundant class changes during dragging.
 
-- Refresh immediately after parent/child navigation, independently of the previous request and polling clock.
-- Reject obsolete successes and failures, including returning to the same conversation after visiting another one. Reject mismatched returned conversation IDs; discard pending work on disposal.
-- Skip full conversation enumeration when the composer supplies its exact ID. Preserve queued manual refresh and rotation feedback.
+## Documentation and verification
+
+- Refresh English/Chinese README and release artwork from the current widget source, including removal of the old rightmost language button. Document the new first-use flow.
+- Include the bounded Windows CI shell-startup correction from the previous maintenance commit.
+- Regression coverage includes first use, no initial focus theft, three-icon guidance, explicit English/Chinese choices, dismissal without language changes, failed-save retry, new-origin/backend persistence and native label/icon geometry.
+- Windows local data, lifecycle and complete production-renderer browser regressions passed. Publication requires Windows/Linux/macOS data, lifecycle and Chromium gates and official desktop resource/SDK checks. The Windows desktop language flow and narrow-layout fixes passed local user acceptance. Signed-in Linux/macOS GUI acceptance remains separate.
+- CLI rendering and metric definitions are unchanged. Local acceptance helpers, account data and private screenshots are excluded.
 
 ## Install or update
 
-Download `antigrative-dashboard-0.6.3.zip` and `.zip.sha256`, verify the checksum and extract. Run from the extracted directory:
+Download `antigrative-dashboard-0.6.4.zip` and `.zip.sha256`, verify the checksum and extract. Run:
 
 ```sh
 python manage.py install
 ```
 
-Use `python3` on Linux/macOS. Fully quit and reopen Antigravity when no task is running so the sidecar loads the new sources. Per-account conversation statistics and language preferences are retained. The same ZIP includes the existing CLI adapter; CLI users can run `python manage.py install-cli` and reopen `agy`.
-
-## Verification and limits
-
-- Windows Antigravity desktop **2.22.0**: real subagent metrics, auxiliary toolbar hit targets and Add menu, parent/child navigation, normal restart and reload were checked. Scroll disappearance was reproduced in a real main conversation and checked at the same position after the fix.
-- Local Node tests: **88 passed, 1 platform skip**. Python lifecycle/package tests: **28 passed, 1 permission skip**. Production-renderer browser regressions passed in English/Chinese, covering icons, covered scroll controls, visible overlays, host styles, stale responses, themes and language persistence.
-- Publication requires Windows/Linux/macOS data, lifecycle and Chromium regressions and the existing official desktop resource/SDK checks. Browser tests use illustrative host fixtures. **Signed-in Linux/macOS desktop GUI acceptance remains outstanding.**
-- Unknown host DOM/SDK/debugging/metric changes may require maintenance. Unsupported layouts decline inline mounting; the native side panel remains available when its SDK is compatible. Arbitrary floating child windows and several simultaneous composers on one page are not promised.
-- CLI behavior and documented metric limits are unchanged. No account details, conversation statistics or local test screenshots are included in this release.
+Use `python3` on Linux/macOS. Fully quit and reopen Antigravity when no task is running. Saved language settings and conversation statistics are retained. The same ZIP contains the CLI adapter; CLI users can run `python manage.py install-cli` and reopen `agy`.
 
 ## 中文摘要
 
-v0.6.2 因 macOS 动画反向检查失败未发布，原标签保留。v0.6.3 修复布局改变后再读取旧动画位置造成的小幅跳变；使用固定动画时间采样，将反向连续性检查收紧至 1px 以内，连续拖动仍用真实时间验证。
+采纳 Issue #6 建议，移除状态条上重复且低频的语言按钮，保留上下文详情最底部的 **English / 简体中文** 切换。
 
-v0.6.3 为完整统计与三个图标加入平滑过渡：文字淡出、图标收拢、模型名称淡入，支持反向切换且按钮始终可点击。修复拖动时逐帧重建动画造成的卡顿与残影；复用同一次过渡，仅调整安全裁剪。恢复完整数值留出 12px 余量，避免临界宽度来回闪切。默认完整动画保留，Windows 本地验收已通过。
+考虑到默认英文，首次中文用户可能找不到隐藏的切换入口，加入轻量双语提示；点击即可打开详情并定位到底部语言选项。提示出现时不抢输入焦点，仅在主对话显示。选择语言或关闭提示后，完成状态跨重启保存；关闭提示不会改变已有语言，保存失败允许重试。
 
-包含 v0.6.1 的 Issue #5 子代理工具栏重叠修复，展示子代理自己的速度、缓存率和上下文，额度注明账号共享。窄窗口先保留仪表盘、数据库、上下文圆圈三个可交互图标，连图标都放不下才隐藏，拉宽后恢复；语言可在上下文详情中切换。
+修复侧边栏挤压子代理输入框时原生标签换行、图标缩小的问题：先为原生控件预留空间，再收缩为三个图标；连图标都放不下时释放全部插件占位，空间恢复后自动展开。保留已有过渡动画与拖动优化。
 
-同时修复滚动时把输入框后面的消息按钮误判为碰撞，以及父子对话切换等待旧请求的问题。旧请求成功、失败及返回同一对话后的晚到响应都不能覆盖新数值。Windows 真实界面已验证；Linux/macOS 共用代码并运行 CI，登录后的实机 GUI 验收仍未完成。
-
-解压后运行 `python manage.py install`（Linux/macOS 用 `python3`），无任务运行时完全退出重开 Antigravity。保留语言与对话统计；同一 ZIP 继续包含 CLI 适配器。
+中英文 README 和本发布页演示图均使用当前源码重新渲染，移除旧版最右侧语言按钮。示意宿主及示例数据用于展示，不包含账号或对话内容。Windows 本地验收已通过；三平台自动测试作为发布门槛，Linux/macOS 登录后的实机 GUI 验收仍待单独确认。

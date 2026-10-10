@@ -12,14 +12,26 @@ async function fixture(t) {
 }
 const connect=(language,store,extra={})=>language.connectPreferences({read:()=>store.get(),write:input=>store.set(input),...extra});
 
+test('guide dismissal survives a fresh backend without selecting a language; older preference files migrate',async t=>{
+  const {file,store}=await fixture(t);
+  await store.set({languageGuideDismissed:true});
+  assert.deepEqual((await new PreferencesStore({file}).get()).language,null);
+  assert.equal((await store.get()).languageGuideDismissed,true);
+  await writeFile(file,JSON.stringify({schema:1,language:'zh-CN',revision:1}));
+  assert.equal((await store.get()).languageGuideDismissed,false);
+  await Promise.all([store.set({languageGuideDismissed:true}),store.set({language:'en'})]);
+  assert.equal((await store.get()).language,'en');assert.equal((await store.get()).languageGuideDismissed,true);
+  await assert.rejects(store.set({languageGuideDismissed:false}));
+});
+
 test('Chinese and English survive a new backend and a renderer with empty origin storage',async t=>{
-  const {file,store}=await fixture(t);assert.deepEqual(await store.get(),{language:null,revision:0});
+  const {file,store}=await fixture(t);assert.deepEqual(await store.get(),{language:null,languageGuideDismissed:false,revision:0});
   const first=create(null),controller=connect(first,store);await controller.ready;await controller.toggle();
   assert.equal(first.language,'zh-CN');controller.dispose();
   const afterRestart=create(null),restored=connect(afterRestart,new PreferencesStore({file}));await restored.ready;
   assert.equal(afterRestart.language,'zh-CN');await restored.toggle();restored.dispose();
   const again=create(null);await connect(again,new PreferencesStore({file})).ready;assert.equal(again.language,'en');
-  const json=JSON.parse(await readFile(file,'utf8'));assert.deepEqual(Object.keys(json).sort(),['language','revision','schema']);
+  const json=JSON.parse(await readFile(file,'utf8'));assert.deepEqual(Object.keys(json).sort(),['language','languageGuideDismissed','revision','schema']);
 });
 
 test('existing browser choice migrates once; durable preference overrides stale browser storage',async t=>{

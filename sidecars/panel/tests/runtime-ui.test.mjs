@@ -111,11 +111,13 @@ test('stopping during renderer discovery prevents a late attach', async () => {
 
 test('only trusted preference requests can persist supported language settings',async()=>{
   const {ui,connections}=fixture();const writes=[];
-  ui.preferences={get:async()=>({language:'zh-CN',revision:1}),set:async value=>{if(!['en','zh-CN'].includes(value.language))throw new Error('Invalid language');writes.push(value);return {...value,revision:2};}};
+  ui.preferences={get:async()=>({language:'zh-CN',revision:1}),set:async value=>{if(Object.hasOwn(value,'language')&&!['en','zh-CN'].includes(value.language)||Object.hasOwn(value,'languageGuideDismissed')&&value.languageGuideDismissed!==true)throw new Error('Invalid preference');writes.push(value);return {language:'zh-CN',...value,revision:2};}};
   await ui.tick();const connection=connections[0];
   const request=(value,context=7)=>ui.event(connection,{method:'Runtime.bindingCalled',params:{name:'__agPulseRuntimeCallV4',executionContextId:context,payload:JSON.stringify({id:10,type:'preferences',input:value})}});
   await request({language:'en'},9);await request({language:'en',file:'other'});await request({language:'fr'});assert.deepEqual(writes,[]);
   await request({language:'en'});assert.deepEqual(writes,[{language:'en'}]);
+  await request({languageGuideDismissed:true},9);await request({languageGuideDismissed:false});assert.equal(writes.length,1);
+  await request({languageGuideDismissed:true});assert.deepEqual(writes,[{language:'en'},{languageGuideDismissed:true}]);
   await request({});assert.ok(connection.calls.some(call=>call.params.expression?.includes('"language":"zh-CN"')));await ui.stop();
 });
 

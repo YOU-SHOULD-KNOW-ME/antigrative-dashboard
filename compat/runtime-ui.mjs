@@ -168,8 +168,8 @@ export class RuntimeUi {
       if (input.type === 'metrics') result = await this.enabled() ? await this.snapshot(validatedInput(input.input)) : { ...offline('Antigrative Dashboard 已停用'), enabled: false };
       else if (input.type === 'preferences' && this.preferences) {
         const value=input.input;
-        if(!value||typeof value!=='object'||Array.isArray(value)||Object.keys(value).some(key=>key!=='language'))throw new Error('Invalid preferences request');
-        result=Object.hasOwn(value,'language')?await this.preferences.set(value):await this.preferences.get();
+        if(!value||typeof value!=='object'||Array.isArray(value)||Object.keys(value).some(key=>!['language','languageGuideDismissed'].includes(key)))throw new Error('Invalid preferences request');
+        result=Object.keys(value).length?await this.preferences.set(value):await this.preferences.get();
       }
       else if (input.type === 'diagnostic' && ['boot', 'mounted', 'mount-error'].includes(input.input?.stage)) {
         if (input.input.stage === 'mounted' && input.input.editorFound && input.input.composerFound) connection.mounted = true;

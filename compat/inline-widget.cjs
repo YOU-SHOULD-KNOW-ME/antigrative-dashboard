@@ -22,10 +22,14 @@ module.exports = function installAgPulseInlineWidget() {
   let densityFrame=null,densityMotion=null,densityProbe=null;
   const densityMedia=matchMedia('(prefers-reduced-motion: reduce)');
   const densityEase='cubic-bezier(0.32,0.72,0,1)';
+  let guideReady=false,guideDismissed=false,guideOpened=false,guideSaving=false,guideError=false;
+  function syncGuide(value){if(value?.languageGuideDismissed===true)guideDismissed=true;}
   const preferences=language.connectPreferences({
-    read:()=>window.agPulseHost.getPreferences(),write:input=>window.agPulseHost.setPreferences(input),
+    read:async()=>{const value=await window.agPulseHost.getPreferences();syncGuide(value);return value;},
+    write:async input=>{const value=await window.agPulseHost.setPreferences(input);syncGuide(value);return value;},
     cache:value=>localSet('ag-pulse-language',value),changed:()=>{if(root){localize();render();tick();position();}},
   });
+  void preferences.ready.then(()=>{guideReady=!preferences.error;scheduleLayout();});
   const icon=(name)=>({speed:'<path d="M3 12a6 6 0 1 1 10 0M8 9l3-4"/>',cache:'<ellipse cx="8" cy="4" rx="5" ry="2"/><path d="M3 4v8c0 2 10 2 10 0V4M3 8c0 2 10 2 10 0"/>',five:'<circle cx="8" cy="8" r="5.6"/><path d="M8 4.7v3.6l2.3 1.4"/>',week:'<rect x="2.5" y="3.5" width="11" height="10" rx="2"/><path d="M5 2v3m6-3v3M3 7h10"/>'}[name]);
   const svg=name=>`<svg viewBox="0 0 16 16" aria-hidden="true">${name==='context'?'<circle cx="8" cy="8" r="5.6"/><path d="M8 2.4V8l4.8 2.8"/>':icon(name)}</svg>`;
   const pct=n=>typeof n==='number'&&Number.isFinite(n)?`${(n*100).toFixed(1)}%`:'—';
@@ -55,7 +59,9 @@ module.exports = function installAgPulseInlineWidget() {
     for(const e of root.querySelectorAll('[data-i18n]'))e.textContent=t(e.dataset.i18n);
     for(const e of root.querySelectorAll('[data-i18n-aria]'))e.setAttribute('aria-label',t(e.dataset.i18nAria));
     for(const e of root.querySelectorAll('[data-i18n-aria][title]'))e.title=t(e.dataset.i18nAria);
-    for(const button of root.querySelectorAll('[data-language-toggle]')){button.textContent=language.language==='en'?'EN':'中';button.title=t('switchLanguage')+(preferences.error?' · '+t('languageSaveFailed'):'');button.setAttribute('aria-label',t('language'));button.dataset.saveFailed=String(preferences.error);}
+    for(const button of root.querySelectorAll('[data-language-choice]')){button.setAttribute('aria-pressed',String(button.dataset.languageChoice===language.language));button.dataset.saveFailed=String(preferences.error);button.title=preferences.error?t('languageSaveFailed'):button.textContent;}
+    text('language-save-note',preferences.error?t('languageSaveFailed'):'');
+    updateGuide();
   }
   function stopDensityMotion(){
     const motion=densityMotion;densityMotion=null;
@@ -149,6 +155,7 @@ module.exports = function installAgPulseInlineWidget() {
   }
   function fit(){
     if(!node?.isConnected)return;
+    reserveNativeSpace();
     const bar=root.querySelector('.bar'),oldDensity=node.dataset.density,oldReady=node.dataset.layout==='ready';
     let previous=densityFrame;
     if(['compact','narrow','context-only'].some(c=>node.classList.contains(c)))node.classList.remove('compact','narrow','context-only');
@@ -158,6 +165,7 @@ module.exports = function installAgPulseInlineWidget() {
       const rect=node.getBoundingClientRect(),row=composer.row.getBoundingClientRect();
       const intersects=other=>Math.min(rect.right,other.right)-Math.max(rect.left,other.left)>1&&Math.min(rect.bottom,other.bottom)-Math.max(rect.top,other.top)>1;
       if(bar.scrollWidth>bar.clientWidth+2||rect.width<=0||rect.left< -1||rect.right>innerWidth+1||rect.top< -1||rect.bottom>innerHeight+1||rect.left<row.left-1||rect.right>row.right+1)return false;
+      if(!nativeComfortable())return false;
       if(composer.kind==='subagent'&&intersects(composer.anchor.getBoundingClientRect()))return false;
       for(const control of document.querySelectorAll('button,[role="button"],a[href],input,select,[contenteditable="true"]')){
         const other=control.getBoundingClientRect();
@@ -178,7 +186,7 @@ module.exports = function installAgPulseInlineWidget() {
     };
     let safe=fits();
     const rowWidth=composer.row.getBoundingClientRect().width;
-    const probeKey=()=>node.style.cssText+'|'+language.language+'|'+lastConversation+'|'+bar.textContent+'|'+$('dot').className+'|'+getComputedStyle(composer.row).gap+'|'+Array.from(composer.row.querySelectorAll('button,[role="button"],a[href],input,select')).filter(c=>c!==composer.model&&!c.contains(composer.model)).map(c=>c.getBoundingClientRect().width).join(',');
+    const probeKey=()=>node.style.cssText.replace(/--pulse-native-room:[^;]+;?/g,'')+'|'+language.language+'|'+lastConversation+'|'+bar.textContent+'|'+$('dot').className+'|'+getComputedStyle(composer.row).gap+'|'+Array.from(composer.row.querySelectorAll('button,[role="button"],a[href],input,select')).filter(c=>c!==composer.model&&!c.contains(composer.model)).map(c=>c.getBoundingClientRect().width).join(',');
     if(oldDensity==='icons'){
       const key=probeKey();
       // Twelve pixels of recovery headroom prevents threshold chatter. Shrinking
@@ -200,6 +208,45 @@ module.exports = function installAgPulseInlineWidget() {
     else if(!safe||previous?.row!==composer.row||previous?.model!==composer.model)stopDensityMotion();
     else if(densityMotion)clipDensityMotion(next);
     densityFrame=next;
+    updateGuide();
+  }
+  function captureNative(found){
+    const branch=found.branch,r=branch.getBoundingClientRect();
+    const baseline={height:r.height,icons:Array.from(branch.querySelectorAll('svg')).map(icon=>({icon,width:icon.getBoundingClientRect().width})),reserve:0};
+    if(found.kind==='subagent'){
+      const badge=found.anchor,style=getComputedStyle(badge),label=badge.querySelector('span'),range=document.createRange();
+      range.selectNodeContents(label);
+      // Summed glyph fragments recover intrinsic text width even if the host
+      // is already wrapping the badge when we first attach.
+      const textWidth=Array.from(range.getClientRects()).reduce((sum,rect)=>sum+rect.width,0);
+      const iconWidth=badge.querySelector('svg')?.getBoundingClientRect().width||0;
+      const natural=textWidth+Math.max(iconWidth,12)+(parseFloat(style.columnGap)||0)+(parseFloat(style.paddingLeft)||0)+(parseFloat(style.paddingRight)||0);
+      baseline.reserve=Math.ceil(Math.max(badge.getBoundingClientRect().width,natural)+badge.getBoundingClientRect().left-r.left+(parseFloat(getComputedStyle(branch).paddingRight)||0));
+    }
+    return baseline;
+  }
+  function nativeComfortable(){
+    const baseline=composer.native;
+    if(!baseline)return true;
+    if(composer.branch.getBoundingClientRect().height>baseline.height+1)return false;
+    if(baseline.icons.some(({icon,width})=>icon.isConnected&&icon.getBoundingClientRect().width<width-.5))return false;
+    if(composer.kind==='subagent'){
+      if(composer.branch.getBoundingClientRect().width<baseline.reserve-1)return false;
+      const range=document.createRange();range.selectNodeContents(composer.anchor.querySelector('span'));
+      const lines=new Set(Array.from(range.getClientRects()).filter(r=>r.width>0).map(r=>Math.round(r.top)));
+      if(lines.size>1)return false;
+    }
+    return true;
+  }
+  function reserveNativeSpace(){
+    if(composer.kind!=='subagent'){if(node.style.getPropertyValue('--pulse-native-room'))node.style.removeProperty('--pulse-native-room');if(node.classList.contains('native-no-room'))node.classList.remove('native-no-room');return;}
+    const row=composer.row,style=getComputedStyle(row),siblings=Array.from(row.children).filter(e=>e!==node&&e!==composer.branch&&e.getClientRects().length);
+    const room=row.clientWidth-(parseFloat(style.paddingLeft)||0)-(parseFloat(style.paddingRight)||0)-composer.native.reserve-siblings.reduce((sum,e)=>{const s=getComputedStyle(e);return sum+e.getBoundingClientRect().width+(parseFloat(s.marginLeft)||0)+(parseFloat(s.marginRight)||0);},0)-(parseFloat(style.columnGap)||0)*(siblings.length+1)-10;
+    const width=`${Math.max(0,Math.floor(room))}px`;if(node.style.getPropertyValue('--pulse-native-room')!==width)node.style.setProperty('--pulse-native-room',width);
+    // A hidden ribbon must release its flex space as well as its hit targets.
+    // The budget is independent of our own rectangle, so it recovers directly
+    // when the sidebar is closed, without probing the native badge each frame.
+    node.classList.toggle('native-no-room',room<76);
   }
   function scheduleLayout(){
     if(layoutFrame!==null)return;
@@ -231,6 +278,7 @@ module.exports = function installAgPulseInlineWidget() {
     changingCards=true;
     try{closeGroup();cardName=null;for(const e of root?.querySelectorAll('[data-card]')||[])e.setAttribute('aria-expanded','false');for(const e of root?.querySelectorAll('.card')||[])cardVisibility(e,false);}
     finally{changingCards=false;}
+    updateGuide();
   }
   function show(name){
     if(changingCards||node?.dataset.layout==='blocked')return;
@@ -240,9 +288,11 @@ module.exports = function installAgPulseInlineWidget() {
     changingCards=true;
     try{for(const e of root.querySelectorAll('.card'))cardVisibility(e,e.id===`${name}-card`);}
     finally{changingCards=false;}
+    updateGuide();
     position();
   }
   function position(){
+    positionGuide();
     if(!cardName)return;
     const button=root.querySelector(`[data-card="${cardName}"]`),card=$(`${cardName}-card`),rect=button.getBoundingClientRect();
     const width=Math.min(310,window.innerWidth-24);card.style.width=`${width}px`;
@@ -252,6 +302,37 @@ module.exports = function installAgPulseInlineWidget() {
     const useAbove=card.offsetHeight<=roomAbove || roomAbove>=roomBelow;
     card.style.maxHeight=`${Math.max(80,useAbove?roomAbove:roomBelow)}px`;
     card.style.top=`${Math.max(12,useAbove?rect.top-card.offsetHeight-9:rect.bottom+9)}px`;
+  }
+  function positionGuide(){
+    const tip=$('language-guide'),button=root?.querySelector('[data-card="context"]');
+    if(!tip||tip.hidden||!button)return;
+    const rect=button.getBoundingClientRect(),width=Math.min(244,innerWidth-24);
+    tip.style.width=`${width}px`;tip.style.maxHeight=`${Math.max(80,innerHeight-24)}px`;
+    const left=Math.max(12,Math.min(innerWidth-width-12,rect.left+rect.width/2-width/2));
+    tip.style.left=`${left}px`;
+    tip.style.setProperty('--guide-anchor',`${Math.max(16,Math.min(width-16,rect.left+rect.width/2-left))}px`);
+    const above=rect.top-22,below=innerHeight-rect.bottom-22,useAbove=tip.offsetHeight<=above||above>=below;
+    tip.style.maxHeight=`${Math.max(80,useAbove?above:below)}px`;
+    tip.style.top=`${Math.max(12,useAbove?rect.top-tip.offsetHeight-10:rect.bottom+10)}px`;
+    tip.dataset.side=useAbove?'above':'below';
+  }
+  function updateGuide(){
+    const tip=$('language-guide');if(!tip)return;
+    const visible=!disposed&&guideReady&&!guideDismissed&&!guideOpened&&!cardName&&node?.isConnected&&composer?.kind==='main'&&node.dataset.layout==='ready'&&node.style.visibility!=='hidden';
+    const entering=visible&&tip.hidden;
+    cardVisibility(tip,visible);
+    const button=root.querySelector('[data-card="context"]');
+    if(visible)button.setAttribute('aria-describedby','language-guide');else button.removeAttribute('aria-describedby');
+    text('guide-save-note',guideError?'Could not save. Please retry. / 未能保存，请重试。':'');
+    $('guide-close').disabled=guideSaving;
+    positionGuide();
+    if(entering)tip.animate([{opacity:0,transform:`translateY(${tip.dataset.side==='above'?'4':'-4'}px)`},{opacity:1,transform:'translateY(0)'}],{duration:160,easing:'cubic-bezier(0.23,1,0.32,1)'});
+  }
+  async function dismissGuide(){
+    if(guideSaving)return;guideSaving=true;guideError=false;updateGuide();
+    try{const value=await window.agPulseHost.setPreferences({languageGuideDismissed:true});if(value?.languageGuideDismissed!==true||value.error)throw new Error('Guide not saved');syncGuide(value);preferences.sync(value);}
+    catch{guideError=true;}
+    finally{guideSaving=false;updateGuide();}
   }
   function findComposer(){
     const visible=element=>element.isConnected&&!element.closest('[hidden],[inert]')&&element.getClientRects().length>0&&getComputedStyle(element).visibility!=='hidden';
@@ -300,6 +381,7 @@ module.exports = function installAgPulseInlineWidget() {
   function mount(){
     const found=findComposer();
     if(!found){stopDensityMotion();densityFrame=null;densityProbe=null;composer=null;resizeObserver?.disconnect();if(node?.isConnected){hide();themeController?.dispose();themeController=null;node.remove();}return;}
+    found.native=composer?.branch===found.branch?composer.native:captureNative(found);
     composer=found;
     if(syncConversation())render();
     const {editor,model,row,branch}=found;
@@ -308,13 +390,14 @@ module.exports = function installAgPulseInlineWidget() {
     if(node){stopDensityMotion();densityFrame=null;densityProbe=null;hide();row.insertBefore(node,branch.nextSibling);observeComposer();themeController?.dispose();themeController=theme.attach(node,{embedded:true});if(data?.theme)themeController.setHostTheme(data.theme);fit();position();return;}
     resizeObserver?.disconnect();node?.remove();node=document.createElement('div');node.id=ID;
     node.dataset.scope=found.kind;
-    node.style.cssText='display:flex;align-items:center;flex:0 1 auto;min-width:0;max-width:100%;height:28px;margin:0 5px;position:relative;';
+    node.style.cssText='display:flex;align-items:center;flex:0 1 auto;min-width:0;max-width:min(100%,var(--pulse-native-room,100%));height:28px;margin:0 5px;position:relative;';
     root=node.attachShadow({mode:'open'});
     root.innerHTML=`<style>${theme.shadowCss()}
       :host{color-scheme:var(--pulse-scheme);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","Microsoft YaHei",sans-serif;color:var(--pulse-foreground);font-size:11px}*{box-sizing:border-box}button,select{font:inherit}button{cursor:pointer}svg{width:13px;height:13px;fill:none;stroke:currentColor;stroke-width:1.2;stroke-linecap:round;stroke-linejoin:round;flex:none}button:focus-visible,select:focus-visible{outline:2px solid var(--pulse-accent);outline-offset:2px}
       .bar{display:flex;justify-content:flex-start;width:100%;align-items:center;gap:7px;min-height:28px;padding:2px 0}.chip{display:flex;align-items:center;gap:6px;color:var(--pulse-chip);background:none;border:0;border-radius:5px;padding:3px 6px;white-space:nowrap;line-height:18px}.chip:hover,.chip[aria-expanded=true]{background:var(--pulse-hover);color:var(--pulse-hover-text)}.chip strong{font-weight:500;font-variant-numeric:tabular-nums}.dim{color:var(--pulse-muted)}.countdown{font-size:10px;font-variant-numeric:tabular-nums}.dot{width:4px;height:4px;background:var(--pulse-dot);border-radius:50%;flex:none}.dot.live{background:var(--pulse-success)}.dot.stale{background:var(--pulse-warning)}.group{color:var(--pulse-muted);font-size:10px;margin-right:1px}.card{position:fixed;inset:auto;margin:0;z-index:2147483000;padding:13px 14px 11px;border-radius:13px;background:linear-gradient(145deg,var(--pulse-card),var(--pulse-card-end));box-shadow:0 8px 32px var(--pulse-shadow);border:1px solid var(--pulse-border);color:var(--pulse-foreground);font-size:12px}.card::backdrop{background:transparent;pointer-events:none}.card[hidden]{display:none}dl>[hidden]{display:none}.heading{display:flex;align-items:center;justify-content:space-between;padding-bottom:10px;margin-bottom:9px;border-bottom:1px solid var(--pulse-separator);font-weight:600}.heading span{display:flex;align-items:center;gap:7px}.tag{font-size:10px;font-weight:400;color:var(--pulse-muted)}dl{margin:0}dl div{display:flex;align-items:baseline;justify-content:space-between;gap:10px;margin:8px 0}dt{color:var(--pulse-label);font-size:11px}dd{margin:0;font-size:11px;font-variant-numeric:tabular-nums;text-align:right}.emphasis dd{font-weight:600;color:var(--pulse-emphasis)}.footnote{font-size:10px;color:var(--pulse-subtle);line-height:1.6;margin:10px 0 0}.balance{display:flex;align-items:baseline;gap:8px;margin:12px 0}.balance strong{font-size:27px;font-weight:550;letter-spacing:-.6px;font-variant-numeric:tabular-nums}.balance span{color:var(--pulse-muted);font-size:11px}.track{height:4px;border-radius:3px;background:var(--pulse-track);margin:12px 0 14px;overflow:hidden}.track i{height:100%;display:block;background:var(--pulse-accent);width:0}select{color:var(--pulse-control-text);background:var(--pulse-control);border:0;border-radius:4px;font-size:10px;padding:3px 5px;max-width:120px}.toolbar{display:flex;align-items:center;gap:7px}.refresh{color:var(--pulse-muted);border:0;background:transparent;padding:0 3px;font-size:14px}.reset{color:var(--pulse-emphasis)}.rounds,.group,.dot.live{display:none}.chip[hidden]{display:none}.toolbar{position:relative}.group-trigger{color:var(--pulse-control-text);background:var(--pulse-control);border:0;border-radius:5px;font-size:10px;padding:4px 7px;white-space:nowrap}.group-menu{position:absolute;top:calc(100% + 5px);right:22px;min-width:132px;padding:4px;background:var(--pulse-menu);border:1px solid var(--pulse-border);border-radius:7px;box-shadow:0 6px 20px var(--pulse-shadow);z-index:10}.group-menu[hidden]{display:none}.group-menu button{display:block;width:100%;padding:7px 9px;border:0;border-radius:4px;background:none;color:var(--pulse-foreground);text-align:left;white-space:nowrap}.group-menu button:hover,.group-menu button[aria-selected=true]{background:var(--pulse-selected)}.chip{padding:2px 4px;font-size:10px;gap:4px;min-width:0}.bar{gap:3px}.language-button{border:0;background:none;color:var(--pulse-muted);border-radius:4px;font-size:9px;padding:3px 4px;margin-left:auto;cursor:pointer;flex:none}.language-button:hover{color:var(--pulse-hover-text);background:var(--pulse-hover)}:host(.compact) .countdown{display:none}:host(.narrow) .cache-total{display:none}:host(.narrow) [data-card="cache"] .dim{display:none}:host(.narrow) .chip svg{display:none}:host(.narrow) .chip{padding:2px 3px;font-size:9px}:host(.narrow) .bar{gap:0}
 
     :host([data-layout=blocked]){visibility:hidden!important;pointer-events:none!important}.bar{overflow:clip;min-width:0;max-width:100%}
+    :host(.native-no-room){flex:0 0 0px!important;width:0!important;max-width:0!important;margin:0!important}
     .density-stage{position:absolute;overflow:clip;pointer-events:none;user-select:none}.density-piece{pointer-events:none!important}
     .scope-note{margin:0 0 10px;color:var(--pulse-muted);font-size:10px}:host([data-scope=main]) .scope-note{display:none}
     .language-button[data-save-failed=true]{color:var(--pulse-warning);text-decoration:underline dotted}.context-ring{display:inline-block;flex:none;width:12px;height:12px;border-radius:50%;background:conic-gradient(var(--pulse-ring) var(--used-angle,0deg),var(--pulse-ring-track) 0);mask:radial-gradient(circle,transparent 43%,#000 47%)}:host(.narrow) .context-label{display:none}
@@ -328,7 +411,6 @@ module.exports = function installAgPulseInlineWidget() {
       <button class="chip" data-card="speed" data-i18n-aria="session" hidden aria-controls="speed-card" aria-expanded="false">${svg('speed')}<span class="rounds dim" id="rounds"></span><strong id="tps">—</strong><span>tok/s</span></button>
       <button class="chip" data-card="cache" data-i18n-aria="cacheTitle" hidden aria-controls="cache-card" aria-expanded="false">${svg('cache')}<span class="cache-total" id="cache-total">— tok</span><span class="dim">·</span><span data-i18n="cache">Cache hit</span><strong id="cache-rate">—</strong></button>
       <button class="chip" data-card="context" data-i18n-aria="context" hidden aria-controls="context-card" aria-expanded="false"><span class="context-ring" id="context-ring" aria-hidden="true"></span><span class="context-label" data-i18n="contextShort">Ctx</span><strong id="context-percent">—</strong></button>
-      <button class="language-button" data-language-toggle id="language-toggle" aria-label="Language">EN</button>
     </div><section class="card" id="speed-card" role="region" data-i18n-aria="session" aria-label="Session statistics" hidden>
       <div class="heading"><span>${svg('speed')}<span data-i18n="session">Session statistics</span></span><span class="tag" id="samples">—</span></div>
       <dl>${[['modelTime','model-time'],['toolTime','tool-time'],['ttft','ttft'],['sessionTps','session-rate'],['latest','latest-rate'],['tokens','tokens']].map(([key,id])=>`<div><dt data-i18n="${key}">${t(key)}</dt><dd id="${id}">—</dd></div>`).join('')}</dl><p class="footnote" id="rate-note">${t('responseBasis')}</p>
@@ -346,10 +428,37 @@ module.exports = function installAgPulseInlineWidget() {
     row.insertBefore(node,branch.nextSibling);
     for(const card of root.querySelectorAll('.card')){const note=document.createElement('p');note.className='scope-note';note.dataset.i18n='subagentStats';card.querySelector('.heading').after(note);}
     const languageRow=document.createElement('div');languageRow.className='card-language';
-    languageRow.innerHTML='<span data-i18n="language"></span><button class="language-button" id="card-language-toggle" data-language-toggle></button>';
+    languageRow.innerHTML='<span>Language / 语言</span><div class="language-options" role="group" aria-label="Language / 语言"><button type="button" class="language-button" id="card-language-en" data-language-choice="en">English</button><button type="button" class="language-button" id="card-language-zh" data-language-choice="zh-CN">简体中文</button></div>';
     $('context-card').append(languageRow);
+    const saveNote=document.createElement('p');saveNote.className='footnote';saveNote.id='language-save-note';languageRow.after(saveNote);
+    const guide=document.createElement('section');guide.className='language-guide';guide.id='language-guide';guide.hidden=true;guide.setAttribute('role','region');guide.setAttribute('aria-label','Language / 语言');
+    guide.innerHTML='<div class="guide-heading"><strong>Language <span>/ 语言</span></strong><button type="button" id="guide-close" aria-label="Dismiss language tip / 关闭语言提示" title="Dismiss / 关闭">×</button></div><button type="button" id="guide-open"><span><span>Switch in context details</span><span lang="zh-CN">在上下文详情中切换语言</span></span><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3 8h9M8 4l4 4-4 4"/></svg></button><p class="footnote" id="guide-save-note"></p>';
+    root.append(guide);
+    const guideStyle=document.createElement('style');guideStyle.textContent=`
+      .card-language{margin:10px 0 0;padding:8px 0 0;border-top:1px solid var(--pulse-separator);border-bottom:0;gap:8px;font-size:10px}
+      .language-options{display:flex;gap:2px;padding:2px;border-radius:6px;background:var(--pulse-control);flex:none}
+      .language-options .language-button{font-size:10px;padding:3px 6px;margin:0;border-radius:4px;color:var(--pulse-muted);line-height:16px;transition:background-color 140ms ease,color 140ms ease,transform 120ms ease}
+      .language-options .language-button[aria-pressed=true]{color:var(--pulse-foreground);background:var(--pulse-hover);box-shadow:0 1px 2px var(--pulse-shadow)}
+      .language-options .language-button:active{transform:scale(.97)}
+      .language-guide{position:fixed;inset:auto;margin:0;padding:10px 12px;border:1px solid var(--pulse-border);border-radius:10px;background:var(--pulse-card);color:var(--pulse-foreground);box-shadow:0 4px 16px var(--pulse-shadow);font-size:11px;z-index:2147483000;overflow:visible}
+      .language-guide[hidden]{display:none}.language-guide::backdrop{background:transparent;pointer-events:none}
+      .language-guide::after{content:'';position:absolute;left:calc(var(--guide-anchor) - 4px);width:7px;height:7px;transform:rotate(45deg);background:var(--pulse-card);pointer-events:none}
+      .language-guide[data-side=above]::after{bottom:-4px;border-right:1px solid var(--pulse-border);border-bottom:1px solid var(--pulse-border)}
+      .language-guide[data-side=below]::after{top:-4px;border-left:1px solid var(--pulse-border);border-top:1px solid var(--pulse-border)}
+      .guide-heading{display:flex;align-items:center;justify-content:space-between;gap:8px;min-height:18px}
+      .guide-heading strong{font-size:11px;font-weight:600}.guide-heading strong span{font-weight:400;color:var(--pulse-muted)}
+      .language-guide button{border:0;background:transparent;color:var(--pulse-muted);border-radius:4px;cursor:pointer;font:inherit;transition:color 140ms ease,background-color 140ms ease,transform 120ms ease}
+      .language-guide button:hover{background:var(--pulse-hover);color:var(--pulse-foreground)}.language-guide button:active{transform:scale(.98)}
+      #guide-close{font-size:15px;line-height:18px;width:20px;height:20px;margin:-3px -4px -3px 0;padding:0}
+      #guide-open{display:flex;align-items:center;justify-content:space-between;gap:12px;text-align:left;width:calc(100% + 8px);margin:5px -4px -3px;padding:4px;line-height:16px}
+      #guide-open>span{display:grid;gap:1px}#guide-open span[lang]{font-size:10px;color:var(--pulse-muted)}#guide-open svg{width:14px;height:14px;flex:none}
+      #guide-save-note:empty,#language-save-note:empty{display:none}#guide-save-note,#language-save-note{color:var(--pulse-warning)}
+    `;root.append(guideStyle);
+    $('guide-close').addEventListener('click',()=>void dismissGuide());
+    $('guide-open').addEventListener('click',()=>{guideOpened=true;show('context');$('card-language-zh').scrollIntoView({block:'nearest'});$('card-language-zh').focus({preventScroll:true});});
     // Escape ancestor stacking/paint contexts; ordinary z-index cannot do this.
     if(typeof HTMLElement.prototype.showPopover==='function')for(const card of root.querySelectorAll('.card'))card.setAttribute('popover','manual');
+    if(typeof guide.showPopover==='function')guide.setAttribute('popover','manual');
     themeController=theme.attach(node,{embedded:true});
     report('mounted',{editorFound:true,composerFound:true});
     observeComposer();
@@ -366,7 +475,7 @@ module.exports = function installAgPulseInlineWidget() {
       const menu=button.parentElement.querySelector('.group-menu');const opening=menu.hidden;closeGroup();if(opening){groupMenu=menu;menu.hidden=false;button.setAttribute('aria-expanded','true');}
     });
     for(const button of root.querySelectorAll('.refresh'))button.addEventListener('click',refreshManually);
-    for(const button of root.querySelectorAll('[data-language-toggle]'))button.addEventListener('click',()=>{closeGroup();void preferences.toggle();});
+    for(const button of root.querySelectorAll('[data-language-choice]'))button.addEventListener('click',()=>{closeGroup();void preferences.choose(button.dataset.languageChoice);});
     localize();
     render();refresh();
   }
@@ -453,7 +562,7 @@ module.exports = function installAgPulseInlineWidget() {
     const current=()=>!disposed&&epoch===requestEpoch&&conversation===conversationId()&&conversation===lastConversation&&node?.isConnected;
     pending=true;lastFetch=Date.now();
     refreshRequest=(async()=>{
-      try{const result=await window.agPulseHost.getMetrics({conversationId:conversation,force});if(!current())return;node.style.visibility=result.enabled===false?'hidden':'';if(result.enabled===false){hide();return;}if(!conversation||result.speed&&result.speed.conversationId!==conversation)result.speed=null;data=result;if(result.preferences)preferences.sync(result.preferences);if(Object.hasOwn(result,'theme'))themeController?.setHostTheme(result.theme);render();}
+      try{const result=await window.agPulseHost.getMetrics({conversationId:conversation,force});if(!current())return;node.style.visibility=result.enabled===false?'hidden':'';if(result.enabled===false){hide();return;}if(!conversation||result.speed&&result.speed.conversationId!==conversation)result.speed=null;data=result;if(result.preferences){syncGuide(result.preferences);preferences.sync(result.preferences);guideReady=!preferences.error;}if(Object.hasOwn(result,'theme'))themeController?.setHostTheme(result.theme);render();}
       catch{if(current()&&data){data.connection='stale';data.error=t('reconnecting');render();}}
       finally{if(epoch===requestEpoch){pending=false;refreshRequest=null;}}
     })();
