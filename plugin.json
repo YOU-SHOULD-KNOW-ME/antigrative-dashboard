@@ -2,6 +2,6 @@
   "name": "antigravity-pulse",
   "display_name": "Antigrative Dashboard",
   "description": "Token throughput, cache hit, context window and quotas on Windows, Linux and macOS. English / Chinese switching.",
-  "version": "0.6.0",
+  "version": "0.6.1",
   "logo": "assets/logo.svg"
 }

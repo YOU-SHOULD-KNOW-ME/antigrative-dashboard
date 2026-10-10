@@ -7,7 +7,7 @@
 模型选择旁只显示生成速率、缓存和上下文占用；悬停上下文，一并查看上下文、5 小时和周额度详情。<br>
 缩略信息常驻；鼠标悬停，才展开详细统计。
 
-[![Version 0.6.0](https://img.shields.io/badge/version-0.6.0-91adff?style=flat-square&labelColor=252936)](CHANGELOG.md)
+[![Version 0.6.1](https://img.shields.io/badge/version-0.6.1-91adff?style=flat-square&labelColor=252936)](CHANGELOG.md)
 [![Platforms](https://img.shields.io/badge/host-Windows%20%7C%20Linux%20%7C%20macOS-83d8b9?style=flat-square&labelColor=252936)](COMPATIBILITY.md)
 [![Antigravity 2.21.1 / 2.22.0](https://img.shields.io/badge/Antigravity-2.21.1%20%2F%202.22.0-c5a0ff?style=flat-square&labelColor=252936)](COMPATIBILITY.md)
 [![MIT](https://img.shields.io/badge/license-MIT-d4d9e6?style=flat-square&labelColor=252936)](LICENSE)
@@ -16,7 +16,7 @@
 
 </div>
 
-**v0.6.0 更新：** 新增原生 CLI 状态栏，展示上下文、缓存读取量、分组额度与绿黄红进度条；Claude (#DA7756) 与 GPT (#F8FAFC) 分别配色，提供独立安装、卸载还原及真实对话截图。[完整更新说明](https://github.com/YOU-SHOULD-KNOW-ME/antigrative-dashboard/releases/tag/v0.6.0)。
+**v0.6.1 更新：** 修复子代理工具栏重叠（[#5](https://github.com/YOU-SHOULD-KNOW-ME/antigrative-dashboard/issues/5)）、父子对话切换等待和滚动时误隐藏。空间不足先保留三个可交互图标；子代理统计位于输入框旁，额度注明账号共享。[完整更新说明](https://github.com/YOU-SHOULD-KNOW-ME/antigrative-dashboard/releases/tag/v0.6.1)。
 
 ## 看看效果
 
@@ -35,9 +35,10 @@
 - **菜单保持稳定。** 打开额度组菜单时，轮询不会重建控件或关闭菜单，倒计时继续更新。
 - **用真实数据。** 余额读取账户接口，不根据生成字数推测，不将重置到期自动改成 100%。
 - **切换对话。** 统计跟随当前会话，新对话不沿用上一段对话的速率。
+- **子代理独立统计。** 输入框旁显示当前子代理的 tok/s、缓存率和上下文；详情区分子代理统计和账号共享额度。父子对话切换立即刷新，旧响应不能覆盖新页面或返回同一对话后的新数值。
 - **更新后自动连接。** 适配器保存在用户插件目录，默认安装不修改 App 归档。
 - **对话统计持久化。** 每个账号、每个对话分别保存 tok/s 与 cache，重新加载后可恢复。
-- **适合紧凑窗口。** 常驻仅三个控件；上下文细节、5h 与周额度余额、重置倒计时统一放在上下文悬浮卡中。
+- **适合紧凑窗口。** 完整数值放不下时先保留仪表盘、数据库和上下文圆圈三个图标，仍可悬停或点击查看详情；语言切换保留在上下文卡里。连图标都放不下或确实碰撞宿主按钮时才隐藏，拉宽后恢复。消息按钮滚到输入框后面不会再导致控件消失。
 - **跟随主题配色。** 控件、悬浮卡和额度菜单跟随 Antigravity 的深浅模式及自定义背景、卡片、文字和强调色，并保持文字可读；独立预览跟随系统，切换主题无需重启或重新加载对话。
 - **语言设置跨重启保留。** 中英文选择写入独立的 `AntigravityPulse/preferences.json` 用户配置，控件和侧面板共用；不依赖应用每次启动的本地端口。
 - **不上传采集数据。** 后台使用本机 loopback 接口，数值留在你的电脑。

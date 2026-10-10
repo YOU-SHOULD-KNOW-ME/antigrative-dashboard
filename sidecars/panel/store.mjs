@@ -110,8 +110,12 @@ export class MetricsStore {
       try { await this.refreshQuota(force); }
       catch (e) { connection = this.quota ? 'stale' : 'offline'; error = e.message; }
       let summaries = this.summaries;
-      try { summaries = await this.listConversations(force); }
-      catch (e) { connection = this.quota ? 'stale' : 'offline'; error ||= e.message; }
+      // The inline composer already supplies its exact ID. Enumerating every
+      // conversation first adds unrelated RPC latency to a route transition.
+      if (!conversationId) {
+        try { summaries = await this.listConversations(force); }
+        catch (e) { connection = this.quota ? 'stale' : 'offline'; error ||= e.message; }
+      }
       const selected = conversationId || summaries[0]?.id;
       if (selected) {
         try { speed = await this.session(selected, force); }

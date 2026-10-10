@@ -57,6 +57,15 @@ test('failed disk write keeps live metrics and surfaces a persistence warning',a
   const history={load:async()=>null,save:async()=>{throw new Error('disk full');}};
   const result=await new MetricsStore(client(),{history}).snapshot({conversationId:id});assert.equal(result.speed.tps,50);assert.ok(result.persistenceError);
 });
+
+test('an explicit conversation ID does not wait for unrelated conversation enumeration',async t=>{
+  const {history}=await fixture(t);const c=client();const call=c.call;let lists=0;
+  c.call=async name=>{if(name==='GetAllCascadeTrajectories'){lists++;throw new Error('list must not be needed');}return call(name);};
+  const store=new MetricsStore(c,{history});
+  const result=await store.snapshot({conversationId:id});
+  assert.equal(result.speed.conversationId,id);assert.equal(result.speed.tps,50);assert.equal(lists,0);assert.equal(result.error,null);
+  await store.snapshot();assert.equal(lists,1,'Unselected panel still requests its conversation list');
+});
 test('parallel session requests merge; an account switch rejects an in-flight old result',async t=>{
   const {history}=await fixture(t);let finish,calls=0;
   const c=client(()=>{calls++;return new Promise(resolve=>{finish=resolve;});});const store=new MetricsStore(c,{history});await store.refreshQuota(true);

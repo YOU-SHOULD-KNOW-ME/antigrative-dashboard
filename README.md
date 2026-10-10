@@ -7,7 +7,7 @@
 Token throughput, cache hits and context usage in the model selector row. Hover over context for five-hour and weekly quotas too.<br>
 Keep the summary visible. Hover for the details.
 
-[![Version 0.6.0](https://img.shields.io/badge/version-0.6.0-91adff?style=flat-square&labelColor=252936)](CHANGELOG.md)
+[![Version 0.6.1](https://img.shields.io/badge/version-0.6.1-91adff?style=flat-square&labelColor=252936)](CHANGELOG.md)
 [![Platforms](https://img.shields.io/badge/host-Windows%20%7C%20Linux%20%7C%20macOS-83d8b9?style=flat-square&labelColor=252936)](COMPATIBILITY.md)
 [![Antigravity 2.21.1 / 2.22.0](https://img.shields.io/badge/Antigravity-2.21.1%20%2F%202.22.0-c5a0ff?style=flat-square&labelColor=252936)](COMPATIBILITY.md)
 [![MIT](https://img.shields.io/badge/license-MIT-d4d9e6?style=flat-square&labelColor=252936)](LICENSE)
@@ -16,7 +16,7 @@ Keep the summary visible. Hover for the details.
 
 </div>
 
-**v0.6.0:** Native CLI status line with context, cache reads, grouped quotas and green/yellow/red balance bars. Distinct Claude (#DA7756) and GPT (#F8FAFC) labels, independent install/restore and a real conversation screenshot. [Full release notes](https://github.com/YOU-SHOULD-KNOW-ME/antigrative-dashboard/releases/tag/v0.6.0).
+**v0.6.1:** Fix subagent toolbar overlap ([#5](https://github.com/YOU-SHOULD-KNOW-ME/antigrative-dashboard/issues/5)), slow parent/child switching and controls disappearing during message scrolling. Narrow layouts keep three interactive icons before hiding. Subagent statistics stay beside its input box; quotas are labeled as account-wide. [Full release notes](https://github.com/YOU-SHOULD-KNOW-ME/antigrative-dashboard/releases/tag/v0.6.1).
 
 ## Preview
 
@@ -39,9 +39,10 @@ Keep the summary visible. Hover for the details.
 - **Stable menus.** Quota-group menus stay open across polling cycles while countdowns continue ticking.
 - **Actual account data.** Remaining quota comes from the account API, not an estimate based on text length. Expired windows do not automatically become 100%.
 - **Conversation-aware.** Switch chats without carrying the previous chat's throughput into a new one.
+- **Subagent-aware.** Show the current child's speed, cache and context beside its input box. Detail cards distinguish child statistics from shared account quotas. Navigation refreshes immediately; late results cannot overwrite another visit's data.
 - **Survives updates.** Plugin-owned runtime attachment reconnects after app updates, without modifying the application archive.
 - **Persistent conversations.** TPS and cache statistics are saved separately for each conversation and account; reloads can recover saved statistics.
-- **Compact-window support.** Only three summary controls; quota balances and countdowns stay in the combined context hover card.
+- **Compact-window support.** Full statistics reduce to three clickable icons (speed, cache and context) when space is limited. Hover or click for details; language switching stays available in the context card. The strip hides only if the icons cannot fit safely and restores when space returns. Message controls hidden behind the composer do not cause scroll flicker.
 - **Theme adaptation.** Controls, cards and quota menus follow Antigravity's light/dark mode and custom background, card, text and accent colors, with readable text and OS fallback in standalone previews. Live changes require no restart or conversation reload.
 - **Local collection.** The collector talks to loopback endpoints. It does not upload your metrics to a third-party service.
 

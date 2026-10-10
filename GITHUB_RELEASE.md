@@ -1,42 +1,41 @@
-# Antigrative Dashboard v0.6.0
+# Antigrative Dashboard v0.6.1
 
-## Antigravity CLI support
+## Subagent layout and responsive controls
 
-This release adds an independent adapter for the official Antigravity CLI `statusLine` interface. The portable ZIP includes both the desktop plugin and CLI adapter.
+- Fix [issue #5](https://github.com/YOU-SHOULD-KNOW-ME/antigrative-dashboard/issues/5): the auxiliary pane's Git filter could be mistaken for a model selector, placing the strip over the top toolbar. Mount only beside a valid local composer; reject headers, distant toolbars and ambiguous layouts.
+- Show current subagent throughput, cache and context beside its input box. Detail cards identify **current subagent statistics** and **account-wide shared quotas**. Parent values are never used as a child fallback.
+- When full statistics cannot fit, keep **three interactive icons: speed gauge, token database and context ring**. Hover, click or focus for details. Language switching remains in the context card. Hide only when the icons cannot fit safely or collide with host actions; restore when space returns.
+- Fix disappearance during message scrolling. A message control clipped or covered behind the composer no longer counts as a visible collision. Local composer actions and actually painted floating controls remain protected.
+- Preserve host flex/min-width styles. Recheck after resizing, scrolling, DOM changes and composer replacement; dismiss details when placement is unsafe.
 
-- Context occupancy and current cache read tokens appear first, followed by agent state.
-- Gemini and Claude/GPT quotas occupy separate rows; each groups five-hour and weekly balances with reset countdowns.
-- Remaining quota numbers and bars are **green at ≥70%, yellow at ≥30% and <70%, red below 30%**. Low balances also show `!` for monochrome terminals.
-- The shared quota label distinguishes **Claude #DA7756** from **GPT #F8FAFC**; a supplied light-background terminal hint makes GPT use the default foreground for readability.
-- English/Chinese, CJK/emoji cell widths, compact narrow layouts and optional details are supported. Only foreground colors and text weight are set; the terminal background is preserved.
-- Independent installation, upgrade, status and uninstall preserve unrelated settings and restore the prior status line. Runtime files live in the user directory and survive replacement of the CLI binary.
-- Windows shell transport is fixed for the real agy Go/CMD runner, with UTF-8 input/output and literal quoted paths. Linux/macOS use POSIX shell quoting.
-- Unicode installation paths remain usable when a redirected Windows console uses a legacy encoding.
+## Conversation switching
+
+- Refresh immediately after parent/child navigation, independently of the previous request and polling clock.
+- Reject obsolete successes and failures, including returning to the same conversation after visiting another one. Reject mismatched returned conversation IDs; discard pending work on disposal.
+- Skip full conversation enumeration when the composer supplies its exact ID. Preserve queued manual refresh and rotation feedback.
 
 ## Install or update
 
-Download `antigrative-dashboard-0.6.0.zip` and its `.zip.sha256`, verify the checksum, and extract the archive. Install the official Antigravity CLI separately, using [Google's instructions](https://antigravity.google/docs/cli/install/).
-
-Run from the extracted project directory (Node.js 20+ and Python 3.10+ required):
+Download `antigrative-dashboard-0.6.1.zip` and `.zip.sha256`, verify the checksum and extract. Run from the extracted directory:
 
 ```sh
-python manage.py install-cli
-python manage.py status-cli
+python manage.py install
 ```
 
-Use `python3` on Linux/macOS. Reopen `agy` after installation. To fix the language independently of the desktop preference, add `--language en` or `--language zh-CN` to `install-cli`. Restore the previous status line with `python manage.py uninstall-cli`.
-
-Desktop users can update with `python manage.py install` (Linux/macOS: `python3`), then fully quit and reopen Antigravity when no task is running. Desktop statistics and language preferences are retained.
+Use `python3` on Linux/macOS. Fully quit and reopen Antigravity when no task is running so the sidecar loads the new sources. Per-account conversation statistics and language preferences are retained. The same ZIP includes the existing CLI adapter; CLI users can run `python manage.py install-cli` and reopen `agy`.
 
 ## Verification and limits
 
-- Locally verified on Windows Antigravity CLI **1.3.2**, including two real signed-in replies and live context/quota status. A redacted [real screenshot and full usage guide](https://github.com/YOU-SHOULD-KNOW-ME/antigrative-dashboard/blob/v0.6.0/docs/CLI.md) are included.
-- Publication requires Windows, Linux and macOS data/lifecycle/Chromium regressions and the existing official desktop resource/SDK checks. **Signed-in CLI interactive acceptance on Linux/macOS remains outstanding.** The real Windows test returned cache read 0; nonzero live cache behavior was not observed.
-- CLI tok/s is omitted because the official payload has no streaming duration. Cache read is a token count, not an inferred cache hit ratio. Missing data displays `--`, and real zero values remain zero.
-- The adapter reads only the current status-line input; it makes no network calls, reads no transcripts and creates no new metric history. Future incompatible host interfaces may still require adaptation.
+- Windows Antigravity desktop **2.22.0**: real subagent metrics, auxiliary toolbar hit targets and Add menu, parent/child navigation, normal restart and reload were checked. Scroll disappearance was reproduced in a real main conversation and checked at the same position after the fix.
+- Local Node tests: **88 passed, 1 platform skip**. Python lifecycle/package tests: **28 passed, 1 permission skip**. Production-renderer browser regressions passed in English/Chinese, covering icons, covered scroll controls, visible overlays, host styles, stale responses, themes and language persistence.
+- Publication requires Windows/Linux/macOS data, lifecycle and Chromium regressions and the existing official desktop resource/SDK checks. Browser tests use illustrative host fixtures. **Signed-in Linux/macOS desktop GUI acceptance remains outstanding.**
+- Unknown host DOM/SDK/debugging/metric changes may require maintenance. Unsupported layouts decline inline mounting; the native side panel remains available when its SDK is compatible. Arbitrary floating child windows and several simultaneous composers on one page are not promised.
+- CLI behavior and documented metric limits are unchanged. No account details, conversation statistics or local test screenshots are included in this release.
 
 ## 中文摘要
 
-v0.6.0 新增独立 CLI 状态栏：上下文占用、缓存读取量、状态、Gemini / Claude-GPT 分组额度与重置倒计时。额度数字与进度条按剩余量变色：**≥70% 绿色、≥30% 且 <70% 黄色、<30% 红色并附 `!`**。支持中英文、窄窗口及深浅终端背景；修复 Windows 命令传输与中文编码问题，提供独立安装、更新、状态检查和卸载还原。
+v0.6.1 修复 Issue #5 子代理工具栏重叠，展示子代理自己的速度、缓存率和上下文，额度注明账号共享。窄窗口先保留仪表盘、数据库、上下文圆圈三个可交互图标，连图标都放不下才隐藏，拉宽后恢复；语言可在上下文详情中切换。
 
-解压后运行 `python manage.py install-cli`（Linux/macOS 用 `python3`），重新打开 `agy`。同一 ZIP 仍包含桌面版。Windows CLI 1.3.2 已完成真实登录后的两轮对话验证；Linux/macOS 登录后的 CLI 实机验收尚未完成。官方输入缺少流式耗时，因此暂不显示 tok/s；缓存展示读取数量，不推算命中率。
+同时修复滚动时把输入框后面的消息按钮误判为碰撞，以及父子对话切换等待旧请求的问题。旧请求成功、失败及返回同一对话后的晚到响应都不能覆盖新数值。Windows 真实界面已验证；Linux/macOS 共用代码并运行 CI，登录后的实机 GUI 验收仍未完成。
+
+解压后运行 `python manage.py install`（Linux/macOS 用 `python3`），无任务运行时完全退出重开 Antigravity。保留语言与对话统计；同一 ZIP 继续包含 CLI 适配器。

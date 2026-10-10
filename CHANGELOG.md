@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.6.1 — 2026-10-10
+
+- Refresh immediately on parent/subagent navigation instead of inheriting the old polling clock or waiting for its in-flight request. Guard success, failure and cleanup by navigation generation, and avoid listing every conversation when an exact ID is supplied. Preserve queued manual refresh feedback.
+- Add a subagent strip inside the host's stable input box, beside its static identity badge. Display current child throughput, cache and context; label detail cards as current subagent statistics and quotas as account-wide balances.
+- Reduce narrow composers to three interactive icons (speed, cache and context), hiding only when those icons cannot fit safely. Keep language switching in the context card and restore full statistics when space returns.
+- Fix controls disappearing during message scrolling: clipped or covered message controls are not visible collisions. Continue reserving local composer actions and protecting actually painted floating controls.
+- Clear statistics immediately on parent/child navigation and reject late or mismatched conversation responses. Add English/Chinese browser coverage for child request ownership, late responses, quota scope and narrow layouts.
+- Fix inline dashboard overlap with Agent Manager / Subagent window controls (issue #5). Require a horizontal action row adjacent to its editable composer; reject app headers, distant toolbars and unsupported layouts.
+- Use bounded, shrinking inline sizing without changing the host model branch or raising the strip above neighboring buttons. Clip overflowing chips, compact when space is limited and hide the strip if it still cannot fit or intersects host controls.
+- Recheck geometry after resize, scroll, host layout mutations and composer replacement; close open cards when placement becomes unsafe and restore the strip when space returns. Keep detail cards in the browser top layer.
+- Add browser regressions for header rejection, English/Chinese widths, real control clicks, absolute-position collisions, recovery and preservation of host styles. This shared renderer fix applies to all desktop platforms; signed-in Linux/macOS GUI acceptance remains separate.
+
 ## 0.6.0 — 2026-10-10
 
 - Add a standalone Antigravity CLI statusLine adapter: explicit context occupancy, current cache read tokens, agent state, grouped Gemini/Claude-GPT quotas and reset countdowns.
