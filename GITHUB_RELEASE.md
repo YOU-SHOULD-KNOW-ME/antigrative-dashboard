@@ -1,4 +1,10 @@
-# Antigrative Dashboard v0.6.2
+# Antigrative Dashboard v0.6.3
+
+## Release gate correction
+
+- v0.6.2 was not published: the macOS animation-reversal check failed. Its tag remains unchanged; v0.6.3 includes the accepted responsive changes and the correction.
+- Capture interrupted visual positions **before** changing flex layout, eliminating the small reversal jump. Retain source metadata for outgoing labels so rapid reversals can reconstruct their current appearance.
+- Sample intermediate animation frames at exact WAAPI times instead of wall-clock sleeps. Tighten the reversal continuity gate from 45px to **under 1px**; continuous dragging, rapid switching and cleanup still run in real time.
 
 ## Responsive motion without resize stutter
 
@@ -28,7 +34,7 @@
 
 ## Install or update
 
-Download `antigrative-dashboard-0.6.2.zip` and `.zip.sha256`, verify the checksum and extract. Run from the extracted directory:
+Download `antigrative-dashboard-0.6.3.zip` and `.zip.sha256`, verify the checksum and extract. Run from the extracted directory:
 
 ```sh
 python manage.py install
@@ -46,7 +52,9 @@ Use `python3` on Linux/macOS. Fully quit and reopen Antigravity when no task is 
 
 ## 中文摘要
 
-v0.6.2 为完整统计与三个图标加入平滑过渡：文字淡出、图标收拢、模型名称淡入，支持反向切换且按钮始终可点击。修复拖动时逐帧重建动画造成的卡顿与残影；复用同一次过渡，仅调整安全裁剪。恢复完整数值留出 12px 余量，避免临界宽度来回闪切。默认完整动画保留，Windows 本地验收已通过。
+v0.6.2 因 macOS 动画反向检查失败未发布，原标签保留。v0.6.3 修复布局改变后再读取旧动画位置造成的小幅跳变；使用固定动画时间采样，将反向连续性检查收紧至 1px 以内，连续拖动仍用真实时间验证。
+
+v0.6.3 为完整统计与三个图标加入平滑过渡：文字淡出、图标收拢、模型名称淡入，支持反向切换且按钮始终可点击。修复拖动时逐帧重建动画造成的卡顿与残影；复用同一次过渡，仅调整安全裁剪。恢复完整数值留出 12px 余量，避免临界宽度来回闪切。默认完整动画保留，Windows 本地验收已通过。
 
 包含 v0.6.1 的 Issue #5 子代理工具栏重叠修复，展示子代理自己的速度、缓存率和上下文，额度注明账号共享。窄窗口先保留仪表盘、数据库、上下文圆圈三个可交互图标，连图标都放不下才隐藏，拉宽后恢复；语言可在上下文详情中切换。
 

@@ -70,6 +70,13 @@ module.exports = function installAgPulseInlineWidget() {
       const style=getComputedStyle(element);
       pieces.set(element,{rect:element.getBoundingClientRect(),opacity:1,font:style.font,color:style.color,icon:element.matches('svg,.context-ring')});
     }
+    // Read interrupted copies before changing density. Reading them after the
+    // final flex layout moves their parent would bake that shift into the new
+    // start position and produce a visible jump on reversal.
+    if(previous&&densityMotion)for(const [element,visual]of densityMotion.pieces){
+      const piece=pieces.get(element)||densityMotion.sources.get(element);
+      if(piece)pieces.set(element,{...piece,rect:visual.getBoundingClientRect(),opacity:Number(getComputedStyle(visual).opacity)});
+    }
     return {pieces,rect:node.getBoundingClientRect(),model:composer.model,modelRect:previous?.model===composer.model?previous.modelRect:composer.model?.getBoundingClientRect(),row:composer.row};
   }
   function densityBounds(next){
@@ -107,10 +114,6 @@ module.exports = function installAgPulseInlineWidget() {
     // Copies share a clipped ribbon with the model selector's reveal, never the
     // send/mic/add controls. Neither flex widths nor host styles are animated.
     const interrupted=densityMotion;
-    if(interrupted)for(const [element,piece]of interrupted.pieces){
-      const old=previous.pieces.get(element)||next.pieces.get(element);
-      if(old)previous.pieces.set(element,{...old,rect:piece.getBoundingClientRect(),opacity:Number(getComputedStyle(piece).opacity)});
-    }
     const modelOpacity=next.model?getComputedStyle(next.model).opacity:'1';
     stopDensityMotion();
     if(!Element.prototype.animate)return;
@@ -120,7 +123,7 @@ module.exports = function installAgPulseInlineWidget() {
     const stage=document.createElement('div');stage.className='density-stage';stage.inert=true;stage.setAttribute('aria-hidden','true');
     stage.style.cssText=`left:${left-target.left}px;top:0;width:${right-left}px;height:${target.height}px`;
     root.append(stage);
-    const motion={stage,animations:[],pieces:new Map()};densityMotion=motion;node.dataset.motion='density';
+    const motion={stage,animations:[],pieces:new Map(),sources:new Map([...previous.pieces,...next.pieces])};densityMotion=motion;node.dataset.motion='density';
     const play=(element,frames,options={})=>{const animation=element.animate(frames,{duration,easing:densityEase,...options});motion.animations.push(animation);return animation;};
     for(const element of new Set([...previous.pieces.keys(),...next.pieces.keys()])){
       const from=previous.pieces.get(element),to=next.pieces.get(element),piece=to||from;

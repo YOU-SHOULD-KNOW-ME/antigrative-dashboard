@@ -7,7 +7,7 @@
 模型选择旁只显示生成速率、缓存和上下文占用；悬停上下文，一并查看上下文、5 小时和周额度详情。<br>
 缩略信息常驻；鼠标悬停，才展开详细统计。
 
-[![Version 0.6.2](https://img.shields.io/badge/version-0.6.2-91adff?style=flat-square&labelColor=252936)](CHANGELOG.md)
+[![Version 0.6.3](https://img.shields.io/badge/version-0.6.3-91adff?style=flat-square&labelColor=252936)](CHANGELOG.md)
 [![Platforms](https://img.shields.io/badge/host-Windows%20%7C%20Linux%20%7C%20macOS-83d8b9?style=flat-square&labelColor=252936)](COMPATIBILITY.md)
 [![Antigravity 2.21.1 / 2.22.0](https://img.shields.io/badge/Antigravity-2.21.1%20%2F%202.22.0-c5a0ff?style=flat-square&labelColor=252936)](COMPATIBILITY.md)
 [![MIT](https://img.shields.io/badge/license-MIT-d4d9e6?style=flat-square&labelColor=252936)](LICENSE)
@@ -16,7 +16,7 @@
 
 </div>
 
-**v0.6.2 更新：** 完整数值与三个图标之间加入可打断的平滑过渡，模型名称配合淡入；连续拖动不再重复重建动画，避免拖尾残影和临界宽度闪切。包含 v0.6.1 的子代理重叠、父子对话切换等待和滚动误隐藏修复（[#5](https://github.com/YOU-SHOULD-KNOW-ME/antigrative-dashboard/issues/5)）。[完整更新说明](https://github.com/YOU-SHOULD-KNOW-ME/antigrative-dashboard/releases/tag/v0.6.2)。
+**v0.6.3 更新：** 完整数值与三个图标之间加入可打断的平滑过渡，模型名称配合淡入；连续拖动不再重复重建动画，避免拖尾残影和临界宽度闪切。包含 v0.6.1 的子代理重叠、父子对话切换等待和滚动误隐藏修复（[#5](https://github.com/YOU-SHOULD-KNOW-ME/antigrative-dashboard/issues/5)）。[完整更新说明](https://github.com/YOU-SHOULD-KNOW-ME/antigrative-dashboard/releases/tag/v0.6.3)。
 
 ## 看看效果
 

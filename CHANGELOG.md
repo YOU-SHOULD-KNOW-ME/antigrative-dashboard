@@ -1,6 +1,12 @@
 # Changelog
 
-## 0.6.2 — 2026-10-10
+## 0.6.3 — 2026-10-10
+
+- Fix a small position jump when reversing a density transition: capture the currently painted copies before the flex layout changes, and retain source metadata for outgoing labels.
+- Make intermediate-frame and reversal assertions deterministic using exact WAAPI times. Tighten reversal continuity to under 1px; keep continuous dragging, rapid switching and cleanup tests on real time.
+- Includes the responsive motion and resize performance improvements below. v0.6.2 publication was blocked by the macOS motion gate; its existing tag is retained unchanged.
+
+## 0.6.2 — 2026-10-10 (not published)
 
 - Animate responsive full-statistics / three-icon changes with a 240ms interruptible transition: fade outgoing values, move the existing icon shapes and ease the native model name back into view. Keep icon hit targets active throughout.
 - Clip inert motion copies away from native composer actions; immediately cancel on unsafe placement, navigation, reparenting or disposal. Preserve host layout styles and avoid replaying motion on metric polls or scrolling alone.

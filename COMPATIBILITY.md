@@ -65,4 +65,4 @@ v0.6.1 子代理展示：在 `[data-testid="agent-input-box"]` 内定位唯一�
 
 只保存白名单统计、模型/状态，不保存正文、标题、邮箱、凭据、原始上下文或 token breakdown。账号未确认不加载其他账号数据，缺失旧元数据不能凭空重建。完整故障矩阵见 [ROBUSTNESS.md](docs/ROBUSTNESS.md)。
 
-v0.6.2 密度过渡：共享 desktop renderer 使用 Chromium Web Animations API 的 transform/opacity 过渡，只在完整统计与图标模式切换时创建视觉副本。连续调整宽度只更新安全裁剪范围，不重建动画；三图标模式恢复完整统计保留 12px 余量，减少临界抖动。宿主控件仍保留原布局和点击响应。Windows 本地验收已通过；Windows/Linux/macOS 的浏览器 fixture 纳入发布 CI，登录后的 Linux/macOS 实机 GUI 验收仍单独处理。
+v0.6.3 密度过渡：共享 desktop renderer 使用 Chromium Web Animations API 的 transform/opacity 过渡，只在完整统计与图标模式切换时创建视觉副本。连续调整宽度只更新安全裁剪范围，不重建动画；三图标模式恢复完整统计保留 12px 余量，减少临界抖动。宿主控件仍保留原布局和点击响应。Windows 本地验收已通过；Windows/Linux/macOS 的浏览器 fixture 纳入发布 CI，登录后的 Linux/macOS 实机 GUI 验收仍单独处理。

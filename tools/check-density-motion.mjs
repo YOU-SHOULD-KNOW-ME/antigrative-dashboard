@@ -49,21 +49,33 @@ try{
    // Recreate the user's full strip/caret layout before returning model space.
    await page.evaluate(()=>{const w=document.getElementById('ag-pulse-status-bar');w.style.flex='0 0 auto';document.querySelector('.composer').style.width='520px';});await page.waitForTimeout(300);
    assert.equal(await strip.getAttribute('data-density'),'full');
+   // Sample presentation at exact WAAPI times. Wall-clock sleeps and remote
+   // Playwright round trips may span many frames on a busy CI runner; they
+   // cannot distinguish a discontinuity from normal movement during a reversal.
+   await page.evaluate(()=>{
+    const animate=Element.prototype.animate,animations=[];
+    window.motionTestClock={animations,restore:()=>{Element.prototype.animate=animate;for(const a of animations)if(a.playState==='paused')a.play();}};
+    Element.prototype.animate=function(...args){const a=animate.apply(this,args);a.pause();a.currentTime=0;animations.push(a);return a;};
+   });
    await mode(page,'icons');const start=await page.evaluate(sample);
    assert.equal(start.moving,true,'Density change must have an actual in-flight animation');assert.equal(start.inert,true);assert.equal(start.aria,'true');assert.equal(start.icons,3);
-   await nativeSafe(page);await page.waitForTimeout(45);const middle=await page.evaluate(sample);await nativeSafe(page);
+   await page.waitForTimeout(280);assert.equal((await page.evaluate(sample)).moving,true,'Fixed-time samples survive delays longer than the animation');
+   await nativeSafe(page);await page.evaluate(()=>{for(const a of window.motionTestClock.animations)a.currentTime=45;});const middle=await page.evaluate(sample);await nativeSafe(page);
    if(reducedMotion==='no-preference'){assert.notEqual(start.x,middle.x,'Icons must travel, not just disappear and reappear');assert.ok(middle.modelOpacity<1,'Model reveal must be eased instead of popping in');}
    else assert.equal(middle.transform,'matrix(1, 0, 0, 1, 0, 0)','Reduced motion keeps feedback without movement');
-   await page.waitForTimeout(45);
+   await page.evaluate(()=>{for(const a of window.motionTestClock.animations)a.currentTime=95;});
    assert.equal(await strip.evaluate(e=>[...e.shadowRoot.querySelectorAll('.density-stage .density-piece:not(svg):not(.context-ring)')].every(p=>Number(getComputedStyle(p).opacity)<.02)),true,'Outgoing labels must remain faded after their short animation ends');
    // Reverse while the original move is in progress; compare presentation
    // geometry on each side of the actual mode change, not logical endpoints.
    const continuity=await page.evaluate(async()=>{
     const w=document.getElementById('ag-pulse-status-bar'),s=w.shadowRoot;
     const rect=()=>{const e=s.querySelector('.density-stage svg');return e?.getBoundingClientRect().x;};
-    const before=rect();w.style.flex='0 0 auto';w.style.maxWidth='100%';document.querySelector('.composer').style.width='660px';
-    await new Promise(requestAnimationFrame);await new Promise(requestAnimationFrame);return {before,after:rect(),density:w.dataset.density};
-   });assert.equal(continuity.density,'full');if(reducedMotion==='no-preference')assert.ok(Math.abs(continuity.after-continuity.before)<45,JSON.stringify(continuity));
+    w.style.flex='0 0 auto';w.style.maxWidth='100%';document.querySelector('.composer').style.width='660px';
+    const before=rect();
+    for(let i=0;i<30&&w.dataset.density!=='full';i++)await new Promise(requestAnimationFrame);
+    await new Promise(requestAnimationFrame);return {before,after:rect(),density:w.dataset.density};
+   });assert.equal(continuity.density,'full',JSON.stringify({continuity,errors}));if(reducedMotion==='no-preference')assert.ok(Math.abs(continuity.after-continuity.before)<1,JSON.stringify(continuity));
+   await page.evaluate(()=>{window.motionTestClock.restore();delete window.motionTestClock;});
    for(const kind of ['icons','full','icons','full']){await mode(page,kind);await nativeSafe(page);await page.waitForTimeout(25);}
    await page.waitForTimeout(350);assert.equal((await page.evaluate(sample)).stage,false,'No orphan snapshots after a rapid reversal');
    await page.waitForTimeout(1150);assert.equal((await page.evaluate(sample)).animations,0,'Metrics/heartbeat must not replay density motion');
@@ -113,7 +125,7 @@ try{
     for(let i=0;i<12;i++){section.style.width=(boundary+(i%2)*4)+'px';await frame();if(w.dataset.density!=='icons')throw new Error('Density chatter near threshold');}
     mo.disconnect();section.style.width='740px';await frame();return {classChanges:changes,restored:w.dataset.density==='full'};
    });assert.equal(threshold.classChanges,0,JSON.stringify(threshold));assert.equal(threshold.restored,true);
-   results.push({reducedMotion,continuity:true,threeIcons:true,nativeHitTargets:true,visualRibbonClipped:true,rapidReversal:true,noHeartbeatReplay:true,collisionCancels:true,disposeRestoresHost:true,continuousDrag:drag,threshold});
+   results.push({reducedMotion,continuity,fixedTimeSamples:true,threeIcons:true,nativeHitTargets:true,visualRibbonClipped:true,rapidReversal:true,noHeartbeatReplay:true,collisionCancels:true,disposeRestoresHost:true,continuousDrag:drag,threshold});
   }finally{await page.close();}
  }
  assert.deepEqual(errors,[]);console.log(JSON.stringify({cases:results,pageErrors:errors},null,2));
