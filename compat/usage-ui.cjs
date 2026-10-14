@@ -40,7 +40,9 @@ module.exports = function createUsageDashboard({root,language,setMarkup,hostLabe
     @media(max-width:520px){.usage-intro{padding:14px}.intro-bottom{align-items:flex-start}.intro-bottom span{line-height:1.5}}
   `;
   const $=id=>view.getElementById(id),text=(id,value)=>{if($(id).textContent!==value)$(id).textContent=value;};
-  let value=null,tab='overview',heatMode='day',period='day',year=null,anchor=null,selected=null,disabledModels=new Set(),lastKey='',busy=false,opener=null;
+  let value=null,tab='overview',heatMode='day',period='day',year=null,selected=null,disabledModels=new Set(),lastKey='',busy=false,opener=null;
+  const periodAnchors={day:null,week:null,month:null};
+  const getAnchor=p=>{const a=periodAnchors[p]||value?.today||new Date().toISOString().slice(0,10);return value?.today&&a>value.today?value.today:a;};
   let disposed=false,refreshMotion=null,refreshDelay=null,finishRefresh=null,accountKey=null,tipTarget=null,tipModel=null;
   const zh=()=>language.language==='zh-CN',w=(cn,en)=>zh()?cn:en;
   let guideSaving=false,guideError=false,guideSignature=null;
@@ -151,7 +153,7 @@ module.exports = function createUsageDashboard({root,language,setMarkup,hostLabe
     button.setAttribute('aria-label',(bucket.from===bucket.to?bucket.from:bucket.from+' – '+bucket.to)+': '+full(bucket.total)+' Token');
     button.addEventListener('pointerenter',()=>tooltip(bucket,button));button.addEventListener('pointerleave',()=>{$('tip').hidden=true;highlightModel(null);});button.addEventListener('focus',()=>tooltip(bucket,button));button.addEventListener('blur',()=>{$('tip').hidden=true;highlightModel(null);});
     button.addEventListener('pointermove',event=>{const model=event.target.closest?.('.bar-segment')?.dataset.model||null;tooltip(bucket,button,model);});
-    button.addEventListener('click',()=>{selected=bucket;anchor=bucket.from;showSelection();});
+    button.addEventListener('click',()=>{selected=bucket;showSelection();});
   };
   function showSelection(){const bucket=selected||totals(value.today,value.today);text('selection-title',bucket.from===bucket.to?bucket.from:bucket.from+' – '+bucket.to);text('selection-value',full(bucket.total)+' Token · '+w(`${bucket.requests} 次请求`,`${bucket.requests} requests`));}
   function renderHeat(){
@@ -190,6 +192,7 @@ module.exports = function createUsageDashboard({root,language,setMarkup,hostLabe
   const chartHeading=node('div','');$('detail-title').before(chartHeading);chartHeading.append($('detail-title'),chartSummary);
   function renderChart(){
     if(!value)return;syncPalette();$('tip').hidden=true;highlightModel(null);
+    const anchor=getAnchor(period);
     const buckets=[];
     if(period==='day'){const start=month(anchor,0),end=add(month(anchor,1),-1);for(let date=start;date<=end;date=add(date,1))buckets.push(totals(date,date,true));text('range-label',start.slice(0,7));}
     else if(period==='week'){const start=add(week(anchor),-11*7);for(let i=0;i<12;i++){const from=add(start,i*7);buckets.push(totals(from,add(from,6),true));}text('range-label',start.slice(5)+' – '+add(week(anchor),6).slice(5));}
@@ -263,7 +266,16 @@ module.exports = function createUsageDashboard({root,language,setMarkup,hostLabe
   function changeTab(next){closeYear(false);tab=next;$('tip').hidden=true;render();}
   $('overview-tab').addEventListener('click',()=>changeTab('overview'));$('details-tab').addEventListener('click',()=>changeTab('details'));
   for(const b of view.querySelectorAll('[data-heat]'))b.addEventListener('click',()=>{heatMode=b.dataset.heat;renderHeat();});
-  for(const b of view.querySelectorAll('[data-period]'))b.addEventListener('click',()=>{period=b.dataset.period;renderChart();});
+  for(const b of view.querySelectorAll('[data-period]'))b.addEventListener('click',()=>{
+    const nextPeriod=b.dataset.period;
+    if(period!==nextPeriod){
+      period=nextPeriod;
+      if(!periodAnchors[period]||(value?.today&&periodAnchors[period].slice(0,7)>=value.today.slice(0,7))){
+        periodAnchors[period]=value?.today||null;
+      }
+      renderChart();
+    }
+  });
   function syncYear(){
     text('year-label',String(year));$('year').setAttribute('aria-label',w('选择年份','Select year')+' · '+year);$('year-menu').setAttribute('aria-label',w('年份','Year'));
     for(const option of $('year-menu').children)option.setAttribute('aria-selected',String(option.dataset.year===String(year)));
@@ -294,8 +306,28 @@ module.exports = function createUsageDashboard({root,language,setMarkup,hostLabe
     let next=event.key==='Home'?buttons.findIndex(b=>!b.disabled):event.key==='End'?buttons.findLastIndex(b=>!b.disabled):index+(delta[event.key]??NaN);
     if(!Number.isFinite(next)||next<0||next>=buttons.length||buttons[next].disabled)return;event.preventDefault();event.target.tabIndex=-1;buttons[next].tabIndex=0;buttons[next].focus();
   });
-  $('selection-details').addEventListener('click',()=>{anchor=(selected?.from||value.today);period=heatMode;changeTab('details');});
-  for(const [id,step]of [['previous',-1],['next',1]])$(id).addEventListener('click',()=>{anchor=period==='day'?month(anchor,step):period==='week'?add(anchor,step*84):month(anchor,step*12);renderChart();});
+  $('selection-details').addEventListener('click',()=>{
+    const target=selected?.from||value?.today;
+    period=heatMode==='week'?'week':'day';
+    periodAnchors[period]=value?.today&&target>value.today?value.today:target;
+    changeTab('details');
+  });
+  for(const [id,step]of [['previous',-1],['next',1]])$(id).addEventListener('click',()=>{
+    const cur=getAnchor(period);
+    let nextDate;
+    if(period==='day'){
+      nextDate=month(cur,step);
+      if(step>0&&value?.today&&nextDate>value.today)nextDate=value.today;
+    }else if(period==='week'){
+      nextDate=add(week(cur),step*84);
+      if(step>0&&value?.today&&nextDate>value.today)nextDate=value.today;
+    }else{
+      nextDate=month(cur,step*12);
+      if(step>0&&value?.today&&nextDate>value.today)nextDate=value.today;
+    }
+    periodAnchors[period]=nextDate;
+    renderChart();
+  });
   $('locale').addEventListener('click',()=>void onLanguage(zh()?'en':'zh-CN'));
   $('refresh').addEventListener('click',async()=>{
     if(busy||disposed)return;busy=true;const button=$('refresh'),turn=600,started=performance.now();button.disabled=true;button.setAttribute('aria-busy','true');
@@ -318,8 +350,8 @@ module.exports = function createUsageDashboard({root,language,setMarkup,hostLabe
   // theme change, rather than waiting for the next metrics poll.
   const themeObserver=new MutationObserver(()=>{if(!disposed&&value&&dialog.open){const key=contentKey(value);if(key!==lastKey){lastKey=key;render();}}});
   if(root.host)themeObserver.observe(root.host,{attributes:true,attributeFilter:['data-pulse-theme','style']});
-  return {open(data,trigger){if(!data||disposed)return;accountKey=data.accountKey;value=data;opener=trigger;year=data.today.slice(0,4);anchor=data.today;lastKey=contentKey(data);render();if(!dialog.open)dialog.showModal();},
-    update(data){if(disposed)return;if(!data){if(!value)return;value=null;lastKey='';if(dialog.open)render();return;}const prevToday=value?.today;if(accountKey&&accountKey!==data.accountKey){selected=null;disabledModels.clear();year=data.today.slice(0,4);anchor=data.today;}else if(prevToday&&prevToday!==data.today&&anchor===prevToday){year=data.today.slice(0,4);anchor=data.today;}accountKey=data.accountKey;value=data;if(!dialog.open)return;const key=contentKey(data);if(key===lastKey)return;lastKey=key;render();},
+  return {open(data,trigger){if(!data||disposed)return;accountKey=data.accountKey;value=data;opener=trigger;year=data.today.slice(0,4);periodAnchors.day=data.today;periodAnchors.week=data.today;periodAnchors.month=data.today;lastKey=contentKey(data);render();if(!dialog.open)dialog.showModal();},
+    update(data){if(disposed)return;if(!data){if(!value)return;value=null;lastKey='';if(dialog.open)render();return;}const prevToday=value?.today;if(accountKey&&accountKey!==data.accountKey){selected=null;disabledModels.clear();year=data.today.slice(0,4);periodAnchors.day=data.today;periodAnchors.week=data.today;periodAnchors.month=data.today;}else if(prevToday&&prevToday!==data.today){year=data.today.slice(0,4);for(const p of ['day','week','month'])if(!periodAnchors[p]||periodAnchors[p]>=prevToday)periodAnchors[p]=data.today;}accountKey=data.accountKey;value=data;if(!dialog.open)return;const key=contentKey(data);if(key===lastKey)return;lastKey=key;render();},
     restoreModal(){if(!disposed&&dialog.open&&dialog.isConnected&&!dialog.matches(':modal')){closeYear(false);dialog.close();dialog.showModal();}},
     close,syncGuideDismissed(){if(!replayGuide)dismissGuide();},dispose(){disposed=true;themeObserver.disconnect();clearTimeout(refreshDelay);finishRefresh?.();refreshMotion?.cancel();closeYear(false);window.removeEventListener('resize',positionYear);dialog.close();dialog.remove();backdrop.remove();},get isOpen(){return dialog.open;}};
 };
