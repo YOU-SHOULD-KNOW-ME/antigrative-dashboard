@@ -103,7 +103,9 @@ export class DesktopUsage{
     if(this.pending)return this.pending;
     const syncScope=this.store.identity,syncEpoch=this.store.epoch;
     this.syncing=true;this.status='syncing';
-    this.pending=(async()=>{
+    let timer;
+    const timeout=new Promise((_,reject)=>{timer=setTimeout(()=>reject(new Error('Usage sync timeout')),30000);timer?.unref?.();});
+    const run=(async()=>{
       const scope=this.store.identity,epoch=this.store.epoch;if(!scope)return;
       const current=()=>scope===this.store.identity&&epoch===this.store.epoch;
       const conversations=await this.store.listConversations(true);let missing=0;
@@ -115,7 +117,10 @@ export class DesktopUsage{
         catch{missing++;}
       }
       if(current()){this.missingConversations=missing;this.status=missing?'partial':'ready';this.lastSync=Date.now();}
-    })().catch(()=>{if(syncScope===this.store.identity&&syncEpoch===this.store.epoch)this.status='offline';}).finally(()=>{this.lastSync=syncScope===this.store.identity&&syncEpoch===this.store.epoch?Date.now():0;this.syncing=false;this.pending=null;});return this.pending;
+    })();
+    this.pending=Promise.race([run,timeout]).catch(()=>{if(syncScope===this.store.identity&&syncEpoch===this.store.epoch)this.status='offline';})
+      .finally(()=>{clearTimeout(timer);this.lastSync=syncScope===this.store.identity&&syncEpoch===this.store.epoch?Date.now():0;this.syncing=false;this.pending=null;});
+    return this.pending;
   }
   async snapshot(){
     if(!this.store.identity)return null;
