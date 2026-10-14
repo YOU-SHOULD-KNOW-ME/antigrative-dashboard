@@ -187,11 +187,12 @@ module.exports = function installAgPulseInlineWidget() {
     // positioned outside the flex flow (e.g. Agent Manager window buttons).
     const fits=()=>{
       const rect=node.getBoundingClientRect(),row=composer.row.getBoundingClientRect();
-      const intersects=other=>Math.min(rect.right,other.right)-Math.max(rect.left,other.left)>1&&Math.min(rect.bottom,other.bottom)-Math.max(rect.top,other.top)>1;
-      if(bar.scrollWidth>bar.clientWidth+2||rect.width<=0||rect.left< -1||rect.right>innerWidth+1||rect.top< -1||rect.bottom>innerHeight+1||rect.left<row.left-1||rect.right>row.right+1)return false;
+      const intersects=other=>Math.min(rect.right,other.right)-Math.max(rect.left,other.left)>4&&Math.min(rect.bottom,other.bottom)-Math.max(rect.top,other.top)>4;
+      if(bar.scrollWidth>bar.clientWidth+6||rect.width<=0||rect.left< -1||rect.right>innerWidth+1||rect.top< -1||rect.bottom>innerHeight+1||rect.left<row.left-1||rect.right>row.right+1)return false;
       if(!nativeComfortable())return false;
       if(composer.kind==='subagent'&&intersects(composer.anchor.getBoundingClientRect()))return false;
       for(const control of document.querySelectorAll('button,[role="button"],a[href],input,select,[contenteditable="true"]')){
+        if(node.contains(control)||(root&&root.contains(control))||composer.row.contains(control))continue;
         const other=control.getBoundingClientRect();
         if(other.width<=0||other.height<=0||!intersects(other))continue;
         if(control.closest('[hidden],[inert]')||getComputedStyle(control).visibility==='hidden')continue;
@@ -210,12 +211,25 @@ module.exports = function installAgPulseInlineWidget() {
     };
     let safe=fits();
     const rowWidth=composer.row.getBoundingClientRect().width;
+    let branchContentWidth=0;
+    if(composer.branch){
+      for(const c of composer.branch.children){
+        branchContentWidth+=c.getBoundingClientRect().width;
+      }
+    }
+    let rightWidth=0;
+    let sib=node.nextElementSibling;
+    while(sib){
+      rightWidth+=sib.getBoundingClientRect().width;
+      sib=sib.nextElementSibling;
+    }
+    const freeSpace=composer.row.clientWidth-branchContentWidth-rightWidth;
     const probeKey=()=>node.style.cssText.replace(/--pulse-native-room:[^;]+;?/g,'')+'|'+language.language+'|'+lastConversation+'|'+bar.textContent+'|'+$('dot').className+'|'+getComputedStyle(composer.row).gap+'|'+Array.from(composer.row.querySelectorAll('button,[role="button"],a[href],input,select')).filter(c=>c!==composer.model&&!c.contains(composer.model)).map(c=>c.getBoundingClientRect().width).join(',');
     if(oldDensity==='icons'){
       const key=probeKey();
-      // Twelve pixels of recovery headroom prevents threshold chatter. Shrinking
-      // or scrolling in icon mode never toggles back to full just to measure it.
-      if(!densityProbe||key!==densityProbe.key||rowWidth>=densityProbe.width+12){
+      // If there is plenty of room in the composer, or width increased, probe full layout
+      const shouldProbe=freeSpace>=340||!densityProbe||key!==densityProbe.key||rowWidth>=densityProbe.width+8;
+      if(shouldProbe){
         previous=densitySnapshot(previous);node.classList.remove('icons-only');safe=fits();
         if(!safe){node.classList.add('icons-only');safe=fits();densityProbe={key,width:rowWidth};}
         else densityProbe=null;
