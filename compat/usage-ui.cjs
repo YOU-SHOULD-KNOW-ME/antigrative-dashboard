@@ -72,6 +72,38 @@ module.exports = function createUsageDashboard({root,language,setMarkup,hostLabe
   const week=date=>{const d=new Date(date+'T00:00:00Z');return add(date,-((d.getUTCDay()+6)%7));};
   const month=(date,shift)=>{const d=new Date(date.slice(0,7)+'-01T00:00:00Z');d.setUTCMonth(d.getUTCMonth()+shift);return d.toISOString().slice(0,10);};
   const modelName=model=>model.replace(/-n$/,'').replace(/^gemini-/i,'Gemini ').replace(/^claude-/i,'Claude ').replace(/^gpt-/i,'GPT ').replace(/-/g,' ');
+  const defaultPricing={'google/gemini-4-argon':{prompt:0.000002,completion:0.00001,cacheRead:0.0000001,cacheWrite:0.0000001875},'google/gemini-3.8-flash':{prompt:0.00000075,completion:0.00000375,cacheRead:0.000000075,cacheWrite:0.0000000416666666666667},'google/gemini-3.8-pro':{prompt:0.00000125,completion:0.000005,cacheRead:0.0000003125,cacheWrite:0.00000125},'anthropic/claude-opus-5.5':{prompt:0.000004,completion:0.00002,cacheRead:0.0000002,cacheWrite:0.000005},'anthropic/claude-opus-4.6':{prompt:0.000005,completion:0.000025,cacheRead:0.0000005,cacheWrite:0.00000625},'anthropic/claude-sonnet-5.5':{prompt:0.000002,completion:0.00001,cacheRead:0.0000001,cacheWrite:0.0000025},'anthropic/claude-haiku-5.5':{prompt:0.0000001,completion:0.0000005,cacheRead:0.00000001,cacheWrite:0.000000125},'openai/gpt-4o':{prompt:0.0000025,completion:0.00001,cacheRead:0.00000125,cacheWrite:0}};
+  const normalizeKey=str=>typeof str==='string'?str.toLowerCase().trim().replace(/^https?:\/\/[^\/]+\//,'').replace(/^[~@]/,'').replace(/^(?:google|anthropic|openai)\//,'').replace(/-(?:n|thinking|preview|latest)$/, '').replace(/:batch$/, '').replace(/\s+/g,'-'):'';
+  function findPricing(model){
+    const catalog=value?.pricing?.models||defaultPricing,raw=String(model).trim().toLowerCase();
+    if(catalog[raw])return catalog[raw];
+    for(const prefix of ['google/','anthropic/','openai/']){if(catalog[prefix+raw])return catalog[prefix+raw];}
+    const norm=normalizeKey(raw);if(!norm)return null;
+    for(const [key,p]of Object.entries(catalog)){if(normalizeKey(key)===norm)return p;}
+    const dotNorm=norm.replace(/-(\d+)-(\d+)/g,'-$1.$2'),dashNorm=norm.replace(/\./g,'-');
+    for(const [key,p]of Object.entries(catalog)){const kNorm=normalizeKey(key);if(kNorm===dotNorm||kNorm===dashNorm)return p;}
+    for(const [key,p]of Object.entries(catalog)){const kNorm=normalizeKey(key);if(kNorm.startsWith(norm)||norm.startsWith(kNorm))return p;}
+    if(norm.startsWith('gemini-4')){const c=Object.entries(catalog).find(([k])=>normalizeKey(k).startsWith('gemini-4'));if(c)return c[1];}
+    if(norm.includes('opus')){const c=Object.entries(catalog).find(([k])=>normalizeKey(k).includes('opus'));if(c)return c[1];}
+    if(norm.includes('sonnet')){const c=Object.entries(catalog).find(([k])=>normalizeKey(k).includes('sonnet'));if(c)return c[1];}
+    if(norm.includes('flash')){const c=Object.entries(catalog).find(([k])=>normalizeKey(k).includes('flash'));if(c)return c[1];}
+    return null;
+  }
+  function costOf(model,r){
+    const p=findPricing(model);if(!p)return null;
+    const uncached=Number(r.uncached||0),read=Number(r.cacheRead||0),write=Number(r.cacheWrite||0),output=Number(r.output||0);
+    const usd=(uncached*(p.prompt||0))+(read*(p.cacheRead||0))+(write*(p.cacheWrite||0))+(output*(p.completion||0));
+    const rate=Number(value?.pricing?.exchangeRate)||6.705;
+    const amount=zh()?usd*rate:usd,symbol=zh()?'¥':'$';
+    return {usd,amount,symbol};
+  }
+  function formatCost(cost){
+    if(!cost||Number.isNaN(cost.amount))return '—';
+    const {amount,symbol}=cost;
+    if(amount===0)return symbol+'0.00';
+    if(amount>0&&amount<0.01)return '< '+symbol+'0.01';
+    return symbol+amount.toLocaleString(zh()?'zh-CN':'en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
+  }
   const themeSignature=()=>{const s=getComputedStyle(root.host||dialog);return [s.getPropertyValue('--pulse-accent'),s.getPropertyValue('--pulse-background'),root.host?.dataset.pulseTheme].join('|');};
   let paletteKey='',modelColors=new Map();
   const colorCanvas=document.createElement('canvas');colorCanvas.width=colorCanvas.height=1;
@@ -178,11 +210,20 @@ module.exports = function createUsageDashboard({root,language,setMarkup,hostLabe
       bindBucket(button,bucket);$('plot').append(button);
     }
     if(!buckets.some(b=>b.total))$('plot').append(node('div','chart-empty',w('所选时段暂无用量记录','No usage recorded in this period')));
-    $('table-head').replaceChildren(...[w('模型','Model'),w('总 Token','Total tokens'),w('未缓存输入','Uncached input'),w('缓存读取','Cache read'),w('缓存写入','Cache write'),w('输出','Output')].map(label=>node('th','',label)));
+    $('table-head').replaceChildren(...[w('模型','Model'),w('总 Token','Total tokens'),w('未缓存输入','Uncached input'),w('缓存读取','Cache read'),w('输出','Output'),w('成本','Cost')].map(label=>node('th','',label)));
     $('table-body').replaceChildren();const rangeTotals=totals(buckets[0].from,buckets.at(-1).to,true);
-    chartSummary.replaceChildren(node('strong','',compact(rangeTotals.total)+' Token'),document.createTextNode(' · '+w(`${full(rangeTotals.requests)} 次请求`,`${full(rangeTotals.requests)} requests`)));
+    let totalCostUSD=0,hasCost=false;
+    for(const [model,r]of Object.entries(rangeTotals.models)){
+      const c=costOf(model,r);
+      if(c){totalCostUSD+=c.usd;hasCost=true;}
+    }
+    const totalCostFormatted=hasCost?formatCost({amount:zh()?totalCostUSD*(Number(value?.pricing?.exchangeRate)||6.705):totalCostUSD,symbol:zh()?'¥':'$'}):null;
+    const summaryExtra=totalCostFormatted?' · '+w(`预估成本 ${totalCostFormatted}`,`Est. cost ${totalCostFormatted}`):'';
+    chartSummary.replaceChildren(node('strong','',compact(rangeTotals.total)+' Token'),document.createTextNode(' · '+w(`${full(rangeTotals.requests)} 次请求`,`${full(rangeTotals.requests)} requests`)+summaryExtra));
     for(const [model,r]of Object.entries(rangeTotals.models).sort((a,b)=>b[1].total-a[1].total)){
-      const row=node('tr',''),label=node('td',''),dot=node('span','dot');dot.style.setProperty('--model-color',color(model));label.append(dot,document.createTextNode(modelName(model)));row.append(label,...[r.total,r.uncached,r.cacheRead,r.cacheWrite,r.output].map(n=>node('td','',full(n))));$('table-body').append(row);
+      const row=node('tr',''),label=node('td',''),dot=node('span','dot');dot.style.setProperty('--model-color',color(model));label.append(dot,document.createTextNode(modelName(model)));
+      row.append(label,...[r.total,r.uncached,r.cacheRead,r.output].map(n=>node('td','',full(n))),node('td','',formatCost(costOf(model,r))));
+      $('table-body').append(row);
     }
     for(const b of view.querySelectorAll('[data-period]'))b.setAttribute('aria-pressed',String(b.dataset.period===period));
   }

@@ -23,7 +23,7 @@ def checked_assets(root, tag):
             raise ValueError('Packaged version differs')
         for required in ['ide/package.json', 'ide/manage.py', 'ide/package.py', 'ide/README.md']:
             archive.getinfo(prefix + required)
-        for required in ['compat/usage-ui.cjs', 'sidecars/panel/rate-quality.mjs', 'sidecars/panel/usage.mjs']:
+        for required in ['compat/usage-ui.cjs', 'sidecars/panel/rate-quality.mjs', 'sidecars/panel/usage.mjs', 'sidecars/panel/pricing.mjs']:
             archive.getinfo(prefix + required)
         archive.getinfo(prefix + 'sidecars/panel/panel-source.mjs')
         archive.getinfo(prefix + 'sidecars/panel/trajectory-json.mjs')
@@ -46,7 +46,7 @@ def checked_assets(root, tag):
                      'extension/ide/surface.cjs', 'extension/ide/manage.py', 'extension/compat/inline-widget.cjs',
                      'extension/README.md', 'extension/LICENSE']:
             archive.getinfo(name)
-        for name in ['compat/usage-ui.cjs', 'sidecars/panel/rate-quality.mjs', 'sidecars/panel/usage.mjs']:
+        for name in ['compat/usage-ui.cjs', 'sidecars/panel/rate-quality.mjs', 'sidecars/panel/usage.mjs', 'sidecars/panel/pricing.mjs']:
             archive.getinfo('extension/' + name)
         archive.getinfo('extension/sidecars/panel/trajectory-json.mjs')
         archive.getinfo('extension/sidecars/panel/trajectory-reader.mjs')

@@ -40,7 +40,7 @@ const snapshot=async input=>{
       value={connection:'live',speed:null,groups:store.quota||[],quotaUpdatedAt:new Date(store.quotaAt).toISOString()};
     }catch{value={connection:'offline',speed:null,groups:[],error:'IDE local API unavailable'};}
   }
-  if(input.force)void usage.sync();
+  if(input.force)void usage.sync(true);
   return {...value,usage:await usage.snapshot(),enabled:true,preferences:await preferences.snapshot()};
 };
 const ui=new RuntimeUi({profile,source:adapter+source,owner,owns:()=>ownership.isOwner(),preferences,snapshot,dataDir:data,targetOrigin:()=> 'vscode-file://vscode-app',

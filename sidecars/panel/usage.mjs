@@ -92,11 +92,14 @@ export class UsageLedger{
 }
 export function weekStart(date){const d=new Date(date+'T00:00:00Z');d.setUTCDate(d.getUTCDate()-((d.getUTCDay()+6)%7));return d.toISOString().slice(0,10);}
 
+import { PricingService } from './pricing.mjs';
+
 export class DesktopUsage{
-  constructor(store,ledger=new UsageLedger()){this.store=store;this.ledger=ledger;this.fingerprints=new Map();}
+  constructor(store,ledger=new UsageLedger(),pricing=new PricingService(ledger.directory)){this.store=store;this.ledger=ledger;this.pricing=pricing;this.fingerprints=new Map();void this.pricing.init();}
   syncing=false;lastSync=0;status='waiting';missingConversations=0;scope=null;
   async ingest(scope,id,raw){await this.ledger.ingest(scope,id,raw);}
-  sync(){
+  sync(force=false,models=[]){
+    if(force)void this.pricing.fetchCloud(models,true);
     if(this.pending)return this.pending;
     const syncScope=this.store.identity,syncEpoch=this.store.epoch;
     this.syncing=true;this.status='syncing';
@@ -119,6 +122,7 @@ export class DesktopUsage{
     if(this.scope!==this.store.identity){this.scope=this.store.identity;this.lastSync=0;this.status='waiting';this.missingConversations=0;}
     if(Date.now()-this.lastSync>60000)void this.sync();
     const scope=this.store.identity,value=await this.ledger.summary(scope);
-    return scope===this.store.identity?{...value,syncing:this.syncing,status:this.status,missingConversations:this.missingConversations,persistenceError:this.store.usagePersistenceError===true}:null;
+    if(value?.models?.length)void this.pricing.fetchCloud(value.models,false);
+    return scope===this.store.identity?{...value,syncing:this.syncing,status:this.status,missingConversations:this.missingConversations,persistenceError:this.store.usagePersistenceError===true,pricing:this.pricing.snapshot(value?.models)}:null;
   }
 }
