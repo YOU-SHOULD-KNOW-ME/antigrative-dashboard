@@ -24,15 +24,19 @@ test('usage-ui CSS includes parallel horizontal layout for chart controls and da
   );
 });
 
-test('usage-ui layout structure places period controls and year picker inside chart-controls', () => {
+test('usage-ui layout structure places day pills and range controls inside chart-controls', () => {
   // Verify HTML markup structure
   assert.ok(
-    usageUiSource.includes('<div class="chart-controls"><div class="seg" id="heat-controls">'),
-    'Overview section must wrap heat-controls and year-picker in chart-controls'
+    usageUiSource.includes('<div class="chart-controls"><div class="day-pills" id="day-pills"></div></div>'),
+    'Overview section must wrap day-pills in chart-controls'
   );
   assert.ok(
     usageUiSource.includes('<div class="chart-controls"><div class="range">'),
     'Details section must wrap range and period-controls in chart-controls'
+  );
+  assert.ok(
+    usageUiSource.includes('<div class="chart"><div class="axis" id="hourly-axis"></div><div class="plot" id="hourly-plot"></div></div>'),
+    'Overview section must have hourly-axis and hourly-plot'
   );
 });
 

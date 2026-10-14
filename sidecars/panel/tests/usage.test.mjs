@@ -4,7 +4,7 @@ import {mkdtemp,rm,readFile,writeFile} from 'node:fs/promises';
 import {join} from 'node:path';
 import {tmpdir} from 'node:os';
 import {createHash} from 'node:crypto';
-import {UsageLedger,DesktopUsage,usageRecords,dateKey} from '../usage.mjs';
+import {UsageLedger,DesktopUsage,usageRecords,dateKey,hourKey} from '../usage.mjs';
 import {MetricsStore} from '../store.mjs';
 const scope=s=>createHash('sha256').update(s).digest('hex'),account=scope('account A');
 const id='11111111-1111-1111-1111-111111111111',other='22222222-2222-2222-2222-222222222222';
@@ -59,4 +59,22 @@ test('IDE usage keeps a separate ledger and source across collector restarts',as
  const tracker=new DesktopUsage(store,ide);await tracker.sync();assert.equal((await tracker.snapshot()).source,'ide-local');assert.equal((await tracker.snapshot()).totalTokens,1100);
  assert.equal((await desktop.summary(account)).totalTokens,0);
  const restarted=new DesktopUsage(store,new UsageLedger(ide.directory,{source:'ide-local'}));await restarted.sync();assert.equal((await restarted.snapshot()).totalTokens,1100);assert.equal((await restarted.snapshot()).requests,1);
+});
+
+test('hourKey and hourly aggregation correctly bucket usage by timeZone',async t=>{
+ assert.equal(hourKey(Date.parse('2026-10-10T16:05:00Z'),'Asia/Shanghai'),0);
+ assert.equal(hourKey(Date.parse('2026-10-10T06:30:00Z'),'Asia/Shanghai'),14);
+
+ const ledger=await fixture(t);
+ await ledger.ingest(account,id,raw({start:'2026-10-14T06:30:00Z'}));
+ await ledger.ingest(account,other,raw({usage:{responseId:'req-2'},start:'2026-10-14T07:15:00Z'}));
+ const summary=await ledger.summary(account,Date.parse('2026-10-14T10:00:00Z'));
+ const day=summary.days.find(d=>d.date==='2026-10-14');
+ assert.ok(day);
+ assert.ok(day.hours);
+ assert.equal(day.hours[14].requests,1);
+ assert.equal(day.hours[14].total,1100);
+ assert.equal(day.hours[15].requests,1);
+ assert.equal(day.hours[15].total,1100);
+ assert.equal(day.hours[10],undefined);
 });

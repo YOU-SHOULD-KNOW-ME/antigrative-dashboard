@@ -14,6 +14,10 @@ export function dateKey(time,zone='Asia/Shanghai'){
   const parts=new Intl.DateTimeFormat('en-CA',{timeZone:zone,year:'numeric',month:'2-digit',day:'2-digit'}).formatToParts(time);
   const get=key=>parts.find(p=>p.type===key).value;return `${get('year')}-${get('month')}-${get('day')}`;
 }
+export function hourKey(time,zone='Asia/Shanghai'){
+  const parts=new Intl.DateTimeFormat('en-GB',{timeZone:zone,hour:'2-digit',hourCycle:'h23'}).formatToParts(time);
+  return parseInt(parts.find(p=>p.type==='hour').value,10);
+}
 export function usageRecords(raw,conversationId){
   const trajectory=raw?.trajectory||{},rows=new Map(),steps=trajectory.steps||[];
   for(const [index,g] of (trajectory.generatorMetadata||[]).entries()){
@@ -76,9 +80,13 @@ export class UsageLedger{
     for(const r of seen.values()){
       models.add(r.model);if(r.partial)partialRequests++;
       if(r.at===null){unknownTokens+=sum(r);unknownRequests++;continue;}
-      const date=dateKey(r.at,this.timeZone);if(!daily.has(date))daily.set(date,{date,models:{}});
+      const date=dateKey(r.at,this.timeZone);if(!daily.has(date))daily.set(date,{date,models:{},hours:{}});
       const day=daily.get(date);day.models[r.model]||={uncached:0,cacheRead:0,cacheWrite:0,output:0,total:0,requests:0};
       const bucket=day.models[r.model];for(const key of keys)bucket[key]+=r[key]??0;bucket.total+=sum(r);bucket.requests++;
+      const h=hourKey(r.at,this.timeZone);day.hours[h]||={uncached:0,cacheRead:0,cacheWrite:0,output:0,total:0,requests:0,models:{}};
+      const hBucket=day.hours[h];for(const key of keys)hBucket[key]+=r[key]??0;hBucket.total+=sum(r);hBucket.requests++;
+      hBucket.models[r.model]||={uncached:0,cacheRead:0,cacheWrite:0,output:0,total:0,requests:0};
+      const hmBucket=hBucket.models[r.model];for(const key of keys)hmBucket[key]+=r[key]??0;hmBucket.total+=sum(r);hmBucket.requests++;
     }
     const days=[...daily.values()].sort((a,b)=>a.date.localeCompare(b.date));
     const total=day=>Object.values(day.models).reduce((n,r)=>n+r.total,0);
