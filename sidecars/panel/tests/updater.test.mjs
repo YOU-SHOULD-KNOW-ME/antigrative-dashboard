@@ -47,11 +47,11 @@ test('readLocalVersion falls back safely when plugin manifest is missing or inva
   const dir = await mkdtemp(join(tmpdir(), 'pulse-updater-test-'));
   t.after(() => rm(dir, { recursive: true, force: true }));
 
-  assert.equal(readLocalVersion(dir), '0.8.6');
-  await writeFile(join(dir, 'plugin.json'), JSON.stringify({ version: '0.8.7' }));
   assert.equal(readLocalVersion(dir), '0.8.7');
+  await writeFile(join(dir, 'plugin.json'), JSON.stringify({ version: '0.8.8' }));
+  assert.equal(readLocalVersion(dir), '0.8.8');
   await writeFile(join(dir, 'plugin.json'), 'invalid json');
-  assert.equal(readLocalVersion(dir), '0.8.6');
+  assert.equal(readLocalVersion(dir), '0.8.7');
 });
 
 test('UpdaterService throttles checks and respects ETag caching', async t => {

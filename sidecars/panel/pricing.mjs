@@ -190,12 +190,12 @@ export class PricingService {
 
       const erPromise = fetch('https://open.er-api.com/v6/latest/USD', {
         signal: controller.signal,
-        headers: { 'User-Agent': 'AntigrativeDashboard/0.8.6' }
+        headers: { 'User-Agent': 'AntigrativeDashboard/0.8.7' }
       }).then(r => r.ok ? r.json() : null).catch(() => null);
 
       const orPromise = fetch('https://openrouter.ai/api/v1/models', {
         signal: controller.signal,
-        headers: { 'User-Agent': 'AntigrativeDashboard/0.8.6' }
+        headers: { 'User-Agent': 'AntigrativeDashboard/0.8.7' }
       }).then(r => r.ok ? r.json() : null).catch(() => null);
 
       const [erData, orData] = await Promise.all([erPromise, orPromise]);

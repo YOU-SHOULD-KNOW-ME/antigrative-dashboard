@@ -25,7 +25,7 @@ export function isNewer(remote, local) {
 }
 
 export function readLocalVersion(pluginDir) {
-  if (!pluginDir) return '0.8.6';
+  if (!pluginDir) return '0.8.7';
   try {
     const file = join(pluginDir, 'plugin.json');
     if (existsSync(file)) {
@@ -40,7 +40,7 @@ export function readLocalVersion(pluginDir) {
       if (pkg.version) return String(pkg.version).replace(/^v/i, '');
     }
   } catch {}
-  return '0.8.6';
+  return '0.8.7';
 }
 
 export function parseSha256(text, expectedFilename = '') {

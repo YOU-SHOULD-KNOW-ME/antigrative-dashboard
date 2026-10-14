@@ -10,6 +10,15 @@
 - Add cross-platform resource, corruption, rewind, revision, persistence and bilingual browser regressions. No real local compaction/image-event acceptance is claimed; see `docs/CONTEXT_LIMITS.md` for coverage and limits.
 
 
+## 0.8.7 — 2026-10-14
+
+- Replace 365-day annual heatmap with intraday 24-hour activity bar chart: automatically trim leading idle hours while preserving intermediate rest periods.
+- Add quick-switch day pills (e.g., Sun, Mon, Tue, Today) for single-click daily switching without pagination or vertical scrollbars.
+- Stack uncached input, cache read, and output tokens per hour with detailed tooltips and component breakdown.
+- Calibrate chart Y-axis scale ceiling to avoid redundant top ticks (e.g. staying at 150M rather than jumping to 200M when usage is under 150M).
+- Add GitHub release auto-detection and interactive one-click updater banner in dashboard.
+- Add token component filtering (uncached, cache read, output) with real-time cost deduction and visual strikethrough.
+
 ## 0.8.6 — 2026-10-14
 
 - Fix [#12](https://github.com/YOU-SHOULD-KNOW-ME/antigrative-dashboard/issues/12): count normalized uncached input, cache reads/writes and output independently of cache-rate eligibility. Track component coverage; mark incomplete values as lower bounds without discarding readable counters.
