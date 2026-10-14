@@ -381,14 +381,32 @@ module.exports = function createUsageDashboard({root,language,setMarkup,hostLabe
       b.activeTotal=Object.entries(b.models).reduce((sum,[m,r])=>disabledModels.has(m)?sum:sum+modelActiveTokens(r),0);
     }
     const max=Math.max(1,...buckets.map(b=>b.activeTotal));
-    const ceiling=max>1?Math.ceil(max/(10**Math.floor(Math.log10(max))))*10**Math.floor(Math.log10(max)):1;
+    function getAxisScale(m){
+      if(m<=1)return {ceiling:4,intervals:4,step:1};
+      const p=10**Math.floor(Math.log10(m));
+      const norm=m/p;
+      let step,intervals;
+      if(norm<=1.0){step=0.25*p;intervals=4;}
+      else if(norm<=1.5){step=0.5*p;intervals=3;}
+      else if(norm<=2.0){step=0.5*p;intervals=4;}
+      else if(norm<=2.5){step=0.5*p;intervals=5;}
+      else if(norm<=3.0){step=0.75*p;intervals=4;}
+      else if(norm<=4.0){step=1.0*p;intervals=4;}
+      else if(norm<=5.0){step=1.0*p;intervals=5;}
+      else if(norm<=6.0){step=1.5*p;intervals=4;}
+      else if(norm<=8.0){step=2.0*p;intervals=4;}
+      else{step=2.5*p;intervals=4;}
+      const ceiling=Math.round(intervals*step);
+      return {ceiling,intervals,step};
+    }
+    const {ceiling,intervals,step}=getAxisScale(max);
 
     $('axis').replaceChildren();$('plot').replaceChildren();
-    for(let i=0;i<=4;i++){
-      const val=ceiling*i/4;
+    for(let i=0;i<=intervals;i++){
+      const val=Math.round(step*i);
       const label=node('span','',compact(val));
-      label.style.bottom=(19+(246-19)*i/4)+'px';$('axis').append(label);
-      const line=node('i','grid-line');line.style.bottom=(19+(246-19)*i/4)+'px';$('plot').append(line);
+      label.style.bottom=(19+(246-19)*i/intervals)+'px';$('axis').append(label);
+      const line=node('i','grid-line');line.style.bottom=(19+(246-19)*i/intervals)+'px';$('plot').append(line);
     }
 
     for(const [i,bucket]of buckets.entries()){

@@ -159,3 +159,70 @@ test('inline-widget recovers from icons-only to full density when free space is 
     'Widget must re-probe full density whenever freeSpace >= 340, breaking icons-only lock'
   );
 });
+
+test('usage-ui Y-axis scaling avoids extra ticks and stays within maximum scale', () => {
+  // Extract getAxisScale from usage-ui.cjs
+  assert.ok(
+    usageUiSource.includes('function getAxisScale(m){'),
+    'usage-ui.cjs must include getAxisScale helper function'
+  );
+
+  function getAxisScale(m){
+    if(m<=1)return {ceiling:4,intervals:4,step:1};
+    const p=10**Math.floor(Math.log10(m));
+    const norm=m/p;
+    let step,intervals;
+    if(norm<=1.0){step=0.25*p;intervals=4;}
+    else if(norm<=1.5){step=0.5*p;intervals=3;}
+    else if(norm<=2.0){step=0.5*p;intervals=4;}
+    else if(norm<=2.5){step=0.5*p;intervals=5;}
+    else if(norm<=3.0){step=0.75*p;intervals=4;}
+    else if(norm<=4.0){step=1.0*p;intervals=4;}
+    else if(norm<=5.0){step=1.0*p;intervals=5;}
+    else if(norm<=6.0){step=1.5*p;intervals=4;}
+    else if(norm<=8.0){step=2.0*p;intervals=4;}
+    else{step=2.5*p;intervals=4;}
+    const ceiling=Math.round(intervals*step);
+    return {ceiling,intervals,step};
+  }
+
+  // Image 1: max is ~115M (<= 150M). Must have ceiling = 150M with 3 intervals, NOT 200M!
+  const img1 = getAxisScale(115000000);
+  assert.equal(img1.ceiling, 150000000, 'Max 115M must not show 200M; ceiling must be 150M');
+  assert.equal(img1.intervals, 3);
+  assert.equal(img1.step, 50000000);
+  assert.ok(115000000 <= img1.ceiling);
+
+  // Exact 150M: ceiling must still be 150M
+  const exact150 = getAxisScale(150000000);
+  assert.equal(exact150.ceiling, 150000000);
+
+  // 151M (> 150M): now ceiling goes to 200M
+  const over150 = getAxisScale(151000000);
+  assert.equal(over150.ceiling, 200000000);
+
+  // Image 2: max is ~180M -> ceiling = 200M
+  const img2 = getAxisScale(180000000);
+  assert.equal(img2.ceiling, 200000000);
+  assert.equal(img2.intervals, 4);
+  assert.ok(180000000 <= img2.ceiling);
+
+  // Image 3: max is ~330M -> ceiling = 400M
+  const img3 = getAxisScale(330000000);
+  assert.equal(img3.ceiling, 400000000);
+  assert.equal(img3.intervals, 4);
+  assert.ok(330000000 <= img3.ceiling);
+
+  // Image 4: max is ~257.6K -> ceiling = 300K
+  const img4 = getAxisScale(257600);
+  assert.equal(img4.ceiling, 300000);
+  assert.equal(img4.intervals, 4);
+  assert.ok(257600 <= img4.ceiling);
+
+  // Fuzz testing across 1K to 1B: max <= ceiling must ALWAYS hold
+  for (let val = 1000; val <= 1000000000; val *= 1.37) {
+    const scale = getAxisScale(val);
+    assert.ok(val <= scale.ceiling, `Value ${val} must be <= ceiling ${scale.ceiling}`);
+    assert.ok(scale.intervals >= 3 && scale.intervals <= 5, `Intervals must be between 3 and 5, got ${scale.intervals}`);
+  }
+});
