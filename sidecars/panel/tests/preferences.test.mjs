@@ -25,13 +25,26 @@ test('guide dismissal survives a fresh backend without selecting a language; old
 });
 
 test('Chinese and English survive a new backend and a renderer with empty origin storage',async t=>{
-  const {file,store}=await fixture(t);assert.deepEqual(await store.get(),{language:null,languageGuideDismissed:false,usageGuideDismissed:false,revision:0});
+  const {file,store}=await fixture(t);assert.deepEqual(await store.get(),{language:null,languageGuideDismissed:false,usageGuideDismissed:false,ignoredUpdateVersion:null,revision:0});
   const first=create(null),controller=connect(first,store);await controller.ready;await controller.toggle();
   assert.equal(first.language,'zh-CN');controller.dispose();
   const afterRestart=create(null),restored=connect(afterRestart,new PreferencesStore({file}));await restored.ready;
   assert.equal(afterRestart.language,'zh-CN');await restored.toggle();restored.dispose();
   const again=create(null);await connect(again,new PreferencesStore({file})).ready;assert.equal(again.language,'en');
   const json=JSON.parse(await readFile(file,'utf8'));assert.deepEqual(Object.keys(json).sort(),['language','languageGuideDismissed','revision','schema','usageGuideDismissed']);
+});
+
+test('ignored update version persists across reloads and validates string type',async t=>{
+  const {file,store}=await fixture(t);
+  await store.set({ignoredUpdateVersion:'0.8.7'});
+  assert.equal((await store.get()).ignoredUpdateVersion,'0.8.7');
+  const restored=new PreferencesStore({file});
+  assert.equal((await restored.get()).ignoredUpdateVersion,'0.8.7');
+  await store.set({language:'zh-CN'});
+  assert.equal((await restored.get()).ignoredUpdateVersion,'0.8.7');
+  assert.equal((await restored.get()).language,'zh-CN');
+  await assert.rejects(store.set({ignoredUpdateVersion:123}));
+  await assert.rejects(store.set({ignoredUpdateVersion:true}));
 });
 
 test('usage onboarding completion persists independently of language and language onboarding',async t=>{

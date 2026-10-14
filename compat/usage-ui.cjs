@@ -32,12 +32,24 @@ module.exports = function createUsageDashboard({root,language,setMarkup,hostLabe
   const intro=document.createElement('section');intro.id='usage-intro';intro.className='usage-intro';intro.hidden=true;intro.setAttribute('aria-labelledby','usage-intro-title');
   setMarkup(intro,'<div class="intro-heading"><span class="intro-mark" aria-hidden="true"><svg viewBox="0 0 16 16"><ellipse cx="8" cy="4" rx="5" ry="2"/><path d="M3 4v8c0 2 10 2 10 0V4M3 8c0 2 10 2 10 0"/></svg></span><h2 id="usage-intro-title"></h2></div><div class="intro-copy"><p id="usage-intro-history"></p><p id="usage-intro-scope"></p><p id="usage-intro-storage"></p></div><div class="intro-bottom"><span id="usage-intro-error" role="status"></span><button id="usage-intro-done" type="button"></button></div>');
   page.querySelector('.top').after(intro);
+  const updateBanner=document.createElement('section');updateBanner.id='update-banner';updateBanner.className='update-banner';updateBanner.hidden=true;updateBanner.setAttribute('aria-labelledby','update-banner-title');
+  setMarkup(updateBanner,'<div class="update-banner-head"><div class="update-banner-title"><span class="update-banner-icon" aria-hidden="true"><svg viewBox="0 0 16 16"><path d="M8 1v14M1 8l7-7 7 7"/></svg></span><h2 id="update-banner-title"></h2></div><span class="update-banner-current" id="update-banner-current"></span></div><div class="update-banner-notes" id="update-banner-notes"></div><div class="update-banner-actions"><span class="update-banner-msg" id="update-banner-msg" role="status"></span><button id="update-banner-ignore" type="button" class="update-btn update-btn-ghost"></button><button id="update-banner-apply" type="button" class="update-btn update-btn-primary"></button></div>');
+  intro.after(updateBanner);
   css.textContent+=`
     .usage-intro{margin:18px 0 0;padding:17px 20px 14px;border:1px solid var(--pulse-border);border-radius:12px;background:var(--pulse-control)}.usage-intro[hidden]{display:none}
     .intro-heading{display:flex;align-items:center;gap:9px;margin-bottom:9px}.intro-heading h2{font-size:13px;font-weight:550;margin:0}.intro-mark{display:flex;color:var(--pulse-accent)}.intro-mark svg{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:1.2;stroke-linecap:round;stroke-linejoin:round}
     .intro-copy{display:grid;gap:5px;color:var(--pulse-muted);font-size:11px;line-height:1.65}.intro-copy p{margin:0}.intro-bottom{display:flex;justify-content:flex-end;align-items:center;gap:14px;margin-top:11px}.intro-bottom span{margin-right:auto;color:var(--pulse-warning);font-size:11px}
     #usage-intro-done{padding:6px 13px;min-height:30px;border:1px solid var(--pulse-border);border-radius:7px;background:var(--pulse-hover);color:var(--pulse-foreground);font:inherit;font-size:11px;cursor:pointer;transition:background-color 140ms ease,transform 120ms ease}#usage-intro-done:hover{background:var(--pulse-selected)}#usage-intro-done:active{transform:scale(.98)}#usage-intro-done:disabled{opacity:.55;cursor:wait}
     @media(max-width:520px){.usage-intro{padding:14px}.intro-bottom{align-items:flex-start}.intro-bottom span{line-height:1.5}}
+    .update-banner{margin:18px 0 0;padding:16px 18px 14px;border:1px solid color-mix(in srgb, var(--pulse-accent) 30%, var(--pulse-border));border-radius:12px;background:color-mix(in srgb, var(--pulse-accent) 7%, var(--pulse-control));display:flex;flex-direction:column;gap:10px}.update-banner[hidden]{display:none}
+    .update-banner-head{display:flex;align-items:center;justify-content:space-between;gap:12px}.update-banner-title{display:flex;align-items:center;gap:8px}.update-banner-title h2{font-size:13px;font-weight:600;margin:0;color:var(--pulse-foreground)}.update-banner-icon{display:flex;color:var(--pulse-accent)}.update-banner-icon svg{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round}
+    .update-banner-current{font-size:11px;color:var(--pulse-muted)}
+    .update-banner-notes{max-height:120px;overflow-y:auto;font-size:11px;line-height:1.6;color:var(--pulse-muted);background:var(--pulse-background);border:1px solid var(--pulse-border);border-radius:8px;padding:9px 12px;white-space:pre-wrap;word-break:break-word}
+    .update-banner-actions{display:flex;align-items:center;justify-content:flex-end;gap:10px}
+    .update-banner-msg{margin-right:auto;font-size:11px}.update-banner-msg.success{color:var(--pulse-success);font-weight:500}.update-banner-msg.error{color:var(--pulse-warning)}
+    .update-btn{padding:5px 13px;min-height:28px;border-radius:7px;font:inherit;font-size:11px;cursor:pointer;transition:background-color 140ms ease,transform 120ms ease}.update-btn:active{transform:scale(.98)}
+    .update-btn-primary{border:1px solid var(--pulse-accent);background:var(--pulse-accent);color:#fff;font-weight:550}.update-btn-primary:hover{filter:brightness(1.1)}.update-btn-primary:disabled{opacity:.55;cursor:wait}
+    .update-btn-ghost{border:1px solid var(--pulse-border);background:transparent;color:var(--pulse-muted)}.update-btn-ghost:hover{background:var(--pulse-hover);color:var(--pulse-foreground)}
   `;
   const $=id=>view.getElementById(id),text=(id,value)=>{if($(id).textContent!==value)$(id).textContent=value;};
   let value=null,tab='overview',heatMode='day',period='day',year=null,selected=null,disabledModels=new Set(),lastKey='',busy=false,opener=null;
@@ -67,6 +79,52 @@ module.exports = function createUsageDashboard({root,language,setMarkup,hostLabe
     if(guideSaving||disposed)return;guideSaving=true;guideError=false;renderGuide();
     try{await onDismissGuide();dismissGuide();}catch{if(!disposed)guideError=true;}
     finally{guideSaving=false;if(!disposed)renderGuide();}
+  });
+  let updateApplying=false,updateDone=false;
+  function renderUpdateBanner(){
+    const u=value?.update;
+    if(!u||!u.hasUpdate||updateDone){
+      updateBanner.hidden=true;
+      return;
+    }
+    updateBanner.hidden=false;
+    text('update-banner-title',w(`🎉 发现新版本 v${u.latestVersion}`,`🎉 Update Available: v${u.latestVersion}`));
+    text('update-banner-current',w(`当前版本: v${u.currentVersion}`,`Current: v${u.currentVersion}`));
+    text('update-banner-notes',u.notes||w('暂无更新说明','No release notes provided'));
+    text('update-banner-apply',updateApplying?w('正在更新…','Updating…'):w('立即更新','Update now'));
+    text('update-banner-ignore',w('暂不更新','Not now'));
+    $('update-banner-apply').disabled=updateApplying;
+    $('update-banner-ignore').disabled=updateApplying;
+  }
+  $('update-banner-apply').addEventListener('click',async()=>{
+    if(updateApplying||disposed)return;
+    updateApplying=true;
+    text('update-banner-msg',w('正在下载并覆盖更新…','Downloading and applying update…'));
+    $('update-banner-msg').className='update-banner-msg';
+    renderUpdateBanner();
+    try{
+      const res=await window.agPulseHost.applyUpdate();
+      if(res?.error)throw new Error(res.error);
+      updateDone=true;
+      text('update-banner-msg',w(`🎉 已成功更新至 v${res?.version||value?.update?.latestVersion}！重启应用后生效。`,`🎉 Updated to v${res?.version||value?.update?.latestVersion}! Restart app to take effect.`));
+      $('update-banner-msg').className='update-banner-msg success';
+      $('update-banner-apply').hidden=true;
+      $('update-banner-ignore').hidden=true;
+      setTimeout(()=>{if(!disposed&&updateBanner)updateBanner.hidden=true;},5000);
+    }catch(e){
+      $('update-banner-msg').className='update-banner-msg error';
+      text('update-banner-msg',w('更新失败：'+(e.message||'请稍后重试'),'Update failed: '+(e.message||'Please try again')));
+    }finally{
+      updateApplying=false;
+      if(!disposed&&!updateDone)renderUpdateBanner();
+    }
+  });
+  $('update-banner-ignore').addEventListener('click',async()=>{
+    const ver=value?.update?.latestVersion;
+    updateBanner.hidden=true;
+    if(ver&&window.agPulseHost?.ignoreUpdate){
+      try{await window.agPulseHost.ignoreUpdate(ver);}catch{}
+    }
   });
   const full=n=>Number(n||0).toLocaleString(zh()?'zh-CN':'en-US');
   const compact=n=>{n=Number(n||0);const limits=[[1e9,'B'],[1e6,'M'],[1e3,'K']];for(const [base,suffix]of limits)if(n>=base)return (n/base).toFixed(1).replace(/\.0$/,'')+suffix;return full(n);};
@@ -232,6 +290,7 @@ module.exports = function createUsageDashboard({root,language,setMarkup,hostLabe
   }
   function render(){
     renderGuide();
+    renderUpdateBanner();
     if(!value){
       closeYear(false);$('tip').hidden=true;$('overview').hidden=true;$('details').hidden=true;$('usage-waiting').hidden=false;
       text('usage-waiting',w('正在重新连接统计…','Reconnecting usage…'));text('subtitle',w('正在重新连接本机统计','Reconnecting local usage'));text('coverage','');text('timezone','');$('alert').hidden=true;

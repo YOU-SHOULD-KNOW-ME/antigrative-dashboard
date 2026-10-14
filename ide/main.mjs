@@ -8,6 +8,7 @@ import {MetricsStore} from '../sidecars/panel/store.mjs';
 import {SessionHistory} from '../sidecars/panel/history.mjs';
 import {TranscriptReader,transcriptBrainRoot} from '../sidecars/panel/transcript.mjs';
 import {DesktopUsage as LocalUsage,UsageLedger} from '../sidecars/panel/usage.mjs';
+import {UpdaterService} from '../sidecars/panel/updater.mjs';
 import {IdeClient} from './client.mjs';
 import {ideTargets} from './runtime.mjs';
 const root=join(dirname(fileURLToPath(import.meta.url)),'..');
@@ -20,6 +21,7 @@ const store=new MetricsStore(client,{history:new SessionHistory(join(data,'histo
 const usage=new LocalUsage(store,new UsageLedger(join(data,'usage-v1'),{source:'ide-local'}));
 store.onTrajectory=(scope,id,raw)=>usage.ingest(scope,id,raw);
 const preferences=new PreferencesStore({file:join(data,'preferences.json')});
+const updater=new UpdaterService({pluginDir:root,dataDir:data,preferences});
 const files=await Promise.all(['compat/i18n.cjs','compat/inline-widget.cjs','compat/theme.cjs','ide/surface.cjs','compat/usage-ui.cjs'].map(f=>readFile(join(root,f),'utf8')));
 const extract=s=>s.slice(s.indexOf('module.exports = ')+17).trim().replace(/;$/,'');
 const ownership=new SidecarOwner(data);
@@ -40,10 +42,10 @@ const snapshot=async input=>{
       value={connection:'live',speed:null,groups:store.quota||[],quotaUpdatedAt:new Date(store.quotaAt).toISOString()};
     }catch{value={connection:'offline',speed:null,groups:[],error:'IDE local API unavailable'};}
   }
-  if(input.force)void usage.sync(true);
-  return {...value,usage:await usage.snapshot(),enabled:true,preferences:await preferences.snapshot()};
+  if(input.force){void usage.sync(true);void updater.check(true);}
+  return {...value,usage:await usage.snapshot(),enabled:true,preferences:await preferences.snapshot(),update:await updater.snapshot()};
 };
-const ui=new RuntimeUi({profile,source:adapter+source,owner,owns:()=>ownership.isOwner(),preferences,snapshot,dataDir:data,targetOrigin:()=> 'vscode-file://vscode-app',
+const ui=new RuntimeUi({profile,source:adapter+source,owner,owns:()=>ownership.isOwner(),preferences,updater,snapshot,dataDir:data,targetOrigin:()=> 'vscode-file://vscode-app',
   discover:async()=>{const result=await ideTargets(profile);debugPort=result.port;await client.discover();return result.targets;}});
 await mkdir(data,{recursive:true});
 await writeFile(join(data,'runtime.json'),JSON.stringify({pid:process.pid,startedAt:new Date().toISOString(),mode:'ide'}));

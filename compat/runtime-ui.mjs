@@ -116,6 +116,9 @@ function rendererBridge(binding) {
     getMetrics: input => call('metrics', input),
     getPreferences: () => call('preferences', {}),
     setPreferences: input => call('preferences', input),
+    applyUpdate: () => call('update', { action: 'apply' }),
+    ignoreUpdate: version => call('update', { action: 'ignore', version }),
+    checkUpdate: (force = true) => call('update', { action: 'check', force }),
     report: input => { void call('diagnostic', input); },
   };
 }
@@ -138,12 +141,13 @@ export function makeRendererSource(i18n, widget, theme = '', owner = null, gener
 
 export class RuntimeUi {
   constructor({ snapshot, source, profile = platformPaths().profile,
-    dataDir, preferences, owner=null, owns=async()=>true, enabled = async () => true, discover = discoverTargets, targetOrigin = target => new URL(target.url).origin, connect = (url, options) => new CdpConnection(url, options), interval = 3000 } = {}) {
+    dataDir, preferences, updater = null, owner=null, owns=async()=>true, enabled = async () => true, discover = discoverTargets, targetOrigin = target => new URL(target.url).origin, connect = (url, options) => new CdpConnection(url, options), interval = 3000 } = {}) {
     this.snapshot = snapshot; this.source = source; this.profile = profile; this.dataDir = dataDir; this.enabled = enabled;
     this.discover = discover; this.connect = connect; this.interval = interval; this.sessions = new Map(); this.running = false;
     this.targetOrigin=targetOrigin;
     this.health = { state: 'waiting', mode: 'runtime', message: 'Waiting for the app renderer', windows: 0 };
     this.preferences=preferences;
+    this.updater=updater;
     this.owner=owner;this.owns=owns;
     this.binding=owner?BINDING+'_'+owner.replaceAll('-',''):BINDING;
   }
@@ -183,8 +187,15 @@ export class RuntimeUi {
       if (input.type === 'metrics') result = await this.enabled() ? await this.snapshot(validatedInput(input.input)) : { ...offline('Antigrative Dashboard 已停用'), enabled: false };
       else if (input.type === 'preferences' && this.preferences) {
         const value=input.input;
-        if(!value||typeof value!=='object'||Array.isArray(value)||Object.keys(value).some(key=>!['language','languageGuideDismissed','usageGuideDismissed'].includes(key)))throw new Error('Invalid preferences request');
+        if(!value||typeof value!=='object'||Array.isArray(value)||Object.keys(value).some(key=>!['language','languageGuideDismissed','usageGuideDismissed','ignoredUpdateVersion'].includes(key)))throw new Error('Invalid preferences request');
         result=Object.keys(value).length?await this.preferences.set(value):await this.preferences.get();
+      }
+      else if (input.type === 'update' && this.updater) {
+        const { action, version, force } = input.input || {};
+        if (action === 'apply') result = await this.updater.applyUpdate();
+        else if (action === 'ignore' && version) result = await this.updater.ignore(version);
+        else if (action === 'check') result = await this.updater.check(force === true);
+        else throw new Error('Invalid update action');
       }
       else if (input.type === 'diagnostic' && ['boot', 'mounted', 'mount-error'].includes(input.input?.stage)) {
         if (input.input.stage === 'mounted' && input.input.editorFound && input.input.composerFound) connection.mounted = true;
@@ -193,7 +204,7 @@ export class RuntimeUi {
       if(this.stopping||!await this.owns())return;
       await connection.command('Runtime.evaluate', { expression: this.rendererGuard('window.__agPulseRuntimeBridge?.resolve(' + input.id + ',' + JSON.stringify(result) + ')'), contextId: p.executionContextId });
     } catch {
-      const failure=input.type==='preferences'?{error:'Language preference could not be saved or read'}:offline('等待 Antigrative Dashboard 重新连接');
+      const failure=input.type==='preferences'?{error:'Language preference could not be saved or read'}:input.type==='update'?{error:'Update request failed'}:offline('等待 Antigrative Dashboard 重新连接');
       if(this.stopping||!await this.owns())return;
       try { await connection.command('Runtime.evaluate', { expression: this.rendererGuard('window.__agPulseRuntimeBridge?.resolve(' + input.id + ',' + JSON.stringify(failure) + ')'), contextId: p.executionContextId }); } catch { /* The next poll reconnects. */ }
     } finally { connection.inflight--; }

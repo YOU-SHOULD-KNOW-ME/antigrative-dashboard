@@ -7,6 +7,7 @@ import { createRequire } from 'node:module';
 import { MetricsStore } from './store.mjs';
 import { DesktopUsage } from './usage.mjs';
 import { loadSidecarSdk } from './sdk.mjs';
+import { UpdaterService } from './updater.mjs';
 import { RuntimeUi, makeRendererSource } from '../../compat/runtime-ui.mjs';
 import { platformPaths } from '../../compat/platform.mjs';
 import { PreferencesStore } from '../../compat/preferences.mjs';
@@ -21,10 +22,16 @@ const store = new MetricsStore();
 const usage=new DesktopUsage(store);
 store.onTrajectory=(scope,id,raw)=>usage.ingest(scope,id,raw);
 const preferences=new PreferencesStore();
+const updater = new UpdaterService({
+  pluginDir: join(HERE, '..', '..'),
+  dataDir: platformPaths().data,
+  preferences,
+});
 const ownership=process.env.ANTIGRAVITY_SIDECAR_WEB_PORT?new SidecarOwner(platformPaths().data):null;
 const metrics = async input => {
-  const base=await store.snapshot(input);if(input?.force)void usage.sync(true);
-  return {...base,usage:await usage.snapshot(),preferences:await preferences.snapshot(),theme:await readHostTheme(),integration:integration.health};
+  const base=await store.snapshot(input);
+  if(input?.force){void usage.sync(true);void updater.check(true);}
+  return {...base,usage:await usage.snapshot(),preferences:await preferences.snapshot(),update:await updater.snapshot(),theme:await readHostTheme(),integration:integration.health};
 };
 const usageSource=()=>{const s=readFileSync(join(HERE,'..','..','compat','usage-ui.cjs'),'utf8');return `window.__agPulseUsageFactory=(${s.slice(s.indexOf('module.exports = ')+17).trim().replace(/;$/,'')});`;};
 const staticFiles = { '/': ['index.html', 'text/html'], '/styles.css': ['styles.css', 'text/css'], '/format.mjs': ['format.mjs', 'text/javascript'] };
@@ -46,6 +53,7 @@ const runtimeSettings = () => {
 const integration = new RuntimeUi({
   snapshot: input => metrics(input),
   preferences,
+  updater,
   owner:ownership?.token,owns:()=>ownership?ownership.isOwner():true,
   source: makeRendererSource(readFileSync(join(HERE,'..','..','compat','i18n.cjs'),'utf8'),readFileSync(join(HERE,'..','..','compat','inline-widget.cjs'),'utf8'),readFileSync(join(HERE,'..','..','compat','theme.cjs'),'utf8'),ownership?.token,ownership?.startedAt,usageSource()),
   dataDir: platformPaths().data,
@@ -65,6 +73,17 @@ if (process.env.ANTIGRAVITY_SIDECAR_WEB_PORT) {
   app.api('/api/integration', () => integration.health, 'GET');
   app.api('/api/preferences',()=>preferences.snapshot(),'GET');
   app.api('/api/preferences',async data=>{try{return await preferences.set(data);}catch{return new Response(JSON.stringify({error:'Language preference could not be saved'}),{status:400,contentType:'application/json'});}},'POST');
+  app.api('/api/update', () => updater.snapshot(), 'GET');
+  app.api('/api/update', async data => {
+    try {
+      if (data?.action === 'apply') return await updater.applyUpdate();
+      if (data?.action === 'ignore' && data?.version) return await updater.ignore(data.version);
+      if (data?.action === 'check') return await updater.check(true);
+      return await updater.snapshot();
+    } catch (e) {
+      return new Response(JSON.stringify({ error: e.message }), { status: 400, contentType: 'application/json' });
+    }
+  }, 'POST');
   app.run();
   integration.start();
   const shutdown=async()=>{
@@ -92,6 +111,24 @@ if (process.env.ANTIGRAVITY_SIDECAR_WEB_PORT) {
         try {for await(const chunk of req){body+=chunk;if(body.length>1024)throw new Error('Preference payload too large');}
           res.end(JSON.stringify(await preferences.set(JSON.parse(body))));
         }catch{res.writeHead(400);res.end(JSON.stringify({error:'Language preference could not be saved'}));}
+        return;
+      }
+      res.writeHead(405);res.end();return;
+    }
+    if (url.pathname === '/api/update') {
+      const sameOrigin=req.headers.origin===`http://${host}`;
+      if(req.headers.origin&&!sameOrigin){res.writeHead(403);res.end();return;}
+      res.setHeader('Cache-Control','no-store');res.setHeader('Content-Type','application/json; charset=utf-8');
+      if(req.method==='GET'){res.end(JSON.stringify(await updater.snapshot()));return;}
+      if(req.method==='POST'&&sameOrigin&&String(req.headers['content-type']).startsWith('application/json')){
+        let body='';
+        try {for await(const chunk of req){body+=chunk;if(body.length>1024)throw new Error('Update payload too large');}
+          const data=JSON.parse(body);
+          if (data?.action === 'apply') res.end(JSON.stringify(await updater.applyUpdate()));
+          else if (data?.action === 'ignore' && data?.version) res.end(JSON.stringify(await updater.ignore(data.version)));
+          else if (data?.action === 'check') res.end(JSON.stringify(await updater.check(true)));
+          else res.end(JSON.stringify(await updater.snapshot()));
+        }catch(e){res.writeHead(400);res.end(JSON.stringify({error:e.message}));}
         return;
       }
       res.writeHead(405);res.end();return;

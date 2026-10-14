@@ -29,6 +29,7 @@ module.exports = function createDashboardI18n(initialLanguage) {
       cacheRate:'Cache hit',cacheRead:'Cache read',cacheInput:'Total input',cacheMiss:'Uncached input',cacheWrite:'Cache write',cacheOutput:'Output',cost:'Cost',totalCost:'Total cost',estimatedCost:'Est. cost',
       cacheBasis:'Cached input ÷ total input, weighted across requests. Cache writes are not hits.',cacheMissing:'{n} requests have unavailable cache statistics.',cacheUnavailable:'Cache statistics are unavailable for this conversation.',
       cacheCoverage:'{measured} of {total} requests',language:'Language',switchLanguage:'Switch to Chinese',languageSaveFailed:'Language preference could not be saved. Please retry.',reconnecting:'Waiting to reconnect',panelUnavailable:'The statistics panel cannot connect right now.',invalidData:'Incompatible statistics data',
+      updateAvailable:'New version available: {version}',updateCurrent:'Current version: {version}',updateNow:'Update now',updateLater:'Not now',updating:'Updating…',updateSuccess:'Updated to {version}! Fully active on app restart.',updateFailed:'Update failed. Please retry later.',viewChangelog:'Release notes',newVersionBadge:'New version',
     },
     'zh-CN':{
       tokenPartial:'仅统计已知 Token（≥）：{input} 次请求缺少输入用量，{output} 次缺少输出用量。输出独立于缓存统计。',
@@ -55,6 +56,7 @@ module.exports = function createDashboardI18n(initialLanguage) {
       noQuota:'账户未返回此额度窗口。',disabledQuota:'此额度窗口已停用。',noFraction:'账户未返回剩余比例。',sharedQuota:'同组模型共享额度。',quotaSource:'余额与重置时间来自账户接口。',updated:'{time} 更新',health:'额度更新于 {time} · 真实请求统计',firstUpdate:'等待首次更新',
       cacheRate:'缓存命中',cacheRead:'缓存读取',cacheInput:'总输入',cacheMiss:'未缓存输入',cacheWrite:'缓存写入',cacheOutput:'输出',cost:'成本',totalCost:'总成本',estimatedCost:'预估成本',cacheBasis:'缓存读取 token ÷ 总输入 token，按请求 token 总量加权；缓存写入不算命中。',cacheMissing:'{n} 次请求缺少缓存统计。',cacheUnavailable:'此会话暂无可用缓存统计。',cacheCoverage:'{measured} / {total} 次请求',
       language:'语言',switchLanguage:'Switch to English',languageSaveFailed:'语言设置暂时无法保存，请重试。',reconnecting:'等待控件重新连接',panelUnavailable:'统计面板暂时无法连接',invalidData:'统计数据格式不兼容',
+      updateAvailable:'发现新版本 {version}',updateCurrent:'当前版本：{version}',updateNow:'立即更新',updateLater:'暂不更新',updating:'正在更新…',updateSuccess:'已成功更新至 {version}！重启应用后完全生效。',updateFailed:'更新失败，请稍后重试。',viewChangelog:'更新日志',newVersionBadge:'新版本',
     },
   };
   let language=initialLanguage==='zh-CN'?'zh-CN':'en';
