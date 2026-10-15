@@ -112,3 +112,22 @@ test('failed complete reader cannot overwrite a previously persisted token total
  store.client.trajectory=async()=>{throw Error('statistics budget exceeded');};const usage=tracker(t,store,ledger);await usage.sync(true);
  assert.equal((await ledger.summary(account)).totalTokens,40);assert.equal(usage.status,'partial');
 });
+
+test('settled listed histories reuse verified disk and host checkpoints after restart',async t=>{
+ const {ledger}=await setup(t);let calls=0;const store=baseStore();
+ store.listConversations=async()=>[{id,status:'CASCADE_RUN_STATUS_IDLE',modifiedAt:'2026-10-15T00:00:00Z',stepCount:2}];
+ store.client.trajectory=async()=>{calls++;return raw();};
+ const first=tracker(t,store,ledger);await first.sync();first.dispose();
+ const restarted=tracker(t,store,new UsageLedger(ledger.directory));await restarted.sync();assert.equal(calls,1);
+ assert.equal((await restarted.snapshot()).totalTokens,40);assert.equal(restarted.status,'ready');
+ await restarted.sync(true);assert.equal(calls,2,'Manual refresh still revalidates completed histories');
+});
+
+test('a first transient history failure retains cached totals and is distinguished from repeated failures',async t=>{
+ const {ledger}=await setup(t);await ledger.ingest(account,id,raw());let clock=100000,fail=true;
+ const store=baseStore();store.client.trajectory=async()=>{if(fail)throw Error('warming up');return raw();};
+ const usage=tracker(t,store,ledger,{now:()=>clock});await usage.sync();let snapshot=await usage.snapshot();
+ assert.equal(snapshot.totalTokens,40);assert.equal(snapshot.missingConversations,1);assert.equal(snapshot.confirmedMissingConversations,0);assert.equal(snapshot.retryingConversations,1);
+ clock+=30001;await usage.sync();snapshot=await usage.snapshot();assert.equal(snapshot.confirmedMissingConversations,1);
+ fail=false;await usage.sync(true);snapshot=await usage.snapshot();assert.equal(snapshot.totalTokens,40);assert.equal(snapshot.confirmedMissingConversations,0);assert.equal(snapshot.retryingConversations,0);
+});

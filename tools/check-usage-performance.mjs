@@ -28,6 +28,14 @@ try{
  });
  assert.ok(timings.every(s=>s.open<500&&s.close<500),'Large-chat open/close must avoid multi-second native modal work: '+JSON.stringify(timings));
  await page.evaluate(()=>usageTest.open(usageFixture,document.getElementById('opener')));
+ await page.evaluate(()=>usageTest.update({...usageFixture,missingConversations:2,confirmedMissingConversations:0,retryingConversations:2,syncing:false}));
+ assert.equal(await page.locator('#alert').isVisible(),false,'A first temporary read failure is synchronization status, not a missing-data warning');
+ assert.match(await page.locator('#timezone').textContent(),/Syncing history/);assert.equal(await page.locator('#totals .value').first().textContent(),'1KToken');
+ await page.evaluate(()=>usageTest.update({...usageFixture,missingConversations:2,confirmedMissingConversations:2,retryingConversations:0,syncing:false}));
+ assert.equal(await page.locator('#alert').isVisible(),true,'Repeated unresolved reads still report incomplete coverage');
+ await page.evaluate(()=>usageTest.update({...usageFixture,partialRequests:1,missingConversations:0,confirmedMissingConversations:0}));
+ assert.equal(await page.locator('#alert').isVisible(),true,'Actual missing token components are never hidden');
+ await page.evaluate(()=>usageTest.update(usageFixture));
  const dialog=page.locator('#usage-dashboard');assert.equal(await dialog.getAttribute('aria-modal'),'true');
  await page.locator('#selection-details').focus();await page.keyboard.press('Tab');assert.equal(await page.locator('#locale').evaluate(n=>n.getRootNode().activeElement===n),true);
  await page.keyboard.press('Shift+Tab');assert.equal(await page.locator('#selection-details').evaluate(n=>n.getRootNode().activeElement===n),true);

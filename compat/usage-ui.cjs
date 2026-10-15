@@ -213,9 +213,10 @@ module.exports = function createUsageDashboard({root,language,setMarkup,hostLabe
     }
     syncYear();
     text('coverage',w(`已记录 ${full(value.requests)} 次请求${value.firstDate?' · 始于 '+value.firstDate:''}`,`${full(value.requests)} requests recorded${value.firstDate?' · since '+value.firstDate:''}`));
-    text('timezone',value.timeZone+' · '+(value.syncing?w('正在补录历史…','Syncing history…'):w('本地统计','Local usage')));
+    text('timezone',value.timeZone+' · '+(value.syncing||value.retryingConversations>0?w('正在同步历史…','Syncing history…'):w('本地统计','Local usage')));
     const alerts=[];if(value.unknownRequests)alerts.push(w(`${value.unknownRequests} 次请求日期未知，共 ${compact(value.unknownTokens)} Token`,`${value.unknownRequests} undated requests · ${compact(value.unknownTokens)} tokens`));
-    if(value.partialRequests||value.unreadableFiles||value.missingConversations||value.persistenceError)alerts.push(w('部分记录暂不可读取，用量可能不完整','Some records are unavailable; usage may be incomplete'));
+    const confirmedMissing=value.confirmedMissingConversations??(value.syncing?0:value.missingConversations);
+    if(value.partialRequests||value.unreadableFiles||confirmedMissing>0&&!value.syncing||value.persistenceError)alerts.push(w('部分记录暂不可读取，用量可能不完整','Some records are unavailable; usage may be incomplete'));
     $('alert').hidden=!alerts.length;text('alert',alerts.join(' · '));
     if(tab==='overview')renderHeat();else renderChart();
   }

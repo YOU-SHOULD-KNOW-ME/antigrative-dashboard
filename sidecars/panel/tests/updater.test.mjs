@@ -77,3 +77,32 @@ test('slow network checking returns promptly to the renderer and exposes progres
  await service.request({action:'check'});assert.equal((await service.request({action:'status'})).state,'checking');
  finish();await service.checkPending;assert.equal(calls,1);assert.equal((await service.request({action:'status'})).state,'current');
 });
+
+test('download progress reports measured bytes, drops extra fields and never regresses within a download',async t=>{
+ let finish,progressStarted;const waiting=new Promise(r=>finish=r),started=new Promise(r=>progressStarted=r);let fixture;
+ fixture=await setup(t,async(_worker,args,options)=>{
+  if(args[0]==='check')return {host:'app',currentVersion:'0.8.6',latestVersion:'0.8.7',hasUpdate:true};
+  options.onProgress({phase:'download',received:50,total:100,url:'private',notes:'private'});
+  options.onProgress({phase:'download',received:20,total:100});
+  assert.deepEqual(fixture.service.publicState().progress,{phase:'download',received:50,total:100});
+  progressStarted();
+  await waiting;options.onProgress({phase:'install'});
+  await writeFile(join(fixture.directory,'plugin.json'),JSON.stringify({name:'antigravity-pulse',version:'0.8.7'}));return {version:'0.8.7',verified:true};
+ });
+ await fixture.service.check();await fixture.service.apply('0.8.7');await started;assert.equal(fixture.service.publicState().progress.received,50);
+ finish();await fixture.service.job;assert.deepEqual(fixture.service.publicState().progress,{phase:'complete'});
+});
+
+test('stderr progress parsing tolerates chunks and ignores unbounded or unrelated diagnostic data',async()=>{
+ const received=[];const valid=JSON.stringify({ok:true,result:{verified:true}});
+ const spawnImpl=()=>{const child=new EventEmitter();child.stdout=new EventEmitter();child.stderr=new EventEmitter();child.kill=()=>{};
+  queueMicrotask(()=>{
+   child.stderr.emit('data','unrelated private diagnostic\n'+'x'.repeat(50000)+'\n');
+   const event=JSON.stringify({event:'pulse-update-progress',phase:'download',received:5,total:10,private:'ignored'})+'\n';
+   child.stderr.emit('data',event.slice(0,17));child.stderr.emit('data',event.slice(17));
+   child.stderr.emit('data',JSON.stringify({event:'pulse-update-progress',phase:'unknown',private:'ignored'})+'\n');
+   child.stdout.emit('data',valid);child.emit('close',0);
+  });return child;};
+ assert.deepEqual(await runUpdateWorker('worker.py',['apply'],{spawnImpl,onProgress:value=>received.push(value)}),{verified:true});
+ assert.deepEqual(received,[{phase:'download',received:5,total:10}]);
+});

@@ -279,6 +279,26 @@ with w.lifecycle_lock(Path(sys.argv[2])):w.install_staged(Path(sys.argv[3]),Path
             self.assertEqual((outside / 'keep.txt').read_text(), 'keep')
         finally:junction.rmdir()
 
+    def test_progress_feedback_failure_cannot_fail_a_valid_install(self):
+        working=self.target.parent/'transaction';working.mkdir()
+        stage=working/'stage';worker.stage_archive(self.archive(),stage,'0.8.7')
+        def broken(_value):raise RuntimeError('Progress consumer unavailable')
+        worker.install_staged(stage,self.target,self.home/'backups/progress','0.8.6','0.8.7',progress=broken)
+        self.assertEqual(json.loads((self.target/'plugin.json').read_text())['version'],'0.8.7')
+
+    def test_download_progress_reports_actual_received_bytes(self):
+        import io
+        from unittest.mock import Mock
+        payload=b'x'*70000
+        response=io.BytesIO(payload);response.headers={}
+        opener=Mock();opener.open.return_value=response
+        amounts=[];destination=self.home/'measured-download.zip'
+        with patch.object(worker.urllib.request,'build_opener',return_value=opener):
+            size=worker.fetch('https://github.com/file',100000,destination=destination,progress=amounts.append)
+        self.assertEqual(size,len(payload));self.assertEqual(amounts[-1],len(payload))
+        self.assertEqual(destination.read_bytes(),payload)
+        self.assertEqual(amounts,sorted(amounts))
+
     def test_untrusted_download_urls_fail_before_network(self):
         for url in ['http://github.com/file', 'https://evil.example/file', 'https://github.com:444/file', 'https://user:secret@github.com/file']:
             with self.subTest(url=url), patch.object(worker.urllib.request, 'build_opener') as opener:

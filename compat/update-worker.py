@@ -52,7 +52,7 @@ class NoRedirect(urllib.request.HTTPRedirectHandler):
         return None
 
 
-def fetch(url, limit, destination=None, metadata=False, method='GET'):
+def fetch(url, limit, destination=None, metadata=False, method='GET', progress=None):
     opener = urllib.request.build_opener(NoRedirect())  # Retains configured proxy support.
     compatibility = False
     def open_verified(request):
@@ -89,6 +89,7 @@ def fetch(url, limit, destination=None, metadata=False, method='GET'):
             raise
         with response:
             total = 0
+            reported_at = time.monotonic()
             chunks = []
             handle = destination.open('wb') if destination else None
             try:
@@ -105,10 +106,17 @@ def fetch(url, limit, destination=None, metadata=False, method='GET'):
                         handle.write(chunk)
                     else:
                         chunks.append(chunk)
+                    if progress and time.monotonic() - reported_at >= 0.15:
+                        try: progress(total)
+                        except Exception: pass  # Feedback cannot fail a verified operation.
+                        reported_at = time.monotonic()
             finally:
                 if handle:
                     handle.close()
             data = total if destination else b''.join(chunks)
+            if progress:
+                try: progress(total)
+                except Exception: pass
             return (data, url, response.headers.get('Content-Length')) if metadata else data
     raise ValueError('Too many update redirects')
 
@@ -338,12 +346,17 @@ def recover_transaction(working, target):
     return True
 
 
-def install_staged(stage, target, backup, current, expected, fault=None):
+def install_staged(stage, target, backup, current, expected, fault=None, progress=None):
     """Complete backup precedes mutation; undo every moved item on failure."""
+    def report(phase):
+        if progress:
+            try: progress({'phase': phase})
+            except Exception: pass
     if json.loads((target / 'plugin.json').read_text(encoding='utf-8-sig'))['version'] != current or version(expected) <= version(current):
         raise ValueError('Installed version changed or update would downgrade')
     if not stage.resolve().parent.is_relative_to(target.parent.resolve()):
         raise ValueError('Stage must be on the target filesystem')
+    report('backup')
     backup.mkdir(parents=True, exist_ok=False)
     for name in RUNTIME:
         old = target / name
@@ -375,6 +388,7 @@ def install_staged(stage, target, backup, current, expected, fault=None):
     write_journal(working, journal)
     moved, inserted = [], []
     try:
+        report('install')
         for name in RUNTIME:
             old, new = target / name, stage / name
             if old.exists():
@@ -400,7 +414,11 @@ def install_staged(stage, target, backup, current, expected, fault=None):
         raise
 
 
-def perform(plan, target, updates):
+def perform(plan, target, updates, progress=None):
+    def report(phase, **fields):
+        if progress:
+            try: progress({'phase': phase, **fields})
+            except Exception: pass
     current = validate_target(target)
     # Reconstruct and validate the plan rather than trusting persisted URLs.
     latest = plan['latestVersion']
@@ -418,23 +436,37 @@ def perform(plan, target, updates):
         working.mkdir()
         try:
             archive = working / name
+            report('verify')
             expected_hash = checksum(fetch(plan['checksumUrl'], 8192).decode('utf-8'), name)
-            received = fetch(plan['url'], MAX_ZIP, archive)
+            report('download', received=0, total=plan.get('size'))
+            options = {'progress': lambda count: report('download', received=count, total=plan.get('size'))} if progress else {}
+            received = fetch(plan['url'], MAX_ZIP, archive, **options)
+            report('verify')
             if received != plan.get('size') or digest(archive) != expected_hash:
                 raise ValueError('Archive checksum or size mismatch')
             stage = working / 'stage'
+            report('extract')
             stage_archive(archive, stage, latest)
             backup = updates / ('backup-' + str(uuid.uuid4()))
-            install_staged(stage, target, backup, current, latest)
+            install_staged(stage, target, backup, current, latest, progress=progress)
             result = {'version': latest, 'backup': str(backup), 'verified': True, 'reloadRequired': True}
         except RollbackError:
             # Preserve both the journal and previous runtime for manual retry.
             raise
         except BaseException:
+            if (working / 'journal.json').exists(): report('recover')
             recover_transaction(working, target)
             raise
         recover_transaction(working, target)  # Committed: clean staging only.
+        report('complete')
         return result
+
+
+def emit_progress(value):
+    try:
+        print(json.dumps({'event': 'pulse-update-progress', **value}, ensure_ascii=True), file=sys.stderr, flush=True)
+    except (OSError, ValueError):
+        pass
 
 
 def main():
@@ -472,7 +504,7 @@ def main():
             text = args.plan.read_text(encoding='utf-8')
             if len(text) > 8192:
                 raise ValueError('Update plan exceeds budget')
-            result = perform(json.loads(text), args.target, args.updates)
+            result = perform(json.loads(text), args.target, args.updates, progress=emit_progress)
         print(json.dumps({'ok': True, 'result': result}, ensure_ascii=True))
     except Exception as error:
         # Only static error categories cross into the renderer, never proxy

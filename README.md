@@ -16,6 +16,8 @@ Keep the summary visible. Hover for the details.
 
 </div>
 
+**v0.8.7 patch:** Add measured App update progress and faster usage startup; refreshed packages keep the same version and require manual reinstall for existing v0.8.7 users.
+
 **v0.8.7:** Recover readable historical Token usage with complete pagination and retry checkpoints, remove long-chat usage-window stalls, and add hardened manual App updates. Annual heatmaps and current charts stay in place. [Release notes](https://github.com/YOU-SHOULD-KNOW-ME/antigrative-dashboard/releases/tag/v0.8.7).
 
 ## Preview

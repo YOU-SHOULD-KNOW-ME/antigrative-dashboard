@@ -9,6 +9,13 @@ change a CLI status line, update Antigravity itself, or modify account settings.
 Language, theme and usage data are retained. No transcript or account credential
 is included in the public GitHub requests.
 
+The update UI shows measured download bytes/percentage. Checking,
+verification, extraction, backup and installation use an indeterminate bar;
+they do not invent an overall percentage. The fill follows the host accent and
+uses transform-only motion. A stage change does not animate a completed check
+backwards into a new download. Worker progress is optional, bounded, allowlisted
+metadata on stderr; the verified final result remains a separate stdout message.
+
 ## Verification before replacement
 
 - Exact repository, stable version, App archive name and checksum asset binding.

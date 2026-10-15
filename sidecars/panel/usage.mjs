@@ -118,9 +118,9 @@ export class DesktopUsage{
   constructor(store,ledger=new UsageLedger(),{host=null,discoverLocal=null,owns=()=>true,now=Date.now,sliceMs=3000,continueDelay=250}={}){
     this.store=store;this.ledger=ledger;this.fingerprints=new Map();this.host=host;this.owns=owns;this.now=now;
     this.discoverLocal=discoverLocal||(()=>host?discoverLocalConversations({host}):Promise.resolve({conversations:[],errors:0}));
-    this.sliceMs=sliceMs;this.continueDelay=continueDelay;this.fullRemaining=new Set();this.passSeen=new Set();this.passFailures=new Set();
+    this.sliceMs=sliceMs;this.continueDelay=continueDelay;this.fullRemaining=new Set();this.passSeen=new Set();this.passFailures=new Set();this.readFailures=new Map();
   }
-  syncing=false;lastSync=0;status='waiting';missingConversations=0;scope=null;scopeEpoch=null;forceQueued=false;disposed=false;continuation=null;
+  syncing=false;lastSync=0;status='waiting';missingConversations=0;confirmedMissingConversations=0;retryingConversations=0;scope=null;scopeEpoch=null;forceQueued=false;disposed=false;continuation=null;
   async ingest(scope,id,raw){await this.ledger.ingest(scope,id,raw);}
   sync(forceFull=false){
     if(this.disposed||!this.owns())return Promise.resolve();
@@ -137,6 +137,7 @@ export class DesktopUsage{
       }while(this.forceQueued&&!this.disposed&&this.owns());
       if(!result?.current())return;
       this.lastSync=this.now();this.missingConversations=result.missing;
+      this.confirmedMissingConversations=result.confirmed;this.retryingConversations=result.retrying;
       this.status=result.more?'syncing':result.missing?'partial':'ready';
       if(result.more){this.continuation=setTimeout(()=>void this.sync(),this.continueDelay);this.continuation.unref?.();}
     })().catch(()=>{this.status='offline';this.lastSync=this.now();}).finally(()=>{this.syncing=false;this.pending=null;});return this.pending;
@@ -145,7 +146,7 @@ export class DesktopUsage{
     const scope=this.store.identity,epoch=this.store.epoch;
     const current=()=>!this.disposed&&this.owns()&&scope===this.store.identity&&epoch===this.store.epoch;
     if(!scope)return null;
-    if(this.scope!==scope||this.scopeEpoch!==epoch){this.scope=scope;this.scopeEpoch=epoch;this.fingerprints.clear();this.fullRemaining.clear();this.passSeen.clear();this.passFailures.clear();}
+    if(this.scope!==scope||this.scopeEpoch!==epoch){this.scope=scope;this.scopeEpoch=epoch;this.fingerprints.clear();this.fullRemaining.clear();this.passSeen.clear();this.passFailures.clear();this.readFailures.clear();}
     let missing=0,listed=[];
     try{listed=await this.store.listConversations(true);}catch{missing++;}
     if(!current())return {current};
@@ -168,7 +169,10 @@ export class DesktopUsage{
       if(!forced&&this.passSeen.has(c.id))continue;
       if(!forced&&unchanged&&old.state==='retry'&&old.retryAt>this.now()){this.passFailures.add(c.id);continue;}
       const cached=s&&this.fingerprints.get(c.id)===mark&&!/RUNNING/.test(s.status||'');
-      if(!forced&&(c.signature?unchanged&&old.state==='complete'&&(!s||cached):cached))continue;
+      // A persisted checkpoint already verified both disk and host revision.
+      // Restarting the collector alone must not force all settled chats to load.
+      const settled=s?.modifiedAt&&/IDLE|DONE|COMPLETED|CANCELLED|CANCELED|STOPPED|FAILED|ERROR/.test(String(s.status||''));
+      if(!forced&&(c.signature?unchanged&&old.state==='complete'&&(!s||cached||settled):cached))continue;
       if(processed&&this.now()-started>=this.sliceMs){more=true;break;}
       processed++;
       this.passSeen.add(c.id);
@@ -188,24 +192,28 @@ export class DesktopUsage{
         if(!stable)throw Error('History changed during import');
         this.fingerprints.set(c.id,mark);
         this.passFailures.delete(c.id);
+        this.readFailures.delete(c.id);
         if(this.host&&c.signature){journal[key]={signature,state:'complete',failures:0,retryAt:0};dirty=true;}
       }catch{
         if(!current())return {current};this.passFailures.add(c.id);
-        if(this.host&&c.signature){const failures=unchanged?(old?.failures||0)+1:1;
+        const failures=c.signature?(unchanged?(old?.failures||0)+1:1):(this.readFailures.get(c.id)||0)+1;
+        this.readFailures.set(c.id,failures);
+        if(this.host&&c.signature){
           journal[key]={signature,state:'retry',failures,retryAt:this.now()+Math.min(30*60000,30000*2**Math.min(failures-1,6))};dirty=true;}
       }
       // Save progress after every archive, so a restart doesn't lose the batch.
       if(dirty){await this.ledger.saveBackfillState(scope,this.host,journal);dirty=false;}
       await yieldToLiveRequests();
     }
-    return {current,missing:missing+this.passFailures.size,more};
+    const confirmed=[...this.passFailures].filter(id=>(journal[hash(id)]?.failures||this.readFailures.get(id)||0)>=2).length;
+    return {current,missing:missing+this.passFailures.size,confirmed,retrying:missing+this.passFailures.size-confirmed,more};
   }
   async snapshot(){
     if(!this.store.identity)return null;
-    if(this.scope!==this.store.identity||this.scopeEpoch!==this.store.epoch){this.lastSync=0;this.status='waiting';this.missingConversations=0;if(this.pending)this.forceQueued=true;}
+    if(this.scope!==this.store.identity||this.scopeEpoch!==this.store.epoch){this.lastSync=0;this.status='waiting';this.missingConversations=0;this.confirmedMissingConversations=0;this.retryingConversations=0;if(this.pending)this.forceQueued=true;}
     if(this.now()-this.lastSync>60000&&!this.continuation)void this.sync();
     const scope=this.store.identity,value=await this.ledger.summary(scope);
-    return scope===this.store.identity?{...value,syncing:this.syncing||!!this.continuation,status:this.status,missingConversations:this.missingConversations,persistenceError:this.store.usagePersistenceError===true}:null;
+    return scope===this.store.identity?{...value,syncing:this.syncing||!!this.continuation,status:this.status,missingConversations:this.missingConversations,confirmedMissingConversations:this.confirmedMissingConversations,retryingConversations:this.retryingConversations,persistenceError:this.store.usagePersistenceError===true}:null;
   }
   dispose(){this.disposed=true;this.forceQueued=false;clearTimeout(this.continuation);this.continuation=null;}
 }

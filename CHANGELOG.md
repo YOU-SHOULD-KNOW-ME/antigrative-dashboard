@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.8.7 patch — 2026-10-15
+
+- Show measured download bytes and percentage in App updates. Use animated phase feedback for checking, verification, extraction, backup and installation; settle smoothly on completion and follow the host theme. A completed check does not animate backwards into a new download, and only the glyph rotates inside its stable icon surface.
+- Keep optional worker progress separate from the verified final result. Bound/allowlist progress events, prevent backwards byte counts and keep unavailable progress consumers from failing an installation.
+- Reuse verified disk/host checkpoints for settled histories after collector restarts, displaying saved totals while background checks run. Treat the first temporary read failure as synchronization/retry status. Repeated unresolved reads, unreadable ledgers, missing Token components and persistence failures retain coverage warnings.
+- Refresh the existing v0.8.7 App/CLI ZIP, IDE VSIX and SHA-256 assets. Version numbers remain 0.8.7; same-version updates require manual reinstall. The original Git tag/source archive is retained; the refreshed release notes identify the patch source commit.
+
 ## 0.8.7 — 2026-10-15
 
 - Integrate [#17](https://github.com/YOU-SHOULD-KNOW-ME/antigrative-dashboard/pull/17): discover historical IDs independently from the App/IDE conversation and brain directories, then read usage from the authenticated local API. Host directories and ledgers remain separate; custom IDE storage does not disable discovery.

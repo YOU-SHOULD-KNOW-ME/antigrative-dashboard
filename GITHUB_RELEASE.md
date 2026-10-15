@@ -2,6 +2,18 @@
 
 Historical Token usage recovery, smoother usage windows, and verified manual App updates.
 
+## Same-version patch — 2026-10-15
+
+The existing **v0.8.7** installation assets and SHA-256 files are refreshed with:
+
+- **Update progress:** measured download percentage/size, flowing feedback during verification/extraction/backup/installation, theme-adapted colors and a smooth completion state. The icon surface stays fixed while its glyph rotates; a completed check does not visibly reverse into a new download.
+- **Reliable progress reporting:** bounded, allowlisted worker events are separate from installation success. Missing/broken feedback cannot fail an otherwise valid installation.
+- **Faster usage startup:** reuse verified checkpoints for unchanged settled chats and immediately show saved totals. A first temporary history-read failure uses synchronization status; repeated failures and actual data/persistence problems retain warnings.
+
+**Already on v0.8.7?** Download the refreshed package and reinstall manually. The updater does not offer a same-version reinstall. App: extract and run `python manage.py install`. IDE: install the refreshed VSIX and reload the IDE window. Existing settings and statistics are retained.
+
+No new version/tag is created. The original v0.8.7 Git tag and automatic source archives remain the initial source snapshot; use the patch source commit linked on this release page or the current main branch for these changes. The App ZIP and IDE VSIX below contain the patch. CLI functionality is unchanged.
+
 ## Historical usage — PR #17
 
 Thanks to @MrcolorH for identifying unloaded conversations missing from the host's returned list and contributing the discovery/SDK compatibility fixes.
