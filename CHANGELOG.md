@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.8.7 — 2026-10-15
+
+- Integrate [#17](https://github.com/YOU-SHOULD-KNOW-ME/antigrative-dashboard/pull/17): discover historical IDs independently from the App/IDE conversation and brain directories, then read usage from the authenticated local API. Host directories and ledgers remain separate; custom IDE storage does not disable discovery.
+- Repair prior partial imports using the shared paginated statistics reader, with existing memory/deadline/revision checks. Persist hashed per-account source signatures and completion/retry checkpoints, retry failed archives with backoff, retain queued manual full refreshes and yield short background batches. Installation no longer starts a separate ledger writer; previous statistics/preferences remain intact.
+- Accept official SidecarApp SDKs without the optional `close` prototype method while still checking required exports and loopback binding.
+- Eliminate long-chat usage-window open/close stalls caused by native whole-document modal inertness changes. Keep a top-layer dialog, backdrop, Escape, nested year menus, keyboard focus containment/return and composer-replacement recovery. Add a synthetic 20,000-element regression.
+- Adopt only the manual App update feature proposed in [#16](https://github.com/YOU-SHOULD-KNOW-ME/antigrative-dashboard/pull/16). Entry: context details → bottom-right **⋯ → Check for updates**. Checks run only after a click; IDE/CLI and the host application are not update targets.
+- Harden updates with exact official asset/version/path identity, required SHA-256 and download size, bounded extraction, link/duplicate-path rejection, coalesced concurrent actions, OS-backed lifecycle locking, durable backup/journals and independent interrupted-update recovery. Slow checks poll asynchronously; a narrowly scoped TLS 1.2 retry retains certificate/hostname validation.
+- Preserve the annual heatmap, current model charts and compact controls. The hourly chart, cost estimation, component filters and unrelated layout changes in #16 are not included. CLI behavior is unchanged.
+- Publish App/CLI ZIP and IDE VSIX with SHA-256 files. Windows local acceptance and synthetic/browser tests do not establish macOS/Linux signed-in GUI acceptance, future-release startup, physical power-loss or damaged-media recovery. See [usage](docs/USAGE.md) and [update boundaries](docs/UPDATES.md).
+
 ## 0.8.6 — refreshed packages 2026-10-15 (initial release 2026-10-14)
 
 - Fix [#12](https://github.com/YOU-SHOULD-KNOW-ME/antigrative-dashboard/issues/12): count readable uncached input, cache reads/writes and output independently of cache-rate eligibility. Keep conservative coverage, valid zero-input semantics, safe sums and restart recovery without deleting saved usage.

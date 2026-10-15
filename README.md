@@ -7,7 +7,7 @@
 Token throughput, cache hits and context usage in the model selector row. Hover over context for five-hour and weekly quotas too.<br>
 Keep the summary visible. Hover for the details.
 
-[![Version 0.8.6](https://img.shields.io/badge/version-0.8.6-91adff?style=flat-square&labelColor=252936)](CHANGELOG.md)
+[![Version 0.8.7](https://img.shields.io/badge/version-0.8.7-91adff?style=flat-square&labelColor=252936)](CHANGELOG.md)
 [![Platforms](https://img.shields.io/badge/host-Windows%20%7C%20Linux%20%7C%20macOS-83d8b9?style=flat-square&labelColor=252936)](COMPATIBILITY.md)
 [![Antigravity 2.21.1 / 2.22.0](https://img.shields.io/badge/Antigravity-2.21.1%20%2F%202.22.0-c5a0ff?style=flat-square&labelColor=252936)](COMPATIBILITY.md)
 [![MIT](https://img.shields.io/badge/license-MIT-d4d9e6?style=flat-square&labelColor=252936)](LICENSE)
@@ -16,7 +16,7 @@ Keep the summary visible. Hover for the details.
 
 </div>
 
-**v0.8.6:** Fix stalled Token usage in historical/tool-heavy conversations (#12). Count readable input and output independently of cache-rate availability, accept explicit zero-input requests and recover saved usage automatically. [Full release notes](https://github.com/YOU-SHOULD-KNOW-ME/antigrative-dashboard/releases/tag/v0.8.6).
+**v0.8.7:** Recover readable historical Token usage with complete pagination and retry checkpoints, remove long-chat usage-window stalls, and add hardened manual App updates. Annual heatmaps and current charts stay in place. [Release notes](https://github.com/YOU-SHOULD-KNOW-ME/antigrative-dashboard/releases/tag/v0.8.7).
 
 ## Preview
 
@@ -68,7 +68,7 @@ Keep the summary visible. Hover for the details.
 ## Antigravity IDE
 
 **v0.7.0** adds a separate VSIX for Google's own standalone IDE. Download
-`antigrative-dashboard-ide-0.8.6.vsix` from the release and choose **Install from VSIX…**
+`antigrative-dashboard-ide-0.8.7.vsix` from the release and choose **Install from VSIX…**
 in the IDE's Extensions view. No desktop App installation is required.
 
 Fully quit the IDE, then start it with
@@ -282,3 +282,7 @@ Generating README images is an optional developer task: `node tools/build-readme
 ## License
 
 Source is available under [MIT](LICENSE). Antigravity binaries, SDK resources, and application backups are not distributed. Product names belong to their respective owners; this project is not affiliated with or endorsed by Antigravity.
+
+## Manual App updates
+
+Open **context details → bottom-right ⋯ → Check for updates**. The App-only updater checks stable official Releases after a click, verifies the archive and checksum, preserves settings/usage, and offers plugin reload after installation. Installation failures retain rollback/recovery material. IDE/CLI packages are installed separately. See [verification, recovery and limitations](docs/UPDATES.md).

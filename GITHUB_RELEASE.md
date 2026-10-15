@@ -1,34 +1,57 @@
-# Antigrative Dashboard v0.8.6
+# Antigrative Dashboard v0.8.7
 
-## Fix stalled Token usage in historical/tool-heavy conversations
+Historical Token usage recovery, smoother usage windows, and verified manual App updates.
 
-Address [issue #12](https://github.com/YOU-SHOULD-KNOW-ME/antigrative-dashboard/issues/12): cache-rate eligibility previously excluded readable token counters, so usage could stay at an early value while session output and context continued updating.
+## Historical usage — PR #17
 
-- Account for normalized uncached input, cache reads, cache writes and output independently. Missing or invalid cache information no longer discards another readable component.
-- Treat explicit zero-total-input tool requests as neutral samples, including missing provider labels. A zero denominator keeps the cache rate unavailable; missing data is not silently replaced with zero.
-- Track per-component request coverage internally and calculate cache rates only from eligible input samples. Readable component sums may be incomplete when historical metadata is missing.
-- Recover recorded input/output from old history automatically. Preserve account isolation, original cache timestamps and atomic writes; no statistics need to be deleted and conversations need not be recreated.
-- Restore only the cache group when cache eligibility regresses. Retain v0.8.5 incremental/statistical-stream collection, current rate-quality reclassification, the local usage ledger and context handling.
+Thanks to @MrcolorH for identifying unloaded conversations missing from the host's returned list and contributing the discovery/SDK compatibility fixes.
 
-## Refreshed v0.8.6 packages — 2026-10-15
+- Discover local historical conversation IDs independently for Antigravity App and IDE. Read Token counters from the authenticated local interface; no chat-body parsing or upload.
+- Read every statistics page with the existing memory, time and revision guards. Recheck earlier imports that lack a completion checkpoint, so previously incomplete records can be repaired.
+- Persist per-account hashed progress/source signatures; retry failures with backoff and retain manual refresh requests while another pass is running. Continue in background batches and preserve previously recorded consumption.
+- Keep one owning plugin writer. Installation does not launch a competing backfill process. Account/backend changes stop superseded reads.
+- Accept official SidecarApp SDKs without the optional `close` method while retaining required-interface and loopback checks.
 
-The App ZIP, IDE VSIX and their SHA-256 files have been rebuilt with the accepted refinements below. The version remains **v0.8.6**, and the existing tag and release are reused:
+## Faster usage windows
 
-- **Compact Token/cache card:** remove repeated `≥` prefixes, calculation paragraphs and missing-request counts from the card and inline strip. Keep readable values, unavailable-value dashes and the independent usage calculation. Coverage and calculation limits are documented separately. [Change](https://github.com/YOU-SHOULD-KNOW-ME/antigrative-dashboard/commit/1575655)
-- **Compact context/quota card:** retain occupancy, used/total tokens, sampled model, shared quota balances/reset times and the language controls at the bottom. Remove duplicate capacity rows, unknown compaction fields, the logged-text diagnostic breakdown and routine explanatory paragraphs. The host-reported context denominator is unchanged. [Change](https://github.com/YOU-SHOULD-KNOW-ME/antigrative-dashboard/commit/8388c13)
-- **Existing usage overview retained:** keep the annual activity heatmap and model usage charts. The experimental hourly drilldown and added calendar selection highlight were withdrawn from local acceptance and are not part of these changes.
+- Remove whole-document native modal inertness changes that stalled opening/closing in long chats.
+- Retain the existing visual layout, backdrop, Escape, keyboard focus loop/return, nested year menu and composer-replacement recovery.
+- On the same local Windows conversation (~19,800 host elements), synchronous open/close handlers changed from ~1.46s/~2.02s to ~21ms/~3ms. These are handler measurements, not an end-to-end latency promise.
 
-**Download scope:** download the refreshed ZIP/VSIX and its matching `.sha256` file below. These attachments include the compact Token and context cards described above. The existing `v0.8.6` tag points to the same source snapshot used for this refresh, so GitHub’s source ZIP/TAR archives also match. Previously downloaded v0.8.6 files are older builds; re-download to obtain these refinements. No new version or release was created. Experimental local work under review is excluded.
+## Manual App updates — selected scope from PR #16
 
-## Downloads and update
+Thanks to @moumouye for proposing integrated updates. This release adopts that feature with a separate hardened implementation.
 
-- Desktop App / CLI: `antigrative-dashboard-0.8.6.zip` and `.zip.sha256`. Verify, extract, and run `python manage.py install` for App, or `python manage.py install-cli` for CLI; Linux/macOS use `python3`.
-- Standalone Antigravity IDE: `antigrative-dashboard-ide-0.8.6.vsix` and `.vsix.sha256`. Install from VSIX and retain the documented debugging launch flags.
+Entry: **context details → bottom-right ⋯ → Check for updates**.
 
-Fully quit and reopen the host after installation so the updated collector loads. Saved language preferences, conversation statistics and usage records are retained. Both App and IDE include the shared token fix; CLI accounting is unchanged.
+- Manual checks only. Select stable Releases from the exact official repository and verify App asset identity, SHA-256, version and declared download size before replacement.
+- Reject unsafe archive paths, links, duplicate normalized entries, invalid manifests and oversized extraction; coalesce concurrent installation requests.
+- Coordinate lifecycle operations with OS file locks. Back up the runtime and persist recovery journals/helpers before replacement; retain materials if recovery fails or a process is interrupted.
+- Poll slow checks asynchronously. A narrowly scoped TLS 1.2 compatibility retry retains CA and hostname validation; certificate failures never bypass verification.
+- Retain settings and usage. After installation, **Reload plugin** restarts the plugin sidecar.
 
-## Verification and limits
+The updater targets **Antigravity App only**. It does not update the host application, IDE VSIX or CLI installation. The annual heatmap/current model charts stay; hourly views, cost estimation, component filters and unrelated PR #16 layout changes are not included. CLI functionality is unchanged.
 
-Regression coverage includes long tool chains, explicit zero input, missing provider labels, partial/cache-only input, continued output, corrupted counters, unsafe sums, restart recovery and legacy history. Browser checks exercise both languages, App inline/panel and IDE, monthly usage, sidebar behavior, responsive layout and refresh interactions. Publication requires the existing Windows/Linux/macOS automated and official-resource gates, including the large-stream resource checks.
+## Downloads
 
-The reporter's original trajectory was not exported. Synthetic reproductions and automated checks establish the repaired code paths; the reporter's actual long conversation still requires an update-and-retest. Unavailable historical metadata cannot be invented.
+- App / CLI: `antigrative-dashboard-0.8.7.zip` and `.zip.sha256`.
+- Standalone Antigravity IDE: `antigrative-dashboard-ide-0.8.7.vsix` and `.vsix.sha256`.
+- Use the matching installer for your host. Python 3.10+ is required for App installation/update; CLI requires Node.js 20+.
+
+## Validation and limits
+
+Release publication is gated on Windows/Linux/macOS verification and official Linux/macOS host-resource checks. Automated fixtures cover multi-page imports, retries/checkpoints, account/host isolation, update concurrency, interrupted recovery, UI interactions and a synthetic 20,000-element chat. Local Windows App checks preserved existing settings and recorded consumption.
+
+macOS/Linux CI is not signed-in native GUI acceptance. Controlled process-interruption tests do not prove physical power-loss, damaged-media recovery or startup compatibility of arbitrary future releases. SHA-256 from the same release channel is not an independent publisher signature.
+
+Details: [usage accounting](docs/USAGE.md), [update verification and recovery](docs/UPDATES.md), [full changelog](CHANGELOG.md).
+
+---
+
+## 中文摘要
+
+- 修复部分历史会话没有进入 Token 统计的问题：App/IDE 分别发现旧会话，完整读取分页，补全已有漏记，保存补录进度并自动重试。
+- 修复长对话中「查看用量统计」打开和关闭卡顿，保留原界面、遮罩及键盘操作。
+- 新增 App 手动检查更新：上下文详情 → 右下角 ⋯ → 检查更新。加强官方包、SHA-256、版本与路径校验，并加入并发互斥、失败回滚和中断恢复。
+- 保留年度热力图和现有图表；未加入小时图、费用估算和组件筛选。IDE/CLI 仍分别安装，CLI 功能不变。
+- 已保存的统计和设置保留；仅能补回本机接口仍可读取的历史，这些统计不是账户账单。

@@ -77,6 +77,6 @@ Node and browser tests cover multiple install clicks, slow asynchronous checks,
 expired plans, version changes, text-only release notes, reopening the dialog,
 installation polling, reload, retry and both languages.
 
-These tests do not represent macOS/Linux native acceptance or a live upgrade to
-a future Release. The current prototype can be inspected locally without
-publishing or changing the release version.
+These tests do not represent macOS/Linux native acceptance or successful startup
+of an arbitrary future Release. Version 0.8.7 includes this App-only updater;
+installation and recovery tests use controlled packages and interruption points.
