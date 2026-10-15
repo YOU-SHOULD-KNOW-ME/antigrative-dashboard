@@ -1,33 +1,13 @@
 # Changelog
 
-## Unreleased — compact context card
+## 0.8.6 — refreshed packages 2026-10-15 (initial release 2026-10-14)
 
-- Focus the context card on host occupancy, used/total tokens, sampled model and shared quota/reset controls, with language switching retained at the bottom.
-- Remove duplicate capacity rows, unknown compaction thresholds, logged-text diagnostic breakdowns and routine explanatory paragraphs from the compact UI. Preserve the host denominator and conservative diagnostic data, with detailed sources/limits documented separately.
-
-## Unreleased — compact token card
-
-- Remove repeated inequality prefixes, calculation prose and coverage-count paragraphs from the token/cache card and inline strip.
-- Keep independently measured token counters, missing-value dashes, zero-input cache semantics and conservative coverage flags unchanged. Document the partial-data limits in the README rather than expanding the compact card.
-
-
-## Unreleased — PR #15 follow-up
-
-- Preserve host-based context occupancy and the validated PR #14 capacity/reference semantics.
-- Add a separate, collapsible recorded-text estimate for App/IDE, grouped by user text, replies/thinking, tool output and system text. Compaction markers/image steps use explicit supported types; they do not invent current-context contents or a compaction trigger.
-- Filter undo/rewind and stale branches using explicit step indexes and current type/timestamp identity, including a zero-step boundary; cumulative recorded consumption remains unchanged.
-- Replace synchronous whole-file/glob collection with scoped, asynchronous incremental projection, one background job, bounded LRU numeric summaries and chunk/pass budgets. Reset on account/backend changes and detected log replacement/truncation/rewrite.
-- Strictly sanitize saved estimates; keep loading/I/O states out of measured history and keep optional failure independent of core metrics.
-- Add cross-platform resource, corruption, rewind, revision, persistence and bilingual browser regressions. No real local compaction/image-event acceptance is claimed; see `docs/CONTEXT_LIMITS.md` for coverage and limits.
-
-
-## 0.8.6 — 2026-10-14
-
-- Fix [#12](https://github.com/YOU-SHOULD-KNOW-ME/antigrative-dashboard/issues/12): count normalized uncached input, cache reads/writes and output independently of cache-rate eligibility. Track component coverage; mark incomplete values as lower bounds without discarding readable counters.
-- Accept explicit zero-total-input tool requests as neutral cache samples, including missing provider labels. Keep the zero-denominator rate unavailable and explain it in English/Chinese. Missing or malformed input remains distinct from zero.
-- Restore only cache statistics when cache eligibility regresses. Preserve current rate-quality reclassification, incremental/statistical-stream collection, usage ledger, context and isolation behavior.
-- Recover already recorded input/output from schema-1 history without deleting saved statistics. Reject malformed counters and unsafe sums; maintain original cache timestamps and atomic writes.
-- Add data/restart/migration and production-renderer regressions for long tool chains, partial input, cache-only input, zero input, corrupted records and live continued output. Both App ZIP and IDE VSIX include the shared fix; CLI behavior is unchanged.
+- Fix [#12](https://github.com/YOU-SHOULD-KNOW-ME/antigrative-dashboard/issues/12): count readable uncached input, cache reads/writes and output independently of cache-rate eligibility. Keep conservative coverage, valid zero-input semantics, safe sums and restart recovery without deleting saved usage.
+- Simplify Token/cache cards and the inline strip: remove repeated inequality prefixes, calculation prose and coverage-count paragraphs while retaining measured values and unavailable-value dashes. Detailed limits remain in the README.
+- Simplify context cards: keep host occupancy, used/total tokens, sampled model, shared quotas/reset times and bottom language controls. Remove duplicate capacity references, unknown compaction fields and logged-text diagnostic UI. Provider references never replace the host denominator.
+- Include reviewed #13 IDE process ownership and validated SDK compatibility, #14 context semantics, and #15 bounded optional transcript collection/rewind identity. Transcript diagnostics remain numeric backend data; unsupported compaction/image event cases have synthetic coverage only.
+- Preserve the annual activity heatmap, existing model charts, responsive composer controls, statistics/preferences and CLI accounting. The withdrawn hourly drilldown and calendar selection highlight are not included.
+- Rebuild the App/CLI ZIP, IDE VSIX and matching SHA-256 files under the existing v0.8.6 release. Align its tag/source archives with the checked build snapshot. The original version number is unchanged; local-only updater/backfill work under review is excluded.
 
 ## 0.8.5 — 2026-10-13
 

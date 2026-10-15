@@ -10,15 +10,15 @@ Address [issue #12](https://github.com/YOU-SHOULD-KNOW-ME/antigrative-dashboard/
 - Recover recorded input/output from old history automatically. Preserve account isolation, original cache timestamps and atomic writes; no statistics need to be deleted and conversations need not be recreated.
 - Restore only the cache group when cache eligibility regresses. Retain v0.8.5 incremental/statistical-stream collection, current rate-quality reclassification, the local usage ledger and context handling.
 
-## Post-release repository updates — 2026-10-15
+## Refreshed v0.8.6 packages — 2026-10-15
 
-The following refinements are available in the [current main branch](https://github.com/YOU-SHOULD-KNOW-ME/antigrative-dashboard/tree/main), while the version remains **v0.8.6**:
+The App ZIP, IDE VSIX and their SHA-256 files have been rebuilt with the accepted refinements below. The version remains **v0.8.6**, and the existing tag and release are reused:
 
 - **Compact Token/cache card:** remove repeated `≥` prefixes, calculation paragraphs and missing-request counts from the card and inline strip. Keep readable values, unavailable-value dashes and the independent usage calculation. Coverage and calculation limits are documented separately. [Change](https://github.com/YOU-SHOULD-KNOW-ME/antigrative-dashboard/commit/1575655)
 - **Compact context/quota card:** retain occupancy, used/total tokens, sampled model, shared quota balances/reset times and the language controls at the bottom. Remove duplicate capacity rows, unknown compaction fields, the logged-text diagnostic breakdown and routine explanatory paragraphs. The host-reported context denominator is unchanged. [Change](https://github.com/YOU-SHOULD-KNOW-ME/antigrative-dashboard/commit/8388c13)
 - **Existing usage overview retained:** keep the annual activity heatmap and model usage charts. The experimental hourly drilldown and added calendar selection highlight were withdrawn from local acceptance and are not part of these changes.
 
-**Download scope:** the ZIP/VSIX files attached below are the original published v0.8.6 build. They have **not** been replaced and do not include these later repository refinements; that original build may still display the former coverage explanations and inequality prefixes. Use the current source with the documented installation flow to obtain the repository changes. No new tag or release was created, and local-only work under review is not included in this announcement.
+**Download scope:** download the refreshed ZIP/VSIX and its matching `.sha256` file below. These attachments include the compact Token and context cards described above. The existing `v0.8.6` tag points to the same source snapshot used for this refresh, so GitHub’s source ZIP/TAR archives also match. Previously downloaded v0.8.6 files are older builds; re-download to obtain these refinements. No new version or release was created. Experimental local work under review is excluded.
 
 ## Downloads and update
 
