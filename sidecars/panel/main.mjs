@@ -13,6 +13,7 @@ import { PreferencesStore } from '../../compat/preferences.mjs';
 import { SidecarOwner } from '../../compat/sidecar-owner.mjs';
 import { readHostTheme } from '../../compat/host-theme.mjs';
 import { panelAppSource,panelPageSource } from './panel-source.mjs';
+import { AppUpdater } from './updater.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const createTheme=createRequire(import.meta.url)('../../compat/theme.cjs');
@@ -21,19 +22,21 @@ const store = new MetricsStore();
 const usage=new DesktopUsage(store);
 store.onTrajectory=(scope,id,raw)=>usage.ingest(scope,id,raw);
 const preferences=new PreferencesStore();
+const updater=new AppUpdater({pluginDir:join(HERE,'..','..'),dataDir:platformPaths().data});
 const ownership=process.env.ANTIGRAVITY_SIDECAR_WEB_PORT?new SidecarOwner(platformPaths().data):null;
 const metrics = async input => {
   const base=await store.snapshot(input);if(input?.force)void usage.sync();
   return {...base,usage:await usage.snapshot(),preferences:await preferences.snapshot(),theme:await readHostTheme(),integration:integration.health};
 };
 const usageSource=()=>{const s=readFileSync(join(HERE,'..','..','compat','usage-ui.cjs'),'utf8');return `window.__agPulseUsageFactory=(${s.slice(s.indexOf('module.exports = ')+17).trim().replace(/;$/,'')});`;};
+const updateSource=()=>{const s=readFileSync(join(HERE,'..','..','compat','update-ui.cjs'),'utf8');return `window.__agPulseUpdateFactory=(${s.slice(s.indexOf('module.exports = ')+17).trim().replace(/;$/,'')});`;};
 const staticFiles = { '/': ['index.html', 'text/html'], '/styles.css': ['styles.css', 'text/css'], '/format.mjs': ['format.mjs', 'text/javascript'] };
 const inlineSource=()=>{
   const file=readFileSync(join(HERE,'..','..','compat','inline-widget.cjs'),'utf8');
   const i18n=readFileSync(join(HERE,'..','..','compat','i18n.cjs'),'utf8');
   const theme=readFileSync(join(HERE,'..','..','compat','theme.cjs'),'utf8');
   const extract=s=>s.slice(s.indexOf('module.exports = ')+'module.exports = '.length).trim().replace(/;$/,'');
-  return usageSource()+`window.__agPulseI18nFactory=(${extract(i18n)});window.__agPulseThemeFactory=(${extract(theme)});(${extract(file)})();`;
+  return updateSource()+usageSource()+`window.__agPulseI18nFactory=(${extract(i18n)});window.__agPulseThemeFactory=(${extract(theme)});(${extract(file)})();`;
 };
 const i18nModule=()=>{const s=readFileSync(join(HERE,'..','..','compat','i18n.cjs'),'utf8');return 'export const createI18n='+s.slice(s.indexOf('module.exports = ')+'module.exports = '.length);};
 const themeModule=()=>{const s=readFileSync(join(HERE,'..','..','compat','theme.cjs'),'utf8');return 'export const createTheme='+s.slice(s.indexOf('module.exports = ')+'module.exports = '.length);};
@@ -46,8 +49,9 @@ const runtimeSettings = () => {
 const integration = new RuntimeUi({
   snapshot: input => metrics(input),
   preferences,
+  updater,
   owner:ownership?.token,owns:()=>ownership?ownership.isOwner():true,
-  source: makeRendererSource(readFileSync(join(HERE,'..','..','compat','i18n.cjs'),'utf8'),readFileSync(join(HERE,'..','..','compat','inline-widget.cjs'),'utf8'),readFileSync(join(HERE,'..','..','compat','theme.cjs'),'utf8'),ownership?.token,ownership?.startedAt,usageSource()),
+  source: makeRendererSource(readFileSync(join(HERE,'..','..','compat','i18n.cjs'),'utf8'),readFileSync(join(HERE,'..','..','compat','inline-widget.cjs'),'utf8'),readFileSync(join(HERE,'..','..','compat','theme.cjs'),'utf8'),ownership?.token,ownership?.startedAt,updateSource()+usageSource()),
   dataDir: platformPaths().data,
   enabled: () => { const s = runtimeSettings(); return s.enabled !== false && s.inline !== false && s.mode !== 'legacy'; },
 });
@@ -72,6 +76,7 @@ if (process.env.ANTIGRAVITY_SIDECAR_WEB_PORT) {
     await integration.stop();ownership.stop();process.exit(0);
   };
   ownership.watch(shutdown);
+  updater.onReload=()=>void shutdown();
   for (const signal of ['SIGTERM','SIGINT']) process.once(signal, () => {
     void shutdown();
   });

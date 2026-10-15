@@ -114,6 +114,7 @@ function rendererBridge(binding) {
   };
   if (!window.agPulseHost) window.agPulseHost = {
     getMetrics: input => call('metrics', input),
+    updatePlugin: input => call('update', input),
     getPreferences: () => call('preferences', {}),
     setPreferences: input => call('preferences', input),
     report: input => { void call('diagnostic', input); },
@@ -138,12 +139,13 @@ export function makeRendererSource(i18n, widget, theme = '', owner = null, gener
 
 export class RuntimeUi {
   constructor({ snapshot, source, profile = platformPaths().profile,
-    dataDir, preferences, owner=null, owns=async()=>true, enabled = async () => true, discover = discoverTargets, targetOrigin = target => new URL(target.url).origin, connect = (url, options) => new CdpConnection(url, options), interval = 3000 } = {}) {
+    dataDir, preferences, updater=null, owner=null, owns=async()=>true, enabled = async () => true, discover = discoverTargets, targetOrigin = target => new URL(target.url).origin, connect = (url, options) => new CdpConnection(url, options), interval = 3000 } = {}) {
     this.snapshot = snapshot; this.source = source; this.profile = profile; this.dataDir = dataDir; this.enabled = enabled;
     this.discover = discover; this.connect = connect; this.interval = interval; this.sessions = new Map(); this.running = false;
     this.targetOrigin=targetOrigin;
     this.health = { state: 'waiting', mode: 'runtime', message: 'Waiting for the app renderer', windows: 0 };
     this.preferences=preferences;
+    this.updater=updater;
     this.owner=owner;this.owns=owns;
     this.binding=owner?BINDING+'_'+owner.replaceAll('-',''):BINDING;
   }
@@ -181,6 +183,10 @@ export class RuntimeUi {
     try {
       let result = {};
       if (input.type === 'metrics') result = await this.enabled() ? await this.snapshot(validatedInput(input.input)) : { ...offline('Antigrative Dashboard 已停用'), enabled: false };
+      else if(input.type==='update'&&this.updater){
+        if(!await this.enabled())throw Error('Plugin disabled');
+        result=await this.updater.request(input.input);
+      }
       else if (input.type === 'preferences' && this.preferences) {
         const value=input.input;
         if(!value||typeof value!=='object'||Array.isArray(value)||Object.keys(value).some(key=>!['language','languageGuideDismissed','usageGuideDismissed'].includes(key)))throw new Error('Invalid preferences request');

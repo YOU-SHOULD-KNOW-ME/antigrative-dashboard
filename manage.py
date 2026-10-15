@@ -9,6 +9,7 @@ import shutil
 import subprocess
 import sys
 import zipfile
+from functools import wraps
 
 SOURCE = Path(__file__).resolve().parent
 _path_spec = importlib.util.spec_from_file_location('pulse_paths', SOURCE / 'compat' / 'platform_paths.py')
@@ -27,6 +28,19 @@ DIST_FILES = ('plugin.json', 'assets', 'sidecars', 'compat', 'cli', 'ide', 'mana
               'uninstall.ps1', 'install.sh', 'uninstall.sh', 'README.md', 'LICENSE', 'CHANGELOG.md', 'COMPATIBILITY.md', 'docs', 'package.json',
               '.gitignore', '.gitattributes', '.github', 'tests', 'tools', 'GITHUB_RELEASE.md', 'README.zh-CN.md')
 IGNORED = {'__pycache__', '.data', 'node_modules', '.git', 'dist', 'data', 'history-v1', 'usage-v1', 'sdk'}
+
+def lifecycle_operation(function):
+    @wraps(function)
+    def locked(*args, **kwargs):
+        spec = importlib.util.spec_from_file_location('pulse_update_lock', SOURCE / 'compat/update-lock.py')
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+        with module.lifecycle_lock(PLUGIN):
+            transaction = PLUGIN.parent / '.antigravity-pulse-update-transaction'
+            if (transaction / 'journal.json').exists():
+                raise RuntimeError('An interrupted update requires recovery. Run the saved recover.py helper before installing or uninstalling.')
+            return function(*args, **kwargs)
+    return locked
 
 def json_read(file, default=None):
     if not file.exists():
@@ -93,6 +107,7 @@ def remove_verified_legacy_adapter():
         raise RuntimeError('The legacy adapter has unknown app changes; refusing to overwrite them. Inspect its backup first.')
 
 
+@lifecycle_operation
 def install(panel_only=False, legacy_loader=False):
     own_plugin()
     config = json_read(CONFIG)
@@ -132,6 +147,7 @@ def install(panel_only=False, legacy_loader=False):
     print('Installed:', PLUGIN)
     print('Fully quit and reopen Antigravity to start the plugin runtime. App updates no longer overwrite the inline adapter.')
 
+@lifecycle_operation
 def uninstall():
     own_plugin()
     # Restore before deleting the runtime. An unknown archive is never overwritten.

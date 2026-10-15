@@ -25,7 +25,7 @@ module.exports = function installAgPulseInlineWidget() {
   let chosen=localGet('ag-pulse-group'),group=null;
   let refreshRequest=null,manualRequest=null,requestEpoch=0,disposed=false;
   let composer=null,layoutFrame=null;
-  let usageDashboard=null;
+  let usageDashboard=null,updateMenu=null;
   let densityFrame=null,densityMotion=null,densityProbe=null;
   const densityMedia=matchMedia('(prefers-reduced-motion: reduce)');
   const densityEase='cubic-bezier(0.32,0.72,0,1)';
@@ -81,7 +81,7 @@ module.exports = function installAgPulseInlineWidget() {
     text('language-save-note',preferences.error?t('languageSaveFailed'):'');
     const zh=language.language==='zh-CN';
     text('usage-today-label',zh?'今日用量':'Today');text('usage-month-label',zh?'本月用量':'This month');
-    text('usage-open-label',zh?'查看用量统计':'View token usage');
+    text('usage-open-label',zh?'查看用量统计':'View token usage');updateMenu?.localize();
     updateGuide();
   }
   function stopDensityMotion(){
@@ -479,7 +479,7 @@ module.exports = function installAgPulseInlineWidget() {
     if(!found){
       stopDensityMotion();densityFrame=null;densityProbe=null;composer=null;resizeObserver?.disconnect();
       if(node){
-        hide();usageDashboard?.dispose();usageDashboard=null;themeController?.dispose();themeController=null;
+        hide();usageDashboard?.dispose();usageDashboard=null;updateMenu?.dispose();updateMenu=null;themeController?.dispose();themeController=null;
         node.remove();node=null;root=null;
         // A disposed dialog cannot be reused with its old strip/listeners.
         // Invalidate this mount's pending requests and rebuild on discovery.
@@ -540,6 +540,7 @@ module.exports = function installAgPulseInlineWidget() {
     const languageRow=document.createElement('div');languageRow.className='card-language';
     setMarkup(languageRow,'<span>Language / 语言</span><div class="language-options" role="group" aria-label="Language / 语言"><button type="button" class="language-button" id="card-language-en" data-language-choice="en">English</button><button type="button" class="language-button" id="card-language-zh" data-language-choice="zh-CN">简体中文</button></div>');
     $('context-card').append(languageRow);
+    if(window.__agPulseUpdateFactory&&window.agPulseHost.updatePlugin)updateMenu=window.__agPulseUpdateFactory({root,row:languageRow,language,setMarkup,request:input=>window.agPulseHost.updatePlugin(input),onOpen:hide});
     const saveNote=document.createElement('p');saveNote.className='footnote';saveNote.id='language-save-note';languageRow.after(saveNote);
     const guide=document.createElement('section');guide.className='language-guide';guide.id='language-guide';guide.hidden=true;guide.setAttribute('role','region');guide.setAttribute('aria-label','Language / 语言');
     setMarkup(guide,'<div class="guide-heading"><strong>Language <span>/ 语言</span></strong><button type="button" id="guide-close" aria-label="Dismiss language tip / 关闭语言提示" title="Dismiss / 关闭">×</button></div><button type="button" id="guide-open"><span><span>Switch in context details</span><span lang="zh-CN">在上下文详情中切换语言</span></span><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3 8h9M8 4l4 4-4 4"/></svg></button><p class="footnote" id="guide-save-note"></p>');
@@ -715,7 +716,7 @@ module.exports = function installAgPulseInlineWidget() {
   const timerId=setInterval(()=>{mount();fit();tick();position();if(conversationId()!==lastConversation||Date.now()-lastFetch>(document.hidden?10000:2200))refresh();},1000);
   window.__agPulseDispose=()=>{
     disposed=true;requestEpoch++;pending=false;refreshRequest=null;stopDensityMotion();densityFrame=null;densityProbe=null;
-    clearInterval(timerId);clearTimeout(hoverTimer);clearTimeout(openTimer);if(layoutFrame!==null)cancelAnimationFrame(layoutFrame);observer.disconnect();resizeObserver?.disconnect();themeController?.dispose();preferences.dispose();hide();usageDashboard?.dispose();node?.remove();
+    clearInterval(timerId);clearTimeout(hoverTimer);clearTimeout(openTimer);if(layoutFrame!==null)cancelAnimationFrame(layoutFrame);observer.disconnect();resizeObserver?.disconnect();themeController?.dispose();preferences.dispose();hide();usageDashboard?.dispose();updateMenu?.dispose();node?.remove();
     document.removeEventListener('keydown',onKey);document.removeEventListener('pointerdown',onPointer);
     document.removeEventListener('scroll',scheduleLayout,true);window.removeEventListener('resize',scheduleLayout);
     densityMedia.removeEventListener('change',stopDensityMotion);

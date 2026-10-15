@@ -44,6 +44,17 @@ class LifecycleTests(unittest.TestCase):
         self.assertEqual(config['other'], {'keep': 1})
         self.assertTrue(config['plugins']['other-plugin']['enabled'])
 
+    def test_app_lifecycle_respects_active_update_and_recovery_journal(self):
+        lock_spec=importlib.util.spec_from_file_location('test_update_lock', ROOT/'compat/update-lock.py')
+        locks=importlib.util.module_from_spec(lock_spec);lock_spec.loader.exec_module(locks)
+        with locks.lifecycle_lock(self.plugin):
+            with self.assertRaises(FileExistsError):manager.install(panel_only=True)
+            with self.assertRaises(FileExistsError):manager.uninstall()
+        journal=self.plugin.parent/'.antigravity-pulse-update-transaction/journal.json'
+        journal.parent.mkdir();journal.write_text('{}')
+        with self.assertRaisesRegex(RuntimeError,'recovery'):manager.install(panel_only=True)
+        with self.assertRaisesRegex(RuntimeError,'recovery'):manager.uninstall()
+
     def test_other_plugin_is_not_overwritten_or_removed(self):
         self.plugin.mkdir(parents=True)
         manager.atomic_json(self.plugin / 'plugin.json', {'name': 'different'})
