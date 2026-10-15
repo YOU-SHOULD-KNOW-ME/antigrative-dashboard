@@ -127,6 +127,6 @@ async function loadBundledNow(exe,directory) {
     await atomicWrite(join(root,'manifest.json'),JSON.stringify({stamp,sdk:hash(resources.sdk),preload:hash(resources.preload)})+'\n');
   }
   const result=await import(pathToFileURL(join(root,'index.mjs')).href+'?v='+hash(resources.sdk+resources.preload));
-  if(typeof result.SidecarApp!=='function'||typeof result.Response!=='function'||['api','page','run','close'].some(name=>typeof result.SidecarApp.prototype[name]!=='function'))throw Error('SDK 导出接口不兼容');
+  if(typeof result.SidecarApp!=='function'||typeof result.Response!=='function'||['api','page','run'].some(name=>typeof result.SidecarApp.prototype[name]!=='function'))throw Error('SDK 导出接口不兼容');
   return result;
 }

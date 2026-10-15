@@ -17,7 +17,7 @@ const data=process.env.AG_PULSE_IDE_DATA||join(profile,'User','globalStorage','y
 let debugPort=0;
 const client=new IdeClient({profile,debugPort:()=>debugPort});
 const store=new MetricsStore(client,{history:new SessionHistory(join(data,'history-v1')),transcripts:new TranscriptReader({root:transcriptBrainRoot('ide')})});
-const usage=new LocalUsage(store,new UsageLedger(join(data,'usage-v1'),{source:'ide-local'}));
+const usage=new LocalUsage(store,new UsageLedger(join(data,'usage-v1'),{source:'ide-local'}),{host:'ide',owns:()=>ownership.isOwner()});
 store.onTrajectory=(scope,id,raw)=>usage.ingest(scope,id,raw);
 const preferences=new PreferencesStore({file:join(data,'preferences.json')});
 const files=await Promise.all(['compat/i18n.cjs','compat/inline-widget.cjs','compat/theme.cjs','ide/surface.cjs','compat/usage-ui.cjs'].map(f=>readFile(join(root,f),'utf8')));
@@ -40,7 +40,7 @@ const snapshot=async input=>{
       value={connection:'live',speed:null,groups:store.quota||[],quotaUpdatedAt:new Date(store.quotaAt).toISOString()};
     }catch{value={connection:'offline',speed:null,groups:[],error:'IDE local API unavailable'};}
   }
-  if(input.force)void usage.sync();
+  if(input.force)void usage.sync(true);
   return {...value,usage:await usage.snapshot(),enabled:true,preferences:await preferences.snapshot()};
 };
 const ui=new RuntimeUi({profile,source:adapter+source,owner,owns:()=>ownership.isOwner(),preferences,snapshot,dataDir:data,targetOrigin:()=> 'vscode-file://vscode-app',
@@ -49,7 +49,7 @@ await mkdir(data,{recursive:true});
 await writeFile(join(data,'runtime.json'),JSON.stringify({pid:process.pid,startedAt:new Date().toISOString(),mode:'ide'}));
 ui.start();
 const keepAlive=setInterval(()=>{},60000);
-async function stop(){clearInterval(keepAlive);await ui.stop();ownership.stop();process.exit(0);}
+async function stop(){usage.dispose();clearInterval(keepAlive);await ui.stop();ownership.stop();process.exit(0);}
 ownership.watch(stop);
 process.on('message',message=>{if(message?.type==='stop')void stop();});
 if(process.connected)process.once('disconnect',()=>{void stop();});

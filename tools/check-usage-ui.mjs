@@ -77,7 +77,7 @@ try{
  await page.evaluate(()=>{document.getElementById('ag-pulse-status-bar').dataset.layout='blocked';document.querySelector('.editor').style.visibility='hidden';});await page.waitForTimeout(1200);
  assert.equal(await page.locator('#usage-dashboard').evaluate(n=>n.open&&getComputedStyle(n).visibility==='visible'),true);
  await page.evaluate(()=>document.querySelector('.rounded-composer').style.display='none');await page.waitForTimeout(1200);
- assert.equal(await page.locator('#usage-dashboard').evaluate(n=>n.open&&n.matches(':modal')&&n.getBoundingClientRect().height>100),true,'Hidden composer ancestors must not hide account usage');
+ assert.equal(await page.locator('#usage-dashboard').evaluate(n=>n.open&&n.matches(':popover-open')&&n.getBoundingClientRect().height>100),true,'Hidden composer ancestors must not hide account usage');
  await page.evaluate(()=>document.querySelector('.rounded-composer').style.display='');
  await page.evaluate(()=>{document.querySelector('.editor').style.visibility='';document.getElementById('ag-pulse-status-bar').dataset.layout='ready';const original=agPulseHost.getMetrics;window.restoreUsageMetrics=original;agPulseHost.getMetrics=async input=>({...await original(input),usage:null});});
  await page.waitForFunction(()=>!document.getElementById('ag-pulse-status-bar').shadowRoot.getElementById('usage-dashboard').firstElementChild.shadowRoot.getElementById('usage-waiting').hidden);
@@ -87,7 +87,7 @@ try{
  // A replaced composer must preserve the same account usage dialog and its
  // top-layer membership; closing it must restore the strip to the new input.
  await page.evaluate(()=>{const old=document.querySelector('.rounded-composer'),replacement=old.cloneNode(true);replacement.querySelector('#ag-pulse-status-bar')?.remove();window.savedUsageDialog=document.getElementById('ag-pulse-status-bar').shadowRoot.getElementById('usage-dashboard');old.replaceWith(replacement);});
- await page.waitForFunction(()=>savedUsageDialog.isConnected&&savedUsageDialog.matches(':modal'));
+ await page.waitForFunction(()=>savedUsageDialog.isConnected&&savedUsageDialog.matches(':popover-open'));
  assert.equal(await page.locator('#usage-dashboard').evaluate(n=>n===savedUsageDialog&&n.open&&getComputedStyle(n).visibility==='visible'),true);
  const actionGeometry=await page.locator('#usage-dashboard .actions button').evaluateAll(buttons=>buttons.map(b=>{const r=b.getBoundingClientRect(),i=b.firstElementChild.getBoundingClientRect();return {width:r.width,height:r.height,y:r.y,iconWidth:i.width,iconHeight:i.height,offsetX:(i.left+i.width/2)-(r.left+r.width/2),offsetY:(i.top+i.height/2)-(r.top+r.height/2)};}));
  assert.equal(new Set(actionGeometry.map(b=>b.y)).size,1);for(const b of actionGeometry){assert.equal(b.width,32);assert.equal(b.height,32);assert.equal(b.iconHeight,16);assert.equal(b.offsetX,0);assert.equal(b.offsetY,0);}

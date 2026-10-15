@@ -9,7 +9,7 @@ import zipfile
 ROOT = Path(__file__).resolve().parent.parent
 MODULES = [f'compat/{name}' for name in ['runtime-ui.mjs', 'platform.mjs', 'preferences.mjs',
     'sidecar-owner.mjs', 'i18n.cjs', 'theme.cjs', 'inline-widget.cjs', 'usage-ui.cjs']]
-MODULES += [f'sidecars/panel/{name}.mjs' for name in ['client', 'trajectory-json', 'trajectory-reader', 'discovery', 'store', 'history', 'metrics', 'rate-quality', 'context', 'transcript', 'usage']]
+MODULES += [f'sidecars/panel/{name}.mjs' for name in ['client', 'trajectory-json', 'trajectory-reader', 'discovery', 'store', 'history', 'metrics', 'rate-quality', 'context', 'transcript', 'usage', 'local-conversations']]
 MODULES += [f'ide/{name}' for name in ['extension.cjs', 'host.cjs', 'main.mjs', 'client.mjs',
     'discovery.mjs', 'runtime.mjs', 'surface.cjs', 'launch.mjs', 'manage.py']]
 

@@ -22,12 +22,13 @@ export class TrajectoryReader {
   }
   const s=this.summaries[id];if(!s)throw new Error('会话暂时没有可用统计');return s;
  }
- async read(id,{summary:provided,force=false}={}){
+ async read(id,{summary:provided,force=false,isCurrent=()=>true}={}){
+  if(!isCurrent())throw unavailable();
   const endpoint=await this.client.discover();
   if(!this.endpoint||['pid','port','csrf'].some(k=>this.endpoint[k]!==endpoint[k])){this.reset();this.endpoint=endpoint;}
   let entry=this.entries.get(id);if(entry?.pending)return entry.pending;
   entry||={data:null,bytes:0};this.entries.set(id,entry);
-  const epoch=this.epoch,current=()=>epoch===this.epoch&&this.entries.get(id)===entry;
+  const epoch=this.epoch,current=()=>epoch===this.epoch&&this.entries.get(id)===entry&&isCurrent();
   const assertCurrent=()=>{if(!current())throw unavailable();};
   entry.pending=(async()=>{
    const summary=await this.summary(id,provided,force);assertCurrent();

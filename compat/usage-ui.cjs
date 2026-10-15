@@ -1,9 +1,9 @@
 // Shared local usage views. Values and model labels are inserted as text.
 module.exports = function createUsageDashboard({root,language,setMarkup,hostLabel='Antigravity',guideDismissed=false,onDismissGuide,onLanguage,onRefresh}) {
-  const dialog=document.createElement('dialog');dialog.id='usage-dashboard';
+  const dialog=document.createElement('dialog');dialog.id='usage-dashboard';dialog.setAttribute('popover','manual');dialog.setAttribute('aria-modal','true');dialog.setAttribute('aria-label',language.language==='zh-CN'?'用量统计':'Token usage');
   dialog.style.cssText='width:min(1040px,calc(100vw - 40px));max-width:none;height:min(820px,calc(100dvh - 64px));max-height:none;box-sizing:border-box;overflow:hidden;visibility:visible;pointer-events:auto;padding:0;border:1px solid var(--pulse-border);border-radius:18px;background:var(--pulse-background);color:var(--pulse-foreground);box-shadow:0 24px 100px #0006';
   const shell=document.createElement('div'),view=shell.attachShadow({mode:'open'});shell.style.height='100%';dialog.append(shell);root.append(dialog);
-  const backdrop=document.createElement('style');backdrop.textContent='#usage-dashboard::backdrop{background:#0006;backdrop-filter:blur(3px)}';root.append(backdrop);
+  const backdrop=document.createElement('style');backdrop.textContent='#usage-dashboard{position:fixed;inset:0;margin:auto}#usage-dashboard::backdrop{background:#0006;backdrop-filter:blur(3px);pointer-events:auto}';root.append(backdrop);
   const css=document.createElement('style');css.textContent=`
     :host{display:block;color:var(--pulse-foreground);font:13px/1.5 -apple-system,BlinkMacSystemFont,'Segoe UI','Microsoft YaHei',sans-serif;font-variant-numeric:tabular-nums}
     *{box-sizing:border-box}button,select{font:inherit;color:inherit}button{cursor:pointer}button,select{border:1px solid var(--pulse-border);background:transparent;border-radius:7px}button{transition:background 140ms ease,transform 120ms cubic-bezier(.23,1,.32,1)}button:active{transform:scale(.97)}button:focus-visible,select:focus-visible{outline:2px solid var(--pulse-accent);outline-offset:3px}button[disabled]{opacity:.35;cursor:default}
@@ -196,7 +196,7 @@ module.exports = function createUsageDashboard({root,language,setMarkup,hostLabe
     }
     $('usage-waiting').hidden=true;
     syncPalette();
-    text('title',w('用量统计','Token usage'));text('subtitle',w(`本机 ${hostLabel} · 当前账号`,`Local ${hostLabel} · current account`));
+    text('title',w('用量统计','Token usage'));dialog.setAttribute('aria-label',w('用量统计','Token usage'));text('subtitle',w(`本机 ${hostLabel} · 当前账号`,`Local ${hostLabel} · current account`));
     text('overview-tab',w('活动概览','Activity'));text('details-tab',w('用量详情','Usage details'));text('activity-title',w('Token 活动','Token activity'));text('detail-title',w('按模型统计','Usage by model'));
     text('locale-label',zh()?'EN':'中');for(const [id,label]of [['locale',w('切换到英文','Switch to Chinese')],['refresh',w('刷新用量','Refresh usage')],['close',w('关闭','Close')]]){$(id).setAttribute('aria-label',label);$(id).title=label;}text('less',w('少','Less'));text('more',w('多','More'));text('selection-details',w('查看这段用量 →','View usage →'));
     for(const b of view.querySelectorAll('[data-heat]'))b.textContent=b.dataset.heat==='day'?w('每天','Daily'):w('每周','Weekly');
@@ -270,15 +270,55 @@ module.exports = function createUsageDashboard({root,language,setMarkup,hostLabe
       if(!disposed){button.disabled=false;button.setAttribute('aria-busy','false');}
     }
   });
-  function close(){closeYear(false);dialog.close();$('tip').hidden=true;opener?.focus({preventScroll:true});}
+  // Native showModal()/close() changes inertness across the complete host DOM.
+  // In long chats this alone can block Chromium for seconds. A top-layer
+  // popover keeps the same backdrop without touching every background node.
+  // Contain pointer, focus, Tab, Escape and scrolling explicitly instead.
+  function present(){
+    if(dialog.matches(':popover-open'))return;
+    dialog.removeAttribute('open');dialog.showPopover();dialog.setAttribute('open','');
+    $('locale').focus({preventScroll:true});
+  }
+  function conceal(){
+    if(dialog.matches(':popover-open'))dialog.hidePopover();dialog.removeAttribute('open');
+  }
+  function close(){closeYear(false);conceal();$('tip').hidden=true;opener?.focus({preventScroll:true});}
   $('close').addEventListener('click',close);dialog.addEventListener('cancel',event=>{event.preventDefault();close();});dialog.addEventListener('click',event=>{if(event.target===dialog){const r=dialog.getBoundingClientRect();if(event.clientX<r.left||event.clientX>r.right||event.clientY<r.top||event.clientY>r.bottom)close();}});
   const contentKey=data=>JSON.stringify([{...data,updatedAt:undefined},language.language,themeSignature()]);
+  const within=event=>event.composedPath().includes(dialog);
+  function containFocus(event){if(!disposed&&dialog.open&&!within(event)){$('locale').focus({preventScroll:true});}}
+  function containKeys(event){
+    if(disposed||!dialog.open)return;
+    if(event.key==='Escape'){
+      event.preventDefault();event.stopImmediatePropagation();
+      if($('year-menu').matches(':popover-open'))closeYear();else close();return;
+    }
+    if(event.key!=='Tab')return;
+    // The year menu retains its own Tab dismissal; focus stays in the dialog.
+    if($('year-menu').matches(':popover-open'))closeYear(false);
+    const controls=[...view.querySelectorAll('button,input,select,a[href],[tabindex]')].filter(n=>n.tabIndex>=0&&!n.disabled&&n.getClientRects().length&&getComputedStyle(n).visibility!=='hidden');
+    if(!controls.length){event.preventDefault();return;}
+    const index=controls.indexOf(view.activeElement);
+    if(index<0||event.shiftKey&&index===0||!event.shiftKey&&index===controls.length-1){
+      event.preventDefault();event.stopImmediatePropagation();(event.shiftKey?controls.at(-1):controls[0]).focus({preventScroll:true});
+    }
+  }
+  function containScroll(event){if(!disposed&&dialog.open&&!within(event))event.preventDefault();}
+  function containPointer(event){
+    if(disposed||!dialog.open)return;
+    const r=dialog.getBoundingClientRect();
+    const backdropHit=event.composedPath()[0]===dialog;
+    if(!within(event)||backdropHit&&(event.clientX<r.left||event.clientX>r.right||event.clientY<r.top||event.clientY>r.bottom)){event.preventDefault();event.stopImmediatePropagation();if(event.type==='click')close();}
+  }
+  document.addEventListener('focusin',containFocus,true);document.addEventListener('keydown',containKeys,true);
+  document.addEventListener('wheel',containScroll,{capture:true,passive:false});document.addEventListener('touchmove',containScroll,{capture:true,passive:false});
+  for(const type of ['pointerdown','mousedown','click'])document.addEventListener(type,containPointer,true);
   // CSS surfaces update immediately; JS model colors must follow in the same
   // theme change, rather than waiting for the next metrics poll.
   const themeObserver=new MutationObserver(()=>{if(!disposed&&value&&dialog.open){const key=contentKey(value);if(key!==lastKey){lastKey=key;render();}}});
   if(root.host)themeObserver.observe(root.host,{attributes:true,attributeFilter:['data-pulse-theme','style']});
-  return {open(data,trigger){if(!data||disposed)return;accountKey=data.accountKey;value=data;opener=trigger;year||=data.today.slice(0,4);anchor||=data.today;lastKey=contentKey(data);render();if(!dialog.open)dialog.showModal();},
+  return {open(data,trigger){if(!data||disposed)return;accountKey=data.accountKey;value=data;opener=trigger;year||=data.today.slice(0,4);anchor||=data.today;lastKey=contentKey(data);render();present();},
     update(data){if(disposed)return;if(!data){if(!value)return;value=null;lastKey='';if(dialog.open)render();return;}if(accountKey&&accountKey!==data.accountKey){selected=null;disabledModels.clear();year=data.today.slice(0,4);anchor=data.today;}accountKey=data.accountKey;value=data;if(!dialog.open)return;const key=contentKey(data);if(key===lastKey)return;lastKey=key;render();},
-    restoreModal(){if(!disposed&&dialog.open&&dialog.isConnected&&!dialog.matches(':modal')){closeYear(false);dialog.close();dialog.showModal();}},
-    close,syncGuideDismissed(){if(!replayGuide)dismissGuide();},dispose(){disposed=true;themeObserver.disconnect();clearTimeout(refreshDelay);finishRefresh?.();refreshMotion?.cancel();closeYear(false);window.removeEventListener('resize',positionYear);dialog.close();dialog.remove();backdrop.remove();},get isOpen(){return dialog.open;}};
+    restoreModal(){if(!disposed&&dialog.open&&dialog.isConnected&&!dialog.matches(':popover-open')){closeYear(false);present();}},
+    close,syncGuideDismissed(){if(!replayGuide)dismissGuide();},dispose(){disposed=true;themeObserver.disconnect();clearTimeout(refreshDelay);finishRefresh?.();refreshMotion?.cancel();closeYear(false);window.removeEventListener('resize',positionYear);document.removeEventListener('focusin',containFocus,true);document.removeEventListener('keydown',containKeys,true);document.removeEventListener('wheel',containScroll,true);document.removeEventListener('touchmove',containScroll,true);for(const type of ['pointerdown','mousedown','click'])document.removeEventListener(type,containPointer,true);conceal();dialog.remove();backdrop.remove();},get isOpen(){return dialog.open;}};
 };

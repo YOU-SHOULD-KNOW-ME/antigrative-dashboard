@@ -68,6 +68,16 @@ test('an accepted SDK really binds its HTTP server to loopback and closes cleanl
   try{assert.equal(await(await fetch('http://127.0.0.1:'+server.address().port)).text(),'fixture');}finally{await app.close();}
  }
 });
+test('official-style SDK may omit optional close while required methods remain enforced',async t=>{
+ const directory=await mkdtemp(join(tmpdir(),'ag-sdk-optional-'));t.after(()=>rm(directory,{recursive:true,force:true}));
+ const withoutClose=fixture().replace(/ close\(\)\{[^\n]+\n/,'');
+ const executable=join(directory,'official.bin');await writeFile(executable,binary(withoutClose));
+ const sdk=await loadBundledSdk({executable,directory:join(directory,'cache')});assert.equal(typeof sdk.SidecarApp.prototype.close,'undefined');
+ for(const method of ['api','page','run']){
+  const broken=join(directory,method+'.bin');await writeFile(broken,binary(withoutClose.replace(method+'()',method+'Missing()')));
+  await assert.rejects(loadBundledSdk({executable:broken,directory:join(directory,'cache')}),/接口不兼容/);
+ }
+});
 test('failed regeneration cannot replace an earlier validated SDK generation',async t=>{
  const directory=await mkdtemp(join(tmpdir(),'ag-sdk-failure-'));t.after(()=>rm(directory,{recursive:true,force:true}));
  const executable=join(directory,'host.bin'),cache=join(directory,'cache');await writeFile(executable,binary(fixture()));

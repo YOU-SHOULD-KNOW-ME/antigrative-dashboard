@@ -4,6 +4,8 @@ import {join} from 'node:path';
 import {createHash,randomUUID} from 'node:crypto';
 import {tokenCount,requestCacheMetrics} from './metrics.mjs';
 import {platformPaths} from '../../compat/platform.mjs';
+import {discoverLocalConversations,conversationId} from './local-conversations.mjs';
+import {setImmediate as yieldToLiveRequests} from 'node:timers/promises';
 const HASH=/^[a-f0-9]{64}$/,GUID=/^[a-f0-9-]{36}$/i;
 const hash=value=>createHash('sha256').update(value).digest('hex');
 const keys=['uncached','cacheRead','cacheWrite','output'];
@@ -42,6 +44,26 @@ const validRow=r=>r&&HASH.test(r.id)&&typeof r.model==='string'&&r.model.length<
 export class UsageLedger{
   constructor(directory=join(platformPaths().data,'usage-v1'),{timeZone='Asia/Shanghai',source='desktop-local'}={}){this.directory=directory;this.timeZone=timeZone;this.source=source;}
   queue=Promise.resolve();revision=0;cache=null;
+  async backfillState(scope,host){
+    if(!HASH.test(scope)||!['app','ide'].includes(host))throw Error('Invalid backfill scope');
+    await this.queue.catch(()=>{});
+    try{
+      const content=await readFile(join(this.directory,scope,'backfill-v1.json'),'utf8');
+      if(content.length>8*1024*1024)return {};
+      const value=JSON.parse(content);
+      if(value.schema!==1||value.account!==scope||value.host!==host||!value.entries||typeof value.entries!=='object'||Array.isArray(value.entries))return {};
+      return Object.fromEntries(Object.entries(value.entries).filter(([id,e])=>HASH.test(id)&&e&&HASH.test(e.signature)&&['complete','retry'].includes(e.state)&&Number.isSafeInteger(e.failures)&&e.failures>=0&&Number.isSafeInteger(e.retryAt)&&e.retryAt>=0));
+    }catch(e){if(e.code==='ENOENT'||e instanceof SyntaxError)return {};throw e;}
+  }
+  saveBackfillState(scope,host,entries){
+    if(!HASH.test(scope)||!['app','ide'].includes(host))throw Error('Invalid backfill scope');
+    const file=join(this.directory,scope,'backfill-v1.json');
+    const pending=this.queue.catch(()=>{}).then(async()=>{
+      await mkdir(join(this.directory,scope),{recursive:true});const temp=file+'.'+randomUUID()+'.tmp';
+      try{await writeFile(temp,JSON.stringify({schema:1,account:scope,host,entries}),{mode:0o600});await rename(temp,file);}
+      catch(e){await unlink(temp).catch(()=>{});throw e;}
+    });this.queue=pending;return pending;
+  }
   file(scope,id){if(!HASH.test(scope)||!GUID.test(id))throw Error('Invalid usage scope');return join(this.directory,scope,hash(id.toLowerCase())+'.json');}
   ingest(scope,id,raw){
     if(!scope)return Promise.resolve();
@@ -93,32 +115,97 @@ export class UsageLedger{
 export function weekStart(date){const d=new Date(date+'T00:00:00Z');d.setUTCDate(d.getUTCDate()-((d.getUTCDay()+6)%7));return d.toISOString().slice(0,10);}
 
 export class DesktopUsage{
-  constructor(store,ledger=new UsageLedger()){this.store=store;this.ledger=ledger;this.fingerprints=new Map();}
-  syncing=false;lastSync=0;status='waiting';missingConversations=0;scope=null;
+  constructor(store,ledger=new UsageLedger(),{host=null,discoverLocal=null,owns=()=>true,now=Date.now,sliceMs=3000,continueDelay=250}={}){
+    this.store=store;this.ledger=ledger;this.fingerprints=new Map();this.host=host;this.owns=owns;this.now=now;
+    this.discoverLocal=discoverLocal||(()=>host?discoverLocalConversations({host}):Promise.resolve({conversations:[],errors:0}));
+    this.sliceMs=sliceMs;this.continueDelay=continueDelay;this.fullRemaining=new Set();this.passSeen=new Set();this.passFailures=new Set();
+  }
+  syncing=false;lastSync=0;status='waiting';missingConversations=0;scope=null;scopeEpoch=null;forceQueued=false;disposed=false;continuation=null;
   async ingest(scope,id,raw){await this.ledger.ingest(scope,id,raw);}
-  sync(){
+  sync(forceFull=false){
+    if(this.disposed||!this.owns())return Promise.resolve();
+    if(forceFull)this.forceQueued=true;
     if(this.pending)return this.pending;
-    const syncScope=this.store.identity,syncEpoch=this.store.epoch;
+    if(!this.continuation){this.passSeen.clear();this.passFailures.clear();}
+    clearTimeout(this.continuation);this.continuation=null;
     this.syncing=true;this.status='syncing';
     this.pending=(async()=>{
-      const scope=this.store.identity,epoch=this.store.epoch;if(!scope)return;
-      const current=()=>scope===this.store.identity&&epoch===this.store.epoch;
-      const conversations=await this.store.listConversations(true);let missing=0;
-      for(const c of conversations){
-        if(!current())return;
-        const key=scope+':'+c.id,mark=c.modifiedAt+':'+c.status;
-        if(this.fingerprints.get(key)===mark&&!/RUNNING/.test(c.status||''))continue;
-        try{const raw=await this.store.client.trajectory(c.id,{summary:{stepCount:c.stepCount,lastModifiedTime:c.modifiedAt,status:c.status,lastUserInputStepIndex:c.lastUserInputStepIndex}});if(!current())return;await this.ingest(scope,c.id,raw);this.fingerprints.set(key,mark);}
-        catch{missing++;}
+      let result;
+      do{
+        const force=this.forceQueued;this.forceQueued=false;
+        result=await this.runSync(force);
+      }while(this.forceQueued&&!this.disposed&&this.owns());
+      if(!result?.current())return;
+      this.lastSync=this.now();this.missingConversations=result.missing;
+      this.status=result.more?'syncing':result.missing?'partial':'ready';
+      if(result.more){this.continuation=setTimeout(()=>void this.sync(),this.continueDelay);this.continuation.unref?.();}
+    })().catch(()=>{this.status='offline';this.lastSync=this.now();}).finally(()=>{this.syncing=false;this.pending=null;});return this.pending;
+  }
+  async runSync(forceFull){
+    const scope=this.store.identity,epoch=this.store.epoch;
+    const current=()=>!this.disposed&&this.owns()&&scope===this.store.identity&&epoch===this.store.epoch;
+    if(!scope)return null;
+    if(this.scope!==scope||this.scopeEpoch!==epoch){this.scope=scope;this.scopeEpoch=epoch;this.fingerprints.clear();this.fullRemaining.clear();this.passSeen.clear();this.passFailures.clear();}
+    let missing=0,listed=[];
+    try{listed=await this.store.listConversations(true);}catch{missing++;}
+    if(!current())return {current};
+    const local=await this.discoverLocal();if(!current())return {current};missing+=local.errors||0;
+    const journal=this.host?await this.ledger.backfillState(scope,this.host):{};
+    const candidates=new Map();
+    // Current conversations get priority over unloaded archives.
+    for(const c of listed)if(conversationId.test(c.id))candidates.set(c.id.toLowerCase(),{id:c.id.toLowerCase(),listed:c});
+    for(const c of local.conversations||[])if(conversationId.test(c.id)){
+      const id=c.id.toLowerCase();candidates.set(id,{...candidates.get(id),...c,id});
+    }
+    if(forceFull){this.fullRemaining=new Set(candidates.keys());this.passSeen.clear();this.passFailures.clear();}
+    const started=this.now();let processed=0,more=false,dirty=false;
+    for(const c of candidates.values()){
+      if(!current())return {current};
+      const key=hash(c.id),s=c.listed,mark=JSON.stringify([s?.stepCount,s?.modifiedAt,s?.status,s?.lastUserInputStepIndex]);
+      const signature=c.signature?hash(c.signature+mark):hash(mark),old=journal[key];
+      const unchanged=old?.signature===signature;
+      const forced=this.fullRemaining.has(c.id);
+      if(!forced&&this.passSeen.has(c.id))continue;
+      if(!forced&&unchanged&&old.state==='retry'&&old.retryAt>this.now()){this.passFailures.add(c.id);continue;}
+      const cached=s&&this.fingerprints.get(c.id)===mark&&!/RUNNING/.test(s.status||'');
+      if(!forced&&(c.signature?unchanged&&old.state==='complete'&&(!s||cached):cached))continue;
+      if(processed&&this.now()-started>=this.sliceMs){more=true;break;}
+      processed++;
+      this.passSeen.add(c.id);
+      this.fullRemaining.delete(c.id);
+      try{
+        // An independently discovered ID has no summary. An empty summary
+        // intentionally reads steps until EOF; the shared reader still enforces
+        // pagination, revision checks, memory budgets and a wall-time deadline.
+        const summary=s?{stepCount:s.stepCount,lastModifiedTime:s.modifiedAt,status:s.status,lastUserInputStepIndex:s.lastUserInputStepIndex}:{};
+        const raw=await this.store.client.trajectory(c.id,{summary,force:forced||!!c.signature,isCurrent:current});
+        if(!current())return {current};
+        if(!raw?.trajectory||!Array.isArray(raw.trajectory.steps)||!Array.isArray(raw.trajectory.generatorMetadata))throw Error('Incomplete historical statistics');
+        if(!s&&!raw.trajectory.steps.length&&!raw.trajectory.generatorMetadata.length)throw Error('History not yet readable');
+        await this.ingest(scope,c.id,raw);if(!current())return {current};
+        const stable=!c.readSignature||await c.readSignature()===c.signature;
+        if(!current())return {current};
+        if(!stable)throw Error('History changed during import');
+        this.fingerprints.set(c.id,mark);
+        this.passFailures.delete(c.id);
+        if(this.host&&c.signature){journal[key]={signature,state:'complete',failures:0,retryAt:0};dirty=true;}
+      }catch{
+        if(!current())return {current};this.passFailures.add(c.id);
+        if(this.host&&c.signature){const failures=unchanged?(old?.failures||0)+1:1;
+          journal[key]={signature,state:'retry',failures,retryAt:this.now()+Math.min(30*60000,30000*2**Math.min(failures-1,6))};dirty=true;}
       }
-      if(current()){this.missingConversations=missing;this.status=missing?'partial':'ready';this.lastSync=Date.now();}
-    })().catch(()=>{if(syncScope===this.store.identity&&syncEpoch===this.store.epoch)this.status='offline';}).finally(()=>{this.lastSync=syncScope===this.store.identity&&syncEpoch===this.store.epoch?Date.now():0;this.syncing=false;this.pending=null;});return this.pending;
+      // Save progress after every archive, so a restart doesn't lose the batch.
+      if(dirty){await this.ledger.saveBackfillState(scope,this.host,journal);dirty=false;}
+      await yieldToLiveRequests();
+    }
+    return {current,missing:missing+this.passFailures.size,more};
   }
   async snapshot(){
     if(!this.store.identity)return null;
-    if(this.scope!==this.store.identity){this.scope=this.store.identity;this.lastSync=0;this.status='waiting';this.missingConversations=0;}
-    if(Date.now()-this.lastSync>60000)void this.sync();
+    if(this.scope!==this.store.identity||this.scopeEpoch!==this.store.epoch){this.lastSync=0;this.status='waiting';this.missingConversations=0;if(this.pending)this.forceQueued=true;}
+    if(this.now()-this.lastSync>60000&&!this.continuation)void this.sync();
     const scope=this.store.identity,value=await this.ledger.summary(scope);
-    return scope===this.store.identity?{...value,syncing:this.syncing,status:this.status,missingConversations:this.missingConversations,persistenceError:this.store.usagePersistenceError===true}:null;
+    return scope===this.store.identity?{...value,syncing:this.syncing||!!this.continuation,status:this.status,missingConversations:this.missingConversations,persistenceError:this.store.usagePersistenceError===true}:null;
   }
+  dispose(){this.disposed=true;this.forceQueued=false;clearTimeout(this.continuation);this.continuation=null;}
 }

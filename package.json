@@ -12,7 +12,7 @@
     "preview:motion": "node tools/check-density-motion.mjs --preview",
     "package": "python manage.py package",
     "test:ide": "node --test ide/tests/*.test.mjs && node tools/check-ide-ui.mjs",
-    "test:usage-ui": "node tools/check-usage-ui.mjs && node tools/check-usage-ui.mjs --ide",
+    "test:usage-ui": "node tools/check-usage-ui.mjs && node tools/check-usage-ui.mjs --ide && node tools/check-usage-performance.mjs",
     "test:panel-ui": "node tools/check-panel-ui.mjs"
   }
 }

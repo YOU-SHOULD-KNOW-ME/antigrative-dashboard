@@ -19,13 +19,13 @@ const HERE = dirname(fileURLToPath(import.meta.url));
 const createTheme=createRequire(import.meta.url)('../../compat/theme.cjs');
 const themeCss=()=>createTheme().css(':root');
 const store = new MetricsStore();
-const usage=new DesktopUsage(store);
+const usage=new DesktopUsage(store,undefined,{host:'app',owns:()=>(!ownership||ownership.isOwner())&&runtimeSettings().enabled!==false});
 store.onTrajectory=(scope,id,raw)=>usage.ingest(scope,id,raw);
 const preferences=new PreferencesStore();
 const updater=new AppUpdater({pluginDir:join(HERE,'..','..'),dataDir:platformPaths().data});
 const ownership=process.env.ANTIGRAVITY_SIDECAR_WEB_PORT?new SidecarOwner(platformPaths().data):null;
 const metrics = async input => {
-  const base=await store.snapshot(input);if(input?.force)void usage.sync();
+  const base=await store.snapshot(input);if(input?.force)void usage.sync(true);
   return {...base,usage:await usage.snapshot(),preferences:await preferences.snapshot(),theme:await readHostTheme(),integration:integration.health};
 };
 const usageSource=()=>{const s=readFileSync(join(HERE,'..','..','compat','usage-ui.cjs'),'utf8');return `window.__agPulseUsageFactory=(${s.slice(s.indexOf('module.exports = ')+17).trim().replace(/;$/,'')});`;};
@@ -72,6 +72,7 @@ if (process.env.ANTIGRAVITY_SIDECAR_WEB_PORT) {
   app.run();
   integration.start();
   const shutdown=async()=>{
+    usage.dispose();
     const exitTimer=setTimeout(()=>process.exit(0),2000);exitTimer.unref();
     await integration.stop();ownership.stop();process.exit(0);
   };
