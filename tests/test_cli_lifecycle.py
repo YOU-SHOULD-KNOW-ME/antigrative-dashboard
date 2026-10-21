@@ -70,6 +70,14 @@ class CliLifecycleTests(unittest.TestCase):
         finally:
             terminal.close()
 
+    def test_traditional_language_runs_through_installed_shell_command(self):
+        cli.install(ROOT, self.home, language='zh-TW')
+        command = cli.read(self.settings)['statusLine']['command']
+        result = subprocess.run(command, shell=True, input='{}', capture_output=True, encoding='utf-8', timeout=30)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn('快取', result.stdout)
+        cli.uninstall(self.home)
+
     def test_new_config_uninstall_returns_to_builtin_and_preserves_later_settings(self):
         cli.install(ROOT, self.home)
         config = cli.read(self.settings)

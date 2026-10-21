@@ -59,7 +59,7 @@ try {
   await host.locator('[data-card=context]').click();assert.equal(await host.locator('#card-language-zh').getAttribute('aria-pressed'),'true');
   const panel=await context.newPage();panel.on('pageerror',error=>errors.push(error.message));await panel.goto(server.url+'/');
   await panel.waitForFunction(()=>document.documentElement.lang==='zh-CN');
-  await panel.locator('#language-toggle').click();
+  await panel.locator('#language-toggle').click();await panel.locator('[data-language-menu] [data-language="en"]').click();
   await page.waitForFunction(()=>document.getElementById('ag-pulse-status-bar')?.lang==='en');
   assert.equal((await server.store.get()).language,'en');
   await context.close();await server.close();server=await serve();context=await browser.newContext();page=await context.newPage();
@@ -79,5 +79,13 @@ try {
   await context.close();await server.close();server=await serve();context=await browser.newContext();page=await context.newPage();await page.goto(server.url+'/');
   await page.waitForFunction(()=>document.documentElement.lang==='zh-CN');
   assert.equal(await page.locator('#language-toggle').textContent(),'中');assert.deepEqual(errors,[]);
+  await page.locator('#language-toggle').click();await page.locator('[data-language-menu] [data-language="zh-TW"]').click();
+  await page.waitForFunction(()=>document.documentElement.lang==='zh-TW');
+  await context.close();await server.close();server=await serve();context=await browser.newContext();page=await context.newPage();
+  await page.goto(server.url+'/toolbar-preview');host=page.locator('#ag-pulse-status-bar');
+  await page.waitForFunction(()=>document.getElementById('ag-pulse-status-bar')?.lang==='zh-TW');
+  await host.locator('[data-card=context]').click();
+  assert.equal(await host.locator('#card-language-zh-tw').getAttribute('aria-pressed'),'true');
+  assert.equal((await server.store.get()).language,'zh-TW');
   console.log(JSON.stringify({changedOrigins:true,freshBrowserStorage:true,recreatedBackend:true,chineseRestored:true,englishRestored:true,panelToInlineSync:true,rapidToggle:true,pageErrors:errors},null,2));
 }finally{await browser.close();await server?.close();await rm(directory,{recursive:true,force:true});}

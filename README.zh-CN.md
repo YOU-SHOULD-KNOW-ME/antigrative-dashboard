@@ -7,7 +7,7 @@
 模型选择旁只显示生成速率、缓存和上下文占用；悬停上下文，一并查看上下文、5 小时和周额度详情。<br>
 缩略信息常驻；鼠标悬停，才展开详细统计。
 
-[![Version 0.8.7](https://img.shields.io/badge/version-0.8.7-91adff?style=flat-square&labelColor=252936)](CHANGELOG.md)
+[![Version 0.8.8](https://img.shields.io/badge/version-0.8.8-91adff?style=flat-square&labelColor=252936)](CHANGELOG.md)
 [![Platforms](https://img.shields.io/badge/host-Windows%20%7C%20Linux%20%7C%20macOS-83d8b9?style=flat-square&labelColor=252936)](COMPATIBILITY.md)
 [![Antigravity 2.21.1 / 2.22.0](https://img.shields.io/badge/Antigravity-2.21.1%20%2F%202.22.0-c5a0ff?style=flat-square&labelColor=252936)](COMPATIBILITY.md)
 [![MIT](https://img.shields.io/badge/license-MIT-d4d9e6?style=flat-square&labelColor=252936)](LICENSE)
@@ -16,9 +16,7 @@
 
 </div>
 
-**v0.8.7 补丁：** 新增 App 更新进度条并优化用量页启动。安装包已刷新、版本号不变；已安装 v0.8.7 的用户请手动重装补丁包。
-
-**v0.8.7 更新：** 补齐可读取的历史 Token 用量，支持完整分页、失败重试和进度恢复；修复长对话中用量窗口开关卡顿，并加入经过加固的 App 手动更新。保留年度热力图和现有图表。[更新说明](https://github.com/YOU-SHOULD-KNOW-ME/antigrative-dashboard/releases/tag/v0.8.7)。
+**v0.8.8 更新：** App、IDE 和 CLI 新增繁體中文，统一三语言选择并保存偏好；保留已有统计与 UTC+8 统计口径。[更新说明](https://github.com/YOU-SHOULD-KNOW-ME/antigrative-dashboard/releases/tag/v0.8.8)。
 
 ## 看看效果
 
@@ -66,7 +64,7 @@
 ## Antigravity IDE
 
 **v0.7.0** 新增反重力自己的独立 IDE 适配。下载发布页的
-`antigrative-dashboard-ide-0.8.7.vsix`，在 IDE 扩展页选择「从 VSIX 安装」。
+`antigrative-dashboard-ide-0.8.8.vsix`，在 IDE 扩展页选择「从 VSIX 安装」。
 仅安装 IDE 的用户也可以使用，无需先装桌面 App。
 
 完全退出 IDE 后，使用带
@@ -176,7 +174,7 @@ python manage.py install
 
 ### 语言与缓存
 
-默认英文。首次使用时，主对话上下文控件旁会出现轻量双语提示；点击后打开详情并定位到底部的 **English / 简体中文** 按钮。语言选择会保存，之后仍可随时在上下文详情底部切换。选择语言或关闭提示后不再重复引导；关闭提示不会改变已有语言，保存失败会显示提示并允许重试。子代理界面不重复显示首次引导。
+默认英文。首次使用时，主对话上下文控件旁会出现轻量双语提示；点击后打开详情并定位到底部的 **English / 简体中文 / 繁體中文** 按钮。侧栏和用量窗口也提供三语言菜单，切换不改变 UTC+8 的统计日期。语言选择会保存，之后仍可随时在上下文详情底部切换。选择语言或关闭提示后不再重复引导；关闭提示不会改变已有语言，保存失败会显示提示并允许重试。子代理界面不重复显示首次引导。
 
 缓存卡按 DSH 逻辑显示总 token、缓存命中、未缓存输入、缓存读取与输出；缓存写入非零时显示额外一行。
 

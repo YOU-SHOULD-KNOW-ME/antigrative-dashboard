@@ -80,11 +80,18 @@ try{
    assert.equal(await view.locator('html').evaluate(()=>self.origin),'null');
    assert.equal(await view.locator('body').evaluate(e=>getComputedStyle(e).backgroundColor===getComputedStyle(document.querySelector('.widget')).backgroundColor),true,'SDK inline body background follows the dashboard theme');
   }
-  await view.locator('#language-toggle').click();await view.locator('#language-toggle').filter({hasText:'中'}).waitFor();
+  await view.locator('#language-toggle').click();await view.locator('[data-language-menu] [data-language="zh-CN"]').click();await view.locator('#language-toggle').filter({hasText:'中'}).waitFor();
   assert.equal(await view.locator('#context-tokens').textContent(),'20K / 100K tok');
   assert.equal(await view.locator('#strip-context').textContent(),'20%');
   assert.deepEqual(await view.locator('.metric-label span').allTextContents(),['速度','缓存','上下文']);
   assert.deepEqual(await frame(),initialFrame,'Language switches must not resize the frame');
+  await view.locator('#language-toggle').click();await page.keyboard.press('End');await page.keyboard.press('Enter');
+  await view.locator('#language-toggle').filter({hasText:'繁'}).waitFor();
+  assert.deepEqual(await view.locator('.metric-label span').allTextContents(),['速率','快取','上下文']);
+  assert.deepEqual(await frame(),initialFrame);assert.equal(await view.locator('#context-tokens').textContent(),'20K / 100K tok');
+  await view.locator('#language-toggle').click();await page.keyboard.press('Escape');
+  assert.equal(await view.locator('[data-language-menu]').evaluate(e=>e.matches(':popover-open')),false);
+  await view.locator('#language-toggle').click();await view.locator('[data-language-menu] [data-language="zh-CN"]').click();
   await mkdir(join(repo,'.data/sidebar-design'),{recursive:true});
   for(const name of ['speed','cache','context']){await view.locator(`[data-card=${name}]`).click();await view.locator(`#${name}-card`).evaluate(e=>e.scrollTop=0);await page.waitForTimeout(180);await page.screenshot({path:join(repo,`.data/sidebar-design/${mode}-${name}-zh.png`)});}
   rate=51.2;await view.locator('#refresh-button').click();await view.locator('#strip-tps').filter({hasText:'51.2'}).waitFor();

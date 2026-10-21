@@ -6,6 +6,7 @@ import assert from 'node:assert/strict';
 const repo=join(dirname(fileURLToPath(import.meta.url)),'..');
 const source=await readFile(join(repo,'compat/usage-ui.cjs'),'utf8');
 const theme=await readFile(join(repo,'compat/theme.cjs'),'utf8');
+const i18n=await readFile(join(repo,'compat/i18n.cjs'),'utf8');
 const extract=s=>s.slice(s.indexOf('module.exports = ')+17).trim().replace(/;$/,'');
 const {chromium}=await import(process.env.PLAYWRIGHT_MODULE?pathToFileURL(process.env.PLAYWRIGHT_MODULE).href:'playwright');
 const browser=await chromium.launch(process.platform==='win32'&&!process.env.CI?{channel:'msedge',headless:true}:{headless:true});
@@ -13,11 +14,11 @@ try{
  const page=await browser.newPage({viewport:{width:1280,height:900}}),errors=[];page.on('pageerror',e=>errors.push(e.message));
  await page.setContent('<style>body{margin:0;background:#161412;color:#eee}#chat{height:800px;overflow:auto}#chat p{margin:4px}#opener{position:fixed;bottom:15px;left:50px}</style><main id="chat"></main><button id="opener">Usage</button><div id="host"></div>');
  await page.evaluate(()=>{const fragment=document.createDocumentFragment();for(let i=0;i<10000;i++){const row=document.createElement('p'),button=document.createElement('button');button.textContent='Synthetic message '+i;row.append(button);fragment.append(row);}document.getElementById('chat').append(fragment);window.backgroundClicks=0;document.getElementById('chat').addEventListener('click',()=>backgroundClicks++);});
- await page.evaluate(({source,theme})=>{
+ await page.evaluate(({source,theme,i18n})=>{
   const root=document.getElementById('host').attachShadow({mode:'open'}),style=document.createElement('style');style.textContent=eval('('+theme+')')().shadowCss();root.append(style);
-  window.usageTest=eval('('+source+')')({root,language:{language:'en'},setMarkup:(n,html)=>{n.innerHTML=html;},guideDismissed:true,onDismissGuide:async()=>{},onLanguage:async()=>{},onRefresh:async()=>{}});
+  window.usageTest=eval('('+source+')')({root,language:eval('('+i18n+')')('en'),setMarkup:(n,html)=>{n.innerHTML=html;},guideDismissed:true,onDismissGuide:async()=>{},onLanguage:async()=>{},onRefresh:async()=>{}});
   window.usageFixture={accountKey:'fixture',today:'2026-10-15',timeZone:'Asia/Shanghai',models:['Fixture'],days:[{date:'2026-10-15',models:{Fixture:{total:1000,requests:1,uncached:100,cacheRead:800,cacheWrite:0,output:100}}}],todayTokens:1000,weekTokens:1000,monthTokens:1000,totalTokens:1000,requests:1,firstDate:'2026-10-15'};
- },{source:extract(source),theme:extract(theme)});
+ },{source:extract(source),theme:extract(theme),i18n:extract(i18n)});
  const timings=await page.evaluate(()=>{
   const samples=[];for(let i=0;i<4;i++){
    let t=performance.now();usageTest.open(usageFixture,document.getElementById('opener'));const open=performance.now()-t;

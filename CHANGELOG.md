@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.8.8 — 2026-10-21
+
+- Integrate [#18](https://github.com/YOU-SHOULD-KNOW-ME/antigrative-dashboard/pull/18), with thanks to @Lorin1470: add Traditional Chinese localization across App, IDE, side panel, Token usage, onboarding, update feedback and CLI (`--language zh-TW`).
+- Provide explicit English / 简体中文 / 繁體中文 choices, retaining the context footer location and using a keyboard-accessible menu in the panel and usage window. Preserve the bilingual discovery flow, English default and existing selections.
+- Persist Traditional Chinese across fresh renderers/backends and independent guide writes. Correct missing-key/error fallback and avoid redundant guide writes during polling.
+- Keep UTC+8 accounting boundaries, recorded usage, annual heatmaps, model charts and responsive/theme behavior unchanged. Extend locale, persistence, CLI shell/width, Trusted Types, keyboard, sandbox and narrow-layout regression coverage.
+
 ## 0.8.7 patch — 2026-10-15
 
 - Show measured download bytes and percentage in App updates. Use animated phase feedback for checking, verification, extraction, backup and installation; settle smoothly on completion and follow the host theme. A completed check does not animate backwards into a new download, and only the glyph rotates inside its stable icon surface.

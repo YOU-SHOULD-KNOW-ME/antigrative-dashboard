@@ -219,7 +219,7 @@ def main():
     for action in ('enable', 'disable', 'status', 'uninstall'): sub.add_parser(action)
     p = sub.add_parser('install-cli', help='Install the official CLI statusLine adapter independently of desktop')
     p.add_argument('--node', help='Node.js 20+ executable (defaults to PATH)')
-    p.add_argument('--language', choices=('en', 'zh-CN'), help='Override shared desktop language choice')
+    p.add_argument('--language', choices=('en', 'zh-CN', 'zh-TW'), help='Override shared desktop language choice')
     for action in ('uninstall-cli', 'status-cli'): sub.add_parser(action)
     p = sub.add_parser('package'); p.add_argument('--output')
     args = parser.parse_args()

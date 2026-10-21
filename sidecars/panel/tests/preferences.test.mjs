@@ -12,6 +12,16 @@ async function fixture(t) {
 }
 const connect=(language,store,extra={})=>language.connectPreferences({read:()=>store.get(),write:input=>store.set(input),...extra});
 
+test('Traditional choice survives fresh storage, independent guide writes and stale replies',async t=>{
+  const {file,store}=await fixture(t),language=create(null),controller=connect(language,store);
+  await controller.ready;await controller.choose('zh-TW');
+  await store.set({languageGuideDismissed:true});await store.set({usageGuideDismissed:true});
+  const saved=await new PreferencesStore({file}).get();assert.equal(saved.language,'zh-TW');
+  controller.sync({language:'en',revision:0});assert.equal(language.language,'zh-TW');controller.dispose();
+  const restarted=create('en'),restored=connect(restarted,new PreferencesStore({file}));await restored.ready;
+  assert.equal(restarted.language,'zh-TW');assert.equal(saved.usageGuideDismissed,true);assert.equal(saved.languageGuideDismissed,true);restored.dispose();
+});
+
 test('guide dismissal survives a fresh backend without selecting a language; older preference files migrate',async t=>{
   const {file,store}=await fixture(t);
   await store.set({languageGuideDismissed:true});

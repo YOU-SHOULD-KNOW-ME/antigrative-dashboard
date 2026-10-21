@@ -31,7 +31,7 @@ const server=createServer((req,res)=>{
   const key=url.pathname.slice(1);
   if(!fixtures[key]){res.writeHead(404);res.end();return;}
   res.writeHead(200,{'Content-Type':'text/html;charset=utf-8'});
-  res.end(`<!doctype html><style>${css}</style>${fixtures[key]}<script>history.replaceState({},'', '/c/${id}');window.clicks=0;document.querySelectorAll('.protected').forEach(e=>e.onclick=()=>window.clicks++);window.agPulseHost={getMetrics:async()=>(${JSON.stringify(metrics)}),getPreferences:async()=>({language:'${url.searchParams.get('lang')==='en'?'en':'zh-CN'}',languageGuideDismissed:true,revision:1}),setPreferences:async x=>({...x,revision:2}),report:()=>{}};</script><script src="/widget.js"></script>`);
+  res.end(`<!doctype html><style>${css}</style>${fixtures[key]}<script>history.replaceState({},'', '/c/${id}');window.clicks=0;document.querySelectorAll('.protected').forEach(e=>e.onclick=()=>window.clicks++);window.agPulseHost={getMetrics:async()=>(${JSON.stringify(metrics)}),getPreferences:async()=>({language:'${url.searchParams.get('lang')==='en'?'en':url.searchParams.get('lang')==='zh-TW'?'zh-TW':'zh-CN'}',languageGuideDismissed:true,revision:1}),setPreferences:async x=>({...x,revision:2}),report:()=>{}};</script><script src="/widget.js"></script>`);
 });
 server.listen(0,'127.0.0.1');await new Promise(resolve=>server.once('listening',resolve));
 const {chromium}=await import(process.env.PLAYWRIGHT_MODULE?pathToFileURL(process.env.PLAYWRIGHT_MODULE).href:'playwright');
@@ -50,7 +50,7 @@ try{
     const page=await browser.newPage({viewport:{width:1100,height:800}});page.on('pageerror',e=>errors.push(e.message));
     try{await page.goto(`${base}/${key}`);await page.waitForTimeout(1150);assert.equal(await page.locator('#ag-pulse-status-bar').count(),0,`${key}: unsupported toolbar must decline mounting`);await clickable(page);results.push({case:key,rejected:true});}finally{await page.close();}
   }
-  for(const lang of ['en','zh']){
+  for(const lang of ['en','zh','zh-TW']){
     const page=await browser.newPage({viewport:{width:1100,height:800}});page.on('pageerror',e=>errors.push(e.message));
     try{
       await page.goto(`${base}/composer?lang=${lang}`);
@@ -88,7 +88,7 @@ try{
       // pointer-focused choice no longer pins it after leaving; reopen through
       // its actual chip before exercising the reverse language selection.
       await strip.locator('[data-card=context]').click();
-      await strip.locator(oldLanguage==='en'?'#card-language-en':'#card-language-zh').click();
+      await strip.locator(oldLanguage==='en'?'#card-language-en':oldLanguage==='zh-TW'?'#card-language-zh-tw':'#card-language-zh').click();
       await page.waitForFunction(old=>document.getElementById('ag-pulse-status-bar')?.lang===old,oldLanguage);
       await page.keyboard.press('Escape');
       await strip.evaluate(e=>{e.style.flex='0 0 40px';e.style.maxWidth='40px'});

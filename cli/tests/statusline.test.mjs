@@ -110,10 +110,10 @@ test('busy zero cache snapshots are pending, never a fabricated zero or a previo
       assert.equal(metrics.cacheRate.reason, 'awaiting-stable-usage');
       assert.equal(metrics.cacheRate.percentage, null);
       assert.equal(metrics.cacheReadTokens, 0, 'JSON preserves raw supplied counters');
-      for (const language of ['en', 'zh-CN']) {
+      for (const language of ['en', 'zh-CN', 'zh-TW']) {
         const text = render(metrics, {color:false,language});
-        assert.match(text, language === 'en' ? /Cache --/ : /缓存 --/);
-        assert.doesNotMatch(text, /(?:Cache|缓存) 0%|0 read|0 读取/);
+        assert.match(text, language === 'en' ? /Cache --/ : language === 'zh-TW' ? /快取 --/ : /缓存 --/);
+        assert.doesNotMatch(text, /(?:Cache|缓存|快取) 0%|0 read|0 读取|0 讀取/);
       }
     }
     const valid = { ...cachePayload(), agent_state };
@@ -129,7 +129,7 @@ test('busy zero cache snapshots are pending, never a fabricated zero or a previo
 
 test('narrow first row retains context and cache percentages before secondary read counts', () => {
   const metrics = normalize(cachePayload());
-  for (const language of ['en', 'zh-CN']) for (let width = 1; width <= 500; width++) {
+  for (const language of ['en', 'zh-CN', 'zh-TW']) for (let width = 1; width <= 500; width++) {
     const row = render(metrics, { language, width, color: false }).split('\n')[0];
     assert.ok(displayWidth(row) <= width);
     if (width >= 27) assert.match(row, /8\.6%.*98\.9%/);
@@ -174,7 +174,7 @@ test('quota reset never fabricates restored balances; unknown IDs retain identit
 test('render bounds account for CJK, emoji and combining clusters in both languages', () => {
   const metrics = normalize({ ...sample, model: { display_name: '中文模型👨‍👩‍👧‍👦é🧪很长的模型名称'.repeat(6) },
     quota: Object.fromEntries(Array.from({ length: 20 }, (_, i) => [`future-${i}`, { remaining_fraction: 0.5 }])) });
-  for (const language of ['en', 'zh-CN']) for (const width of [1, 2, 10, 20, 39, 55, 79, 80, 100, 120, 500]) {
+  for (const language of ['en', 'zh-CN', 'zh-TW']) for (const width of [1, 2, 10, 20, 39, 55, 79, 80, 100, 120, 500]) {
     const text = render(metrics, { width, language, color: false, details: true });
     assert.ok(text.split('\n').length <= 4);
     for (const line of text.split('\n')) assert.ok(displayWidth(line) <= width, `${width}: ${line}`);
@@ -238,7 +238,7 @@ test('shared Claude/GPT quota has distinct brand labels without splitting or rec
   assert.match(colored, /\x1b\[1;33m49%/);
   assert.equal(colored.replace(/\x1b\[[\d;]+m/g, ''), render(metrics, { color: false, width: 120 }));
   assert.equal(colored.split('\n').length, 2);
-  for (const language of ['en', 'zh-CN']) for (const width of [1, 8, 10, 11, 20, 55, 80]) {
+  for (const language of ['en', 'zh-CN', 'zh-TW']) for (const width of [1, 8, 10, 11, 20, 55, 80]) {
     for (const line of render(metrics, { language, width, color: true }).split('\n')) {
       assert.ok(displayWidth(line.replace(/\x1b\[[\d;]+m/g, '')) <= width);
     }
@@ -297,5 +297,9 @@ test('language survives separate process runs and explicit override; preview wri
     for (let i = 0; i < 2; i++) assert.match(run({}, ['--preview', '--no-color'], env).stdout, /上下文/);
     assert.match(run({}, ['--preview', '--language', 'en', '--no-color'], env).stdout, /Context/);
     assert.equal(JSON.parse(run({}, ['--json', '--preview'], env).stdout).context.usedPercentage, 44.2);
+    for(const file of [join(local,'preferences.json'),join(mac,'preferences.json')])writeFileSync(file,JSON.stringify({schema:1,language:'zh-TW',revision:2}));
+    for(let i=0;i<2;i++)assert.match(run({},['--preview','--no-color'],env).stdout,/快取/);
+    assert.match(run({},['--preview','--language','zh-TW','--no-color'],env).stdout,/讀取/);
+    assert.match(run({},['--preview','--language','en','--no-color'],env).stdout,/Cache/);
   } finally { rmSync(root, { recursive: true, force: true }); }
 });

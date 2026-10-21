@@ -44,5 +44,12 @@ try{
  await page.locator('[data-card=context]').click();await page.locator('#plugin-menu-button').click();await page.locator('#check-update').click();
  await page.locator('#update-status').filter({hasText:'up to date'}).waitFor();
  assert.equal(await page.locator('#update-action').isVisible(),false);
+ await page.locator('#update-close').click();await page.locator('[data-card=context]').click();
+ await page.locator('#card-language-zh-tw').click();await page.locator('[data-card=context]').click();
+ const footer=await page.locator('.card-language').evaluate(row=>{const r=row.getBoundingClientRect();return {overflow:row.scrollWidth>row.clientWidth,inside:[...row.querySelectorAll('button')].filter(b=>b.getClientRects().length).every(b=>{const x=b.getBoundingClientRect();return x.left>=r.left&&x.right<=r.right+.5;})};});
+ assert.equal(footer.overflow,false);assert.equal(footer.inside,true,'Three languages and update menu fit the context footer');
+ await page.locator('#plugin-menu-button').click();assert.equal(await page.locator('#check-update').textContent(),'檢查更新');
+ await page.locator('#check-update').click();await page.locator('#update-status').filter({hasText:'已是最新版本'}).waitFor();
+ assert.equal(await page.locator('#update-title').textContent(),'外掛更新');assert.equal(await page.locator('#update-close').getAttribute('aria-label'),'關閉');
  assert.deepEqual(errors,[]);console.log(JSON.stringify({manualOnly:true,currentVersion:true,bilingual:true,plainTextNotes:true,installationPolling:true,reload:true,retry:true,pageErrors:errors}));
 }finally{await browser.close();await new Promise(r=>server.close(r));}

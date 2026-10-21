@@ -7,7 +7,7 @@ const MAX_INPUT = 256 * 1024;
 const help = `Antigrative Dashboard for Antigravity CLI (Node.js 20+)
 Reads the official statusLine JSON from stdin. No network or transcript access.
   --preview           Render synthetic data; does not write statistics
-  --language en|zh-CN  Override shared desktop language preference
+  --language en|zh-CN|zh-TW  Override shared desktop language preference
   --width 1..500       Override terminal columns
   --details           Include capacity and current request token counts
   --no-color          Disable ANSI (also honors NO_COLOR and TERM=dumb)
@@ -22,7 +22,7 @@ function options(args) {
     if (['--preview', '--details', '--json', '--help', '--no-color'].includes(arg)) result[arg.slice(2)] = true;
     else if (arg === '--language') {
       const value = args[++i];
-      if (!['en', 'zh-CN'].includes(value)) throw new Error('Invalid option');
+      if (!['en', 'zh-CN', 'zh-TW'].includes(value)) throw new Error('Invalid option');
       result.language = value;
     } else if (arg === '--width') {
       const value = Number(args[++i]);

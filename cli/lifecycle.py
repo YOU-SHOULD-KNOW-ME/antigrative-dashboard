@@ -82,8 +82,8 @@ def command(node, script, language=None, platform=None):
     platform = platform or os.sys.platform
     values = [str(node), str(script)]
     if platform == 'win32':
-        if language and language not in ('en', 'zh-CN'):
-            raise RuntimeError('Language must be en or zh-CN.')
+        if language and language not in ('en', 'zh-CN', 'zh-TW'):
+            raise RuntimeError('Language must be en, zh-CN or zh-TW.')
         if any(any(char in value for char in '\r\n\x00') for value in values):
             raise RuntimeError('Node/home path contains unsupported control characters.')
         # agy's Go cmd.exe runner escapes quotes in a multi-argument command.
@@ -101,8 +101,8 @@ def command(node, script, language=None, platform=None):
     else:
         result = ' '.join(shlex.quote(value) for value in values)
     if language:
-        if language not in ('en', 'zh-CN'):
-            raise RuntimeError('Language must be en or zh-CN.')
+        if language not in ('en', 'zh-CN', 'zh-TW'):
+            raise RuntimeError('Language must be en, zh-CN or zh-TW.')
         result += ' --language ' + language
     return result
 
