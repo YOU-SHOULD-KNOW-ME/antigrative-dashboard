@@ -79,7 +79,11 @@ export class AntigravityClient {
           headers: { 'Content-Type': 'application/json', 'Connect-Protocol-Version': '1', 'x-codeium-csrf-token': server.csrf, 'Content-Length': Buffer.byteLength(data) } }, res => {
           const projected=projection?new TrajectoryJson():null;
           let text = '',bytes=0,failed=false;
-          const fail=error=>{if(failed)return;failed=true;req.destroy(error);};
+          // Parsing can fail after the request has finished sending. Destroying
+          // that request does not always emit another request error, and the
+          // response's error/end handlers deliberately ignore failed streams.
+          // Settle here before closing transport so malformed replies never hang.
+          const fail=error=>{if(failed)return;failed=true;reject(error);req.destroy(error);};
           res.setEncoding('utf8');
           res.on('error',error=>{if(!failed)reject(error);});
           res.on('data', chunk => {

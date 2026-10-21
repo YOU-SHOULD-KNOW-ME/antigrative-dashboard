@@ -1,11 +1,34 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {createServer} from 'node:http';
+import http from 'node:http';
+import {syncBuiltinESMExports} from 'node:module';
+import {EventEmitter} from 'node:events';
 import {AntigravityClient} from '../client.mjs';
 
 // Synthetic RPC fixtures own every accepted socket. End them explicitly:
 // HTTP keep-alive teardown must not hold the cross-platform test runner open.
 const stopServer=server=>new Promise(resolve=>{server.close(resolve);server.closeAllConnections();});
+
+test('invalid projected JSON settles even when destroying a sent request emits no error',async t=>{
+ const original=http.request;let destroyed=false;
+ http.request=(_options,onResponse)=>{
+  const req=new EventEmitter();req.setTimeout=()=>req;
+  req.destroy=()=>{destroyed=true;req.emit('close');return req;};
+  req.end=()=>queueMicrotask(()=>{
+   const res=new EventEmitter();res.statusCode=200;res.setEncoding=()=>res;
+   onResponse(res);res.emit('data','{broken');res.emit('end');
+  });return req;
+ };
+ syncBuiltinESMExports();t.after(()=>{http.request=original;syncBuiltinESMExports();});
+ const client=new AntigravityClient({now:()=>0});client.server={port:1234,csrf:'fixture',pid:42};
+ let timer;
+ try{await Promise.race([
+  assert.rejects(client.call('GetCascadeTrajectory'),error=>error.message==='Antigravity 接口返回了无法解析的数据'),
+  new Promise((_,reject)=>{timer=setTimeout(()=>reject(new Error('Invalid stream left the RPC pending')),1000);})
+ ]);}finally{clearTimeout(timer);}
+ assert.equal(destroyed,true);
+});
 async function fixture(t){
  const state={scans:0,now:100000,status:404,body:'{}',requests:0};
  const server=createServer((req,res)=>{state.requests++;req.resume();res.writeHead(state.status,{'Content-Type':'application/json'});res.end(state.body);});

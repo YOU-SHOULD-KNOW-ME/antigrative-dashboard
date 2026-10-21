@@ -2,6 +2,7 @@
 
 ## 0.8.8 — 2026-10-21
 
+- Settle malformed projected-statistics RPC failures directly before closing transport, avoiding an unresolved request when a completed request emits no further error. Add a deterministic regression and bounded fixture/test cleanup.
 - Integrate [#18](https://github.com/YOU-SHOULD-KNOW-ME/antigrative-dashboard/pull/18), with thanks to @Lorin1470: add Traditional Chinese localization across App, IDE, side panel, Token usage, onboarding, update feedback and CLI (`--language zh-TW`).
 - Provide explicit English / 简体中文 / 繁體中文 choices, retaining the context footer location and using a keyboard-accessible menu in the panel and usage window. Preserve the bilingual discovery flow, English default and existing selections.
 - Persist Traditional Chinese across fresh renderers/backends and independent guide writes. Correct missing-key/error fallback and avoid redundant guide writes during polling.

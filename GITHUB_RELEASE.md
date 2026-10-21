@@ -16,6 +16,7 @@ Thanks to @Lorin1470 for contributing the Traditional Chinese localization in [P
 - Use English translation fallback rather than accidentally showing Traditional text in English. Localize unknown backend errors safely.
 - Preserve the bilingual first-use discovery flow and the existing UTC+8 Token accounting boundaries. Language selection changes presentation, never recorded totals.
 - Avoid redundant guide DOM writes during polling, retaining stable context-card scroll position.
+- Settle rejected statistics streams immediately before closing transport. A malformed projected JSON reply can no longer leave an RPC pending when request destruction emits no further error. Add a deterministic regression and bounded test diagnostics.
 - Keep the current annual heatmap, model charts, responsive icon layout and theme adaptation.
 
 ## Installation
@@ -28,6 +29,6 @@ Existing statistics and preferences are retained. SHA-256 files are included for
 
 ## Verification
 
-Local Windows checks: 227 Node tests passed (1 skipped), 57 Python tests passed (1 skipped), and 11 IDE unit tests passed. Browser checks cover App/IDE usage, the sandboxed side panel, three-language selection and restart persistence, narrow layouts, update UI, and large-chat open/close performance. The local App was verified with the new Traditional Chinese choice and unchanged preferences.
+Local Windows checks: 228 Node tests passed (1 skipped), 57 Python tests passed (1 skipped), and 11 IDE unit tests passed. Browser checks cover App/IDE usage, the sandboxed side panel, three-language selection and restart persistence, narrow layouts, update UI, and large-chat open/close performance. The local App was verified with the new Traditional Chinese choice and unchanged preferences.
 
 Automated Windows/Linux/macOS release gates run before publication. These checks do not establish signed-in Linux/macOS GUI acceptance.
