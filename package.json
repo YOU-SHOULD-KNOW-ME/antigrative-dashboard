@@ -5,7 +5,7 @@
   "description": "Compact Antigravity token throughput and quota widget",
   "license": "MIT",
   "scripts": {
-    "test": "node --test sidecars/panel/tests/*.test.mjs cli/tests/*.test.mjs",
+    "test": "node --test --test-timeout=60000 sidecars/panel/tests/*.test.mjs cli/tests/*.test.mjs",
     "preview:cli": "node cli/statusline.mjs --preview",
     "test:lifecycle": "python -m unittest discover -s tests -v",
     "test:ui": "node tools/check-theme-ui.mjs && node tools/check-localized-ui.mjs && node tools/check-inline-layout.mjs && node tools/check-inline-hover.mjs && node tools/check-density-motion.mjs && node tools/check-subagent-ui.mjs && node tools/check-teamwork-ui.mjs && node tools/check-cold-start-ui.mjs && node tools/check-language-persistence.mjs && node tools/check-language-guide.mjs && node tools/check-token-usage-ui.mjs && node tools/check-update-ui.mjs",
