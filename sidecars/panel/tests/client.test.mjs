@@ -18,11 +18,16 @@ async function fixture(t){
 
 test('unavailable history and malformed RPC replies never invalidate a healthy endpoint',async t=>{
  const {client,state}=await fixture(t);
+ const rejects=async(method,body)=>{
+  let timer;
+  try{await Promise.race([assert.rejects(client.call(method,body)),new Promise((_,reject)=>{timer=setTimeout(()=>reject(new Error(`RPC fixture stalled: status=${state.status}, requests=${state.requests}, method=${method}`)),10000);})]);}
+  finally{clearTimeout(timer);}
+ };
  for(const status of [400,404,409,429,500,503]){
   state.status=status;
-  for(let i=0;i<3;i++)await assert.rejects(client.call('GetCascadeTrajectory',{cascadeId:'missing'}));
+  for(let i=0;i<3;i++)await rejects('GetCascadeTrajectory',{cascadeId:'missing'});
  }
- state.status=200;state.body='{broken';await assert.rejects(client.call('GetCascadeTrajectory'));
+ state.status=200;state.body='{broken';await rejects('GetCascadeTrajectory');
  state.body='{}';assert.deepEqual(await client.call('GetUserStatus'),{});
  assert.equal(state.scans,1,'Conversation/protocol failures must not spawn another process scan');
  assert.equal(state.requests,20,'Application failures are not blindly retried');
