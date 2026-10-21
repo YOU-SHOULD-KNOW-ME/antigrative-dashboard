@@ -52,7 +52,7 @@ function localize(){
   for(const e of document.querySelectorAll('[data-i18n]'))e.textContent=t(e.dataset.i18n);
   for(const e of document.querySelectorAll('[data-i18n-aria]'))e.setAttribute('aria-label',t(e.dataset.i18nAria));
   for(const e of document.querySelectorAll('[data-i18n-aria][title]'))e.title=t(e.dataset.i18nAria);
-  $('language-toggle').textContent=language.language==='en'?'EN':'中';$('language-toggle').title=t('switchLanguage')+(preferences.error?' · '+t('languageSaveFailed'):'');$('language-toggle').dataset.saveFailed=String(preferences.error);
+  $('language-toggle').textContent=language.language==='en'?'EN':(language.language==='zh-TW'?'繁':'簡');$('language-toggle').title=t('switchLanguage')+(preferences.error?' · '+t('languageSaveFailed'):'');$('language-toggle').dataset.saveFailed=String(preferences.error);
 }
 
 function chooseGroup(groups, speed) {
@@ -137,7 +137,7 @@ function render() {
   $('health-note').classList.toggle('warning', snapshot.connection !== 'live' || !!snapshot.sessionError);
   const integration = snapshot.integration;
   $('integration-note').textContent = integration && !['mounted','disabled'].includes(integration.state)
-    ? (language.language === 'zh-CN' ? '内嵌栏正在自动重连；此面板仍可查看统计。' : 'Inline widget is reconnecting automatically; statistics remain available in this panel.') : '';
+    ? (language.language === 'zh-TW' ? '內嵌狀態列正在自動重新連線；此面板仍可檢視統計資料。' : (language.language === 'zh-CN' ? '内嵌栏正在自动重连；此面板仍可查看统计。' : 'Inline widget is reconnecting automatically; statistics remain available in this panel.')) : '';
   updateCountdowns();
 }
 

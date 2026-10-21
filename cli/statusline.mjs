@@ -22,7 +22,7 @@ function options(args) {
     if (['--preview', '--details', '--json', '--help', '--no-color'].includes(arg)) result[arg.slice(2)] = true;
     else if (arg === '--language') {
       const value = args[++i];
-      if (!['en', 'zh-CN'].includes(value)) throw new Error('Invalid option');
+      if (!['en', 'zh-CN', 'zh-TW'].includes(value)) throw new Error('Invalid option');
       result.language = value;
     } else if (arg === '--width') {
       const value = Number(args[++i]);

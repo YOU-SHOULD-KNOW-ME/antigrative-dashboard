@@ -79,9 +79,9 @@ module.exports = function installAgPulseInlineWidget() {
     for(const e of root.querySelectorAll('[data-i18n-aria][title]'))attribute(e,'title',t(e.dataset.i18nAria));
     for(const button of root.querySelectorAll('[data-language-choice]')){attribute(button,'aria-pressed',button.dataset.languageChoice===language.language);attribute(button,'data-save-failed',preferences.error);attribute(button,'title',preferences.error?t('languageSaveFailed'):button.textContent);}
     text('language-save-note',preferences.error?t('languageSaveFailed'):'');
-    const zh=language.language==='zh-CN';
-    text('usage-today-label',zh?'今日用量':'Today');text('usage-month-label',zh?'本月用量':'This month');
-    text('usage-open-label',zh?'查看用量统计':'View token usage');updateMenu?.localize();
+    const zh=language.language==='zh-CN',tw=language.language==='zh-TW';
+    text('usage-today-label',tw?'今日用量':(zh?'今日用量':'Today'));text('usage-month-label',tw?'本月用量':(zh?'本月用量':'This month'));
+    text('usage-open-label',tw?'檢視用量統計':(zh?'查看用量统计':'View token usage'));updateMenu?.localize();
     updateGuide();
   }
   function stopDensityMotion(){
@@ -538,12 +538,12 @@ module.exports = function installAgPulseInlineWidget() {
     row.insertBefore(node,branch.nextSibling);
     for(const card of root.querySelectorAll('.card')){const note=document.createElement('p');note.className='scope-note';note.dataset.i18n='subagentStats';card.querySelector('.heading').after(note);}
     const languageRow=document.createElement('div');languageRow.className='card-language';
-    setMarkup(languageRow,'<span>Language / 语言</span><div class="language-options" role="group" aria-label="Language / 语言"><button type="button" class="language-button" id="card-language-en" data-language-choice="en">English</button><button type="button" class="language-button" id="card-language-zh" data-language-choice="zh-CN">简体中文</button></div>');
+    setMarkup(languageRow,'<span>Language / 語言 / 语言</span><div class="language-options" role="group" aria-label="Language / 語言 / 语言"><button type="button" class="language-button" id="card-language-en" data-language-choice="en">English</button><button type="button" class="language-button" id="card-language-zh-tw" data-language-choice="zh-TW">繁體中文</button><button type="button" class="language-button" id="card-language-zh" data-language-choice="zh-CN">简体中文</button></div>');
     $('context-card').append(languageRow);
     if(window.__agPulseUpdateFactory&&window.agPulseHost.updatePlugin)updateMenu=window.__agPulseUpdateFactory({root,row:languageRow,language,setMarkup,request:input=>window.agPulseHost.updatePlugin(input),onOpen:hide});
     const saveNote=document.createElement('p');saveNote.className='footnote';saveNote.id='language-save-note';languageRow.after(saveNote);
-    const guide=document.createElement('section');guide.className='language-guide';guide.id='language-guide';guide.hidden=true;guide.setAttribute('role','region');guide.setAttribute('aria-label','Language / 语言');
-    setMarkup(guide,'<div class="guide-heading"><strong>Language <span>/ 语言</span></strong><button type="button" id="guide-close" aria-label="Dismiss language tip / 关闭语言提示" title="Dismiss / 关闭">×</button></div><button type="button" id="guide-open"><span><span>Switch in context details</span><span lang="zh-CN">在上下文详情中切换语言</span></span><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3 8h9M8 4l4 4-4 4"/></svg></button><p class="footnote" id="guide-save-note"></p>');
+    const guide=document.createElement('section');guide.className='language-guide';guide.id='language-guide';guide.hidden=true;guide.setAttribute('role','region');guide.setAttribute('aria-label','Language / 語言 / 语言');
+    setMarkup(guide,'<div class="guide-heading"><strong>Language <span>/ 語言 / 语言</span></strong><button type="button" id="guide-close" aria-label="Dismiss language tip / 關閉語言提示" title="Dismiss / 關閉">×</button></div><button type="button" id="guide-open"><span><span>Switch in context details</span><span lang="zh-TW">在上下文詳細資料中切換語言</span></span><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3 8h9M8 4l4 4-4 4"/></svg></button><p class="footnote" id="guide-save-note"></p>');
     root.append(guide);
     const guideStyle=document.createElement('style');guideStyle.textContent=`
       .card-language{margin:10px 0 0;padding:8px 0 0;border-top:1px solid var(--pulse-separator);border-bottom:0;gap:8px;font-size:10px}
@@ -566,7 +566,7 @@ module.exports = function installAgPulseInlineWidget() {
       #guide-save-note:empty,#language-save-note:empty{display:none}#guide-save-note,#language-save-note{color:var(--pulse-warning)}
     `;root.append(guideStyle);
     $('guide-close').addEventListener('click',()=>void dismissGuide());
-    $('guide-open').addEventListener('click',()=>{guideOpened=true;show('context');$('card-language-zh').scrollIntoView({block:'nearest'});$('card-language-zh').focus({preventScroll:true});});
+    $('guide-open').addEventListener('click',()=>{guideOpened=true;show('context');const btn=$('card-language-zh-tw')||$('card-language-zh');btn.scrollIntoView({block:'nearest'});btn.focus({preventScroll:true});});
     // Escape ancestor stacking/paint contexts; ordinary z-index cannot do this.
     if(typeof HTMLElement.prototype.showPopover==='function')for(const card of root.querySelectorAll('.card'))card.setAttribute('popover','manual');
     if(typeof guide.showPopover==='function')guide.setAttribute('popover','manual');

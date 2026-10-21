@@ -30,3 +30,22 @@ test('English errors do not leak untranslated Chinese backend messages',()=>{
   language.toggle();assert.equal(language.errorMessage('请先打开 Antigravity'),'请先打开 Antigravity');
   assert.equal(language.errorMessage('Waiting to reconnect'),'等待控件重新连接');
 });
+test('Traditional Chinese (zh-TW) provides accurate localized terminology and toggle support',()=>{
+  const language=create('zh-TW'),now=Date.parse('2026-10-06T08:00:00Z');
+  assert.equal(language.language,'zh-TW');
+  assert.equal(language.t('cache'),'快取命中');
+  assert.equal(language.t('cacheRate'),'快取命中率');
+  assert.equal(language.t('cacheMiss'),'未快取輸入');
+  assert.equal(language.t('panelSpeed'),'速率');
+  assert.equal(language.t('panelCache'),'快取');
+  assert.equal(language.t('panelSharedQuota'),'共用配額');
+  assert.equal(language.t('sample',{rounds:2,steps:6,requests:3}),'2 輪 6 步 · 3 次取樣');
+  assert.equal(language.countdown('2026-10-08T10:00:00Z',now),'2天 02:00:00');
+  assert.equal(language.elapsed(90),'1 分 30 秒');
+  assert.equal(language.errorMessage('请先打开 Antigravity'),'請先開啟 Antigravity');
+  assert.equal(language.errorMessage('未找到 Antigravity 桌面后台'),'找不到 Antigravity 桌面背景程式');
+  assert.equal(language.errorMessage('会话统计数据超过内存预算'),'對話統計資料超出記憶體預算');
+  assert.equal(language.errorMessage('Antigravity 接口 GetUserStatus 返回 401'),'Antigravity API GetUserStatus 回傳 HTTP 401');
+  const saved=language.toggle();assert.equal(saved,'en');
+  assert.equal(language.toggle(),'zh-TW');
+});

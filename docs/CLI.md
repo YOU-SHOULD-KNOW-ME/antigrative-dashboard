@@ -28,6 +28,7 @@ An independent language choice can be saved in the command:
 
 ```sh
 python manage.py install-cli --language zh-CN
+python manage.py install-cli --language zh-TW
 python manage.py install-cli --language en
 ```
 
@@ -92,8 +93,9 @@ Linux's third Sonnet request supplied input 182 and read 18,287 (99.0%); its thi
 node cli/statusline.mjs --preview --language zh-CN --no-color
 # 默认跟随桌面版保存的语言
 python manage.py install-cli
-# 或单独固定中文
+# 或单独固定语言（zh-CN 简体中文 / zh-TW 繁體中文）
 python manage.py install-cli --language zh-CN
+python manage.py install-cli --language zh-TW
 python manage.py status-cli
 ```
 

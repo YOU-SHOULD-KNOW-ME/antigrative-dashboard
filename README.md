@@ -63,7 +63,7 @@ Keep the summary visible. Hover for the details.
 - **Survives updates.** Plugin-owned runtime attachment reconnects after app updates, without modifying the application archive.
 - **Persistent conversations.** TPS and cache statistics are saved separately for each conversation and account; reloads can recover saved statistics.
 - **Compact-window support.** Full statistics reduce to three clickable icons (speed, cache and context) when space is limited. Hover or click for details; language switching stays available in the context card. The strip hides only if the icons cannot fit safely and restores when space returns. Message controls hidden behind the composer do not cause scroll flicker.
-- **Discoverable language settings.** English is the default. A compact bilingual first-use tip beside context opens the English / 简体中文 choices at the bottom of its detail card. Choosing a language or closing the tip saves completion, so it does not return on restart. Closing the tip does not change the language; failed saves offer a retry. Subagent composers do not repeat the tip.
+- **Discoverable language settings.** English is the default. A compact bilingual first-use tip beside context opens the English / 繁體中文 / 简体中文 choices at the bottom of its detail card. Choosing a language or closing the tip saves completion, so it does not return on restart. Closing the tip does not change the language; failed saves offer a retry. Subagent composers do not repeat the tip.
 - **Theme adaptation.** Controls, cards and quota menus follow Antigravity's light/dark mode and custom background, card, text and accent colors, with readable text and OS fallback in standalone previews. Live changes require no restart or conversation reload.
 - **Local collection.** The collector talks to loopback endpoints. It does not upload your metrics to a third-party service.
 
@@ -240,7 +240,7 @@ Repository presentation is inspired by [DSH Rail Music](https://github.com/YOU-S
 
 ### Language
 
-Open context details and choose **English / 简体中文** at the bottom. The first-use bilingual tip points to this setting. The desktop adapter saves an atomic user preference shared with its side panel; the IDE saves its own preference in extension global storage. Both survive restarts. This changes dashboard labels, not the host app or model name.
+Open context details and choose **English / 繁體中文 / 简体中文** at the bottom. The first-use bilingual tip points to this setting. The desktop adapter saves an atomic user preference shared with its side panel; the IDE saves its own preference in extension global storage. Both survive restarts. This changes dashboard labels, not the host app or model name.
 
 ## FAQ
 

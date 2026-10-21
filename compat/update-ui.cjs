@@ -25,27 +25,27 @@ module.exports = function createUpdateMenu({root,row,language,setMarkup,request,
  @keyframes update-flow{from{transform:translateX(-38%) scaleX(.38)}to{transform:translateX(100%) scaleX(.38)}}@keyframes update-sheen{to{transform:translateX(100%)}}@keyframes update-settle{from{transform:scale(.92);opacity:.45}to{transform:scale(1);opacity:1}}
  @media(prefers-reduced-motion:reduce){.update-dialog[data-progress=unknown] #update-progress-fill{animation:update-breathe 1200ms linear infinite;transform:scaleX(.4)}.update-progress-sheen{animation:none!important}#update-icon[data-busy=true] svg{animation:update-breathe 1200ms linear infinite}#update-icon[data-complete=true] svg{animation:none}}@keyframes update-breathe{0%,100%{opacity:.45}50%{opacity:1}}
  `;
- const $=id=>dialog.querySelector('#'+id),zh=()=>language.language==='zh-CN',w=(cn,en)=>zh()?cn:en;
+ const $=id=>dialog.querySelector('#'+id),zh=()=>language.language==='zh-CN'||language.language==='zh-TW',tw=()=>language.language==='zh-TW',w=(cn,en,twText)=>(tw()&&twText!==undefined)?twText:(zh()?cn:en);
  let state={state:'idle'},disposed=false,timer=null,epoch=0,busy=false,lastRender='',meterPhase=null,meterFrame=null,meterRestoreFrame=null;
  function closeMenu(){menu.hidden=true;button.setAttribute('aria-expanded','false');}
  function render(){
   const signature=JSON.stringify([language.language,state,busy]);if(signature===lastRender)return;lastRender=signature;
-  button.setAttribute('aria-label',w('插件菜单','Plugin menu'));button.title=button.getAttribute('aria-label');menu.firstElementChild.firstElementChild.textContent=w('检查更新','Check for updates');
-  $('update-title').textContent=w('插件更新','Plugin update');$('update-close').setAttribute('aria-label',w('关闭','Close'));
-  const status={checking:w('正在检查…','Checking…'),current:w('已是最新版本','You’re up to date'),available:w('发现新版本','Update available'),installing:w('正在校验并安装…','Verifying and installing…'),installed:w('更新已完成','Update installed'),reloading:w('正在重新加载…','Reloading…'),error:w('更新未完成','Update incomplete'),idle:w('检查更新','Check for updates')};
+  button.setAttribute('aria-label',w('插件菜单','Plugin menu','外掛功能表'));button.title=button.getAttribute('aria-label');menu.firstElementChild.firstElementChild.textContent=w('检查更新','Check for updates','檢查更新');
+  $('update-title').textContent=w('插件更新','Plugin update','外掛更新');$('update-close').setAttribute('aria-label',w('关闭','Close','關閉'));
+  const status={checking:w('正在检查…','Checking…','正在檢查…'),current:w('已是最新版本','You’re up to date','已是最新版本'),available:w('发现新版本','Update available','發現新版本'),installing:w('正在校验并安装…','Verifying and installing…','正在驗證並安裝…'),installed:w('更新已完成','Update installed','更新已完成'),reloading:w('正在重新加载…','Reloading…','正在重新載入…'),error:w('更新未完成','Update incomplete','更新未完成'),idle:w('检查更新','Check for updates','檢查更新')};
   $('update-status').textContent=status[state.state]||status.error;dialog.setAttribute('aria-busy',String(['checking','installing','reloading'].includes(state.state)));
   renderProgress();
-  $('update-current-label').textContent=w('当前版本','Installed');$('update-latest-label').textContent=w('最新版本','Latest');$('update-host-label').textContent=w('安装类型','Installation');$('update-current').textContent=state.currentVersion?'v'+state.currentVersion:'—';$('update-latest').textContent=state.latestVersion?'v'+state.latestVersion:'—';
-  $('update-notes-wrap').hidden=state.state!=='available'||!state.notes;$('update-notes-label').textContent=w('更新内容','What’s new');$('update-notes').textContent=(state.notes||'').split(/\r?\n/).map(line=>line.trim()).filter(line=>line&&!line.startsWith('#')).slice(0,3).join('\n');
-  const errors={network:w('连接失败，请稍后重试','Connection failed. Please retry.'),python:w('未找到 Python','Python was not found.'),verification:w('未通过安装包校验','Package verification failed.'),busy:w('已有更新正在进行','Another update is in progress.'),install:w('安装未完成，原版已保留','Installation incomplete; previous files retained.'),rollback:w('恢复失败，可从备份恢复','Recovery failed; a local backup is available.')};
-  $('update-feedback').textContent=state.state==='error'?(errors[state.error]||errors.network):state.state==='available'?w('设置和统计记录将保留','Settings and statistics are retained'):'';
+  $('update-current-label').textContent=w('当前版本','Installed','目前版本');$('update-latest-label').textContent=w('最新版本','Latest','最新版本');$('update-host-label').textContent=w('安装类型','Installation','安裝類型');$('update-current').textContent=state.currentVersion?'v'+state.currentVersion:'—';$('update-latest').textContent=state.latestVersion?'v'+state.latestVersion:'—';
+  $('update-notes-wrap').hidden=state.state!=='available'||!state.notes;$('update-notes-label').textContent=w('更新内容','What’s new','更新內容');$('update-notes').textContent=(state.notes||'').split(/\r?\n/).map(line=>line.trim()).filter(line=>line&&!line.startsWith('#')).slice(0,3).join('\n');
+  const errors={network:w('连接失败，请稍后重试','Connection failed. Please retry.','連線失敗，請稍後重試'),python:w('未找到 Python','Python was not found.','找不到 Python'),verification:w('未通过安装包校验','Package verification failed.','安裝套件驗證未通過'),busy:w('已有更新正在进行','Another update is in progress.','已有更新正在進行中'),install:w('安装未完成，原版已保留','Installation incomplete; previous files retained.','安裝未完成，已保留原始檔案'),rollback:w('恢复失败，可从备份恢复','Recovery failed; a local backup is available.','還原失敗，可從本機備份還原')};
+  $('update-feedback').textContent=state.state==='error'?(errors[state.error]||errors.network):state.state==='available'?w('设置和统计记录将保留','Settings and statistics are retained','現有設定與統計記錄將會保留'):'';
   const actionable=['available','installed','error'].includes(state.state);$('update-action').hidden=!actionable;$('update-action').disabled=busy;
-  $('update-action').textContent=state.state==='installed'?w('重新加载插件','Reload plugin'):state.state==='error'?w('重试','Retry'):w('更新','Update');
+  $('update-action').textContent=state.state==='installed'?w('重新加载插件','Reload plugin','重新載入外掛'):state.state==='error'?w('重试','Retry','重試'):w('更新','Update','更新');
  }
  function renderProgress(){
   const progress=state.progress||{},phase=progress.phase;
   const complete=['current','available','installed'].includes(state.state),active=['checking','installing','reloading'].includes(state.state);
-  const labels={check:w('正在连接发布源','Connecting to releases'),download:w('正在下载更新','Downloading update'),verify:w('正在校验安装包','Verifying package'),extract:w('正在准备文件','Preparing files'),backup:w('正在备份当前版本','Backing up installed version'),install:w('正在安装文件','Installing files'),recover:w('正在恢复原版本','Restoring previous version'),complete:w('更新完成','Update complete')};
+  const labels={check:w('正在连接发布源','Connecting to releases','正在連線至發布來源'),download:w('正在下载更新','Downloading update','正在下載更新'),verify:w('正在校验安装包','Verifying package','正在驗證安裝套件'),extract:w('正在准备文件','Preparing files','正在準備檔案'),backup:w('正在备份当前版本','Backing up installed version','正在備份目前版本'),install:w('正在安装文件','Installing files','正在安裝檔案'),recover:w('正在恢复原版本','Restoring previous version','正在還原先前版本'),complete:w('更新完成','Update complete','更新完成')};
   const known=state.state==='installing'&&phase==='download'&&Number.isSafeInteger(progress.total)&&progress.total>0&&Number.isSafeInteger(progress.received)&&progress.received>=0&&progress.received<=progress.total;
   const fraction=known?progress.received/progress.total:complete?1:null;
   const nextMeterPhase=state.state+':'+(known?'download':phase||'unknown');
@@ -56,13 +56,13 @@ module.exports = function createUpdateMenu({root,row,language,setMarkup,request,
    $('update-progress-fill').style.transition='none';
    meterFrame=requestAnimationFrame(()=>{meterRestoreFrame=requestAnimationFrame(()=>{if(!disposed)$('update-progress-fill').style.removeProperty('transition');});});
   }
-  let label=labels[phase]||w('正在处理','Working');
+  let label=labels[phase]||w('正在处理','Working','正在處理中');
   if(state.state==='checking')label=labels.check;
-  else if(state.state==='current')label=w('检查完成','Check complete');
-  else if(state.state==='available')label=w('准备就绪','Ready to update');
+  else if(state.state==='current')label=w('检查完成','Check complete','檢查完成');
+  else if(state.state==='available')label=w('准备就绪','Ready to update','準備就緒');
   else if(state.state==='installed')label=labels.complete;
-  else if(state.state==='reloading')label=w('正在重新加载插件','Reloading plugin');
-  else if(state.state==='error')label=w('操作未完成，可重试','Not completed. Retry available.');
+  else if(state.state==='reloading')label=w('正在重新加载插件','Reloading plugin','正在重新載入外掛');
+  else if(state.state==='error')label=w('操作未完成，可重试','Not completed. Retry available.','操作未完成，可重試');
   $('update-progress-label').textContent=label;
   $('update-progress-value').textContent=known?`${(progress.received/1048576).toFixed(1)} / ${(progress.total/1048576).toFixed(1)} MB · ${Math.floor(fraction*100)}%`:complete?'100%':'';
   dialog.dataset.progress=state.state==='error'?'error':fraction===null?'unknown':'known';

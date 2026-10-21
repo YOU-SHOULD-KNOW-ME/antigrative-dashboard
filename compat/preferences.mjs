@@ -5,7 +5,7 @@ import { randomUUID } from 'node:crypto';
 import { platformPaths } from './platform.mjs';
 
 export function validateLanguage(value) {
-  if (value!=='en'&&value!=='zh-CN') throw new Error('Invalid language preference');
+  if (value!=='en'&&value!=='zh-CN'&&value!=='zh-TW') throw new Error('Invalid language preference');
   return value;
 }
 
@@ -32,7 +32,7 @@ export class PreferencesStore {
     const operation=this.queue.then(async()=>{
       await mkdir(dirname(this.file),{recursive:true});
       let prior=0,previous={language:null,languageGuideDismissed:false,usageGuideDismissed:false};
-      try {const value=JSON.parse((await readFile(this.file,'utf8')).replace(/^\uFEFF/,''));if(Number.isSafeInteger(value.revision))prior=value.revision;previous={language:['en','zh-CN'].includes(value.language)?value.language:null,languageGuideDismissed:value.languageGuideDismissed===true,usageGuideDismissed:value.usageGuideDismissed===true};}catch{}
+      try {const value=JSON.parse((await readFile(this.file,'utf8')).replace(/^\uFEFF/,''));if(Number.isSafeInteger(value.revision))prior=value.revision;previous={language:['en','zh-CN','zh-TW'].includes(value.language)?value.language:null,languageGuideDismissed:value.languageGuideDismissed===true,usageGuideDismissed:value.usageGuideDismissed===true};}catch{}
       const language=Object.hasOwn(input,'language')?input.language:previous.language;
       const languageGuideDismissed=previous.languageGuideDismissed||Object.hasOwn(input,'language')||input.languageGuideDismissed===true;
       const usageGuideDismissed=previous.usageGuideDismissed||input.usageGuideDismissed===true;

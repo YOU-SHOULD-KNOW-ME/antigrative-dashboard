@@ -31,6 +31,9 @@ const labels = {
   'zh-CN': { context: '上下文', shortContext: '上下文', cache: '缓存', read: '读取', capacity: '容量', created: '缓存写入', input: '输入', output: '输出',
     left: '剩余', reset: '重置', quota: '额度', week: '周', unknown: '未知', idle: '就绪', thinking: '思考中',
     working: '生成中', tool_use: '工具', initializing: '启动中' },
+  'zh-TW': { context: '上下文', shortContext: '上下文', cache: '快取', read: '讀取', capacity: '容量', created: '快取寫入', input: '輸入', output: '輸出',
+    left: '剩餘', reset: '重設', quota: '配額', week: '週', unknown: '未知', idle: '就緒', thinking: '思考中',
+    working: '生成中', tool_use: '工具', initializing: '啟動中' },
 };
 
 export function render(metrics, { language = 'en', width = metrics.width, color = true, details = false, lightBackground = false, now = Date.now() } = {}) {
