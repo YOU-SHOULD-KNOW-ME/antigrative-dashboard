@@ -3,10 +3,13 @@ import assert from 'node:assert/strict';
 import {createServer} from 'node:http';
 import {AntigravityClient} from '../client.mjs';
 
+// Synthetic RPC fixtures own every accepted socket. End them explicitly:
+// HTTP keep-alive teardown must not hold the cross-platform test runner open.
+const stopServer=server=>new Promise(resolve=>{server.close(resolve);server.closeAllConnections();});
 async function fixture(t){
  const state={scans:0,now:100000,status:404,body:'{}',requests:0};
  const server=createServer((req,res)=>{state.requests++;req.resume();res.writeHead(state.status,{'Content-Type':'application/json'});res.end(state.body);});
- await new Promise(r=>server.listen(0,'127.0.0.1',r));t.after(()=>new Promise(r=>server.close(r)));
+ await new Promise(r=>server.listen(0,'127.0.0.1',r));t.after(()=>stopServer(server));
  state.port=server.address().port;state.pid=42;
  const client=new AntigravityClient({now:()=>state.now,paths:()=>({log:'fixture'}),readLog:async()=>`listening on random port at ${state.port} for HTTP\n`,
   processes:async()=>{state.scans++;return [{ProcessId:state.pid,CommandLine:'language_server --standalone --csrf_token=fixture',Ports:[state.port]}];}});
@@ -54,9 +57,9 @@ test('authorization failures have a cooldown, then rediscover without disabling 
 test('a refused old port rediscovers a restarted backend once, without toggling the plugin',async t=>{
  const {client,state,server}=await fixture(t);state.status=200;
  await client.call('GetUserStatus');assert.equal(state.scans,1);
- await new Promise(r=>server.close(r));
+ await stopServer(server);
  const replacement=createServer((req,res)=>{req.resume();res.end('{}');});
- await new Promise(r=>replacement.listen(0,'127.0.0.1',r));t.after(()=>new Promise(r=>replacement.close(r)));
+ await new Promise(r=>replacement.listen(0,'127.0.0.1',r));t.after(()=>stopServer(replacement));
  state.port=replacement.address().port;state.pid=43;state.now+=3000;
  assert.deepEqual(await client.call('GetUserStatus'),{});
  assert.equal(client.server.pid,43);assert.equal(state.scans,2);
