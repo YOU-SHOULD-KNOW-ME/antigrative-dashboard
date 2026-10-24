@@ -131,3 +131,33 @@ test('a first transient history failure retains cached totals and is distinguish
  clock+=30001;await usage.sync();snapshot=await usage.snapshot();assert.equal(snapshot.confirmedMissingConversations,1);
  fail=false;await usage.sync(true);snapshot=await usage.snapshot();assert.equal(snapshot.totalTokens,40);assert.equal(snapshot.confirmedMissingConversations,0);assert.equal(snapshot.retryingConversations,0);
 });
+
+test('delegated histories absent from disk and lists survive slices, cycles, restart and repeated imports',async t=>{
+ const {ledger}=await setup(t),grandchild='33333333-3333-3333-3333-333333333333';
+ const store=baseStore(),calls=[];let childOutput=10;
+ store.client.trajectory=async(cascade,options)=>{
+  calls.push(cascade);assert.ok(options.summary,'Unlisted children still use bounded EOF pagination');
+  const value=raw(1);value.trajectory.cascadeId=cascade;
+  const usage=value.trajectory.generatorMetadata[0].chatModel.usage;usage.responseId=cascade;usage.apiProvider='API_PROVIDER_OPENAI';usage.outputTokens=cascade===other?childOutput:10;
+  value.trajectory.steps.push({invokeSubagent:{results:[{conversationId:cascade===id?other:cascade===other?grandchild:id}]}});
+  return value;
+ };
+ const first=tracker(t,store,ledger,{sliceMs:0,continueDelay:5});await first.sync();
+ const settle=async usage=>{const end=Date.now()+3000;while(usage.continuation||usage.pending){if(Date.now()>end)throw Error('Delegation backfill failed to settle');await delay(5);}};
+ await settle(first);assert.deepEqual(calls,[id,other,grandchild]);assert.equal((await ledger.summary(account)).totalTokens,60);
+ assert.equal((await ledger.backfillState(account,'app'))[key(id)].hasDelegates,true);
+ first.dispose();calls.length=0;childOutput=30;
+ const restarted=tracker(t,store,new UsageLedger(ledger.directory),{sliceMs:0,continueDelay:5});await restarted.sync();await settle(restarted);
+ assert.deepEqual(calls,[id,other,grandchild]);assert.equal((await restarted.ledger.summary(account)).totalTokens,80);
+ await restarted.sync(true);await settle(restarted);assert.equal((await restarted.ledger.summary(account)).totalTokens,80);
+ const checkpoint=await readFile(join(ledger.directory,account,'backfill-v1.json'),'utf8');assert.equal(checkpoint.includes(other),false,'Checkpoint keeps hashed identities only');
+});
+
+test('old completed checkpoints recheck once to discover omitted delegated histories',async t=>{
+ const {ledger}=await setup(t),store=baseStore();let reads=0;
+ const oldSignature=key('one'+JSON.stringify([undefined,undefined,undefined,undefined]));
+ await ledger.saveBackfillState(account,'app',{[key(id)]:{signature:oldSignature,state:'complete',failures:0,retryAt:0}});
+ store.client.trajectory=async()=>{reads++;return raw();};
+ const usage=tracker(t,store,ledger);await usage.sync();assert.equal(reads,1);
+ await usage.sync();assert.equal(reads,1,'The migration does not repeatedly reread ordinary settled history');
+});

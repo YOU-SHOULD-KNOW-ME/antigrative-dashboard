@@ -7,7 +7,7 @@
 模型选择旁只显示生成速率、缓存和上下文占用；悬停上下文，一并查看上下文、5 小时和周额度详情。<br>
 缩略信息常驻；鼠标悬停，才展开详细统计。
 
-[![Version 0.8.8](https://img.shields.io/badge/version-0.8.8-91adff?style=flat-square&labelColor=252936)](CHANGELOG.md)
+[![Version 0.8.9](https://img.shields.io/badge/version-0.8.9-91adff?style=flat-square&labelColor=252936)](CHANGELOG.md)
 [![Platforms](https://img.shields.io/badge/host-Windows%20%7C%20Linux%20%7C%20macOS-83d8b9?style=flat-square&labelColor=252936)](COMPATIBILITY.md)
 [![Antigravity 2.21.1 / 2.22.0](https://img.shields.io/badge/Antigravity-2.21.1%20%2F%202.22.0-c5a0ff?style=flat-square&labelColor=252936)](COMPATIBILITY.md)
 [![MIT](https://img.shields.io/badge/license-MIT-d4d9e6?style=flat-square&labelColor=252936)](LICENSE)
@@ -16,7 +16,7 @@
 
 </div>
 
-**v0.8.8 更新：** App、IDE 和 CLI 新增繁體中文，统一三语言选择并保存偏好；保留已有统计与 UTC+8 统计口径。[更新说明](https://github.com/YOU-SHOULD-KNOW-ME/antigrative-dashboard/releases/tag/v0.8.8)。
+**v0.8.9 更新：** 任务 Token／缓存统计纳入多层子代理，详情显示各自贡献；日／月用量去重入账。速率和上下文仍对应当前代理。[更新说明](https://github.com/YOU-SHOULD-KNOW-ME/antigrative-dashboard/releases/tag/v0.8.9)。
 
 ## 看看效果
 
@@ -52,7 +52,7 @@
 - **菜单保持稳定。** 打开额度组菜单时，轮询不会重建控件或关闭菜单，倒计时继续更新。
 - **用真实数据。** 余额读取账户接口，不根据生成字数推测，不将重置到期自动改成 100%。
 - **切换对话。** 统计跟随当前会话，新对话不沿用上一段对话的速率。
-- **子代理独立统计。** 输入框旁显示当前子代理的 tok/s、缓存率和上下文；详情区分子代理统计和账号共享额度。父子对话切换立即刷新，旧响应不能覆盖新页面或返回同一对话后的新数值。
+- **子代理用量汇总。** Token／缓存包含当前代理及其下级子代理，详情分别显示当前代理和子代理贡献。速率、上下文对应当前代理，额度仍为账号共享额度。后台汇总支持多层委派、请求去重和重启恢复。[统计口径及边界](docs/USAGE.md#delegated-tasks-boost--teamwork--subagents)。
 - **Teamwork 兼容（v0.8.1）。** 发送、停止、取消状态切换时保留控件，支持深层嵌套和无 `title`／`span` 的静态代理徽章。优先读取当前输入框所属的 DOM 会话标识，URL 不变时也能切换统计；忽略隐藏、禁用及更深层输入框，存在歧义时不随意挂载。中英文六层嵌套浏览器夹具已覆盖用量入口重新挂载和上下文至用量窗口的语言同步。Windows 真实三级委派已检查独立统计、返回主对话与生成中截图；该宿主每层改变 URL、只渲染一个输入框，URL 不变和六层 DOM 场景仍属夹具覆盖。Linux/macOS 登录后界面检查仍待完成。
 - **更新后自动连接。** 适配器保存在用户插件目录，默认安装不修改 App 归档。
 - **对话统计持久化。** 每个账号、每个对话分别保存 tok/s 与 cache，重新加载后可恢复。
@@ -64,7 +64,7 @@
 ## Antigravity IDE
 
 **v0.7.0** 新增反重力自己的独立 IDE 适配。下载发布页的
-`antigrative-dashboard-ide-0.8.8.vsix`，在 IDE 扩展页选择「从 VSIX 安装」。
+`antigrative-dashboard-ide-0.8.9.vsix`，在 IDE 扩展页选择「从 VSIX 安装」。
 仅安装 IDE 的用户也可以使用，无需先装桌面 App。
 
 完全退出 IDE 后，使用带

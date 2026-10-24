@@ -1,6 +1,6 @@
 {
   "name": "antigrative-dashboard",
-  "version": "0.8.8",
+  "version": "0.8.9",
   "private": true,
   "description": "Compact Antigravity token throughput and quota widget",
   "license": "MIT",
@@ -12,7 +12,7 @@
     "preview:motion": "node tools/check-density-motion.mjs --preview",
     "package": "python manage.py package",
     "test:ide": "node --test ide/tests/*.test.mjs && node tools/check-ide-ui.mjs",
-    "test:usage-ui": "node tools/check-usage-ui.mjs && node tools/check-usage-ui.mjs --ide && node tools/check-usage-performance.mjs",
+    "test:usage-ui": "node tools/check-usage-ui.mjs && node tools/check-usage-ui.mjs --ide && node tools/check-usage-performance.mjs && node tools/check-task-usage-ui.mjs",
     "test:panel-ui": "node tools/check-panel-ui.mjs"
   }
 }

@@ -71,7 +71,7 @@ export class AntigravityClient {
     try {
       return await new Promise((resolve, reject) => {
         const data = JSON.stringify(body);
-        const projection=['GetCascadeTrajectory','GetCascadeTrajectorySteps','GetCascadeTrajectoryGeneratorMetadata'].includes(method);
+        const projection=['GetCascadeTrajectory','GetCascadeTrajectorySteps','GetCascadeTrajectoryGeneratorMetadata','GetAllCascadeTrajectories'].includes(method);
         const started=this.now();
         // A rejected stream destroys its socket. Do not leave that socket in
         // the shared agent where an immediate quota refresh could reuse it.

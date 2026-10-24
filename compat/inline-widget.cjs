@@ -531,7 +531,7 @@ module.exports = function installAgPulseInlineWidget() {
       <dl>${[['modelTime','model-time'],['toolTime','tool-time'],['ttft','ttft'],['sessionTps','session-rate'],['latest','latest-rate'],['tokens','tokens']].map(([key,id])=>`<div><dt data-i18n="${key}">${t(key)}</dt><dd id="${id}">—</dd></div>`).join('')}</dl><p class="footnote" id="rate-note">${t('responseBasis')}</p>
     </section><section class="card" id="cache-card" role="region" data-i18n-aria="cacheTitle" aria-label="Token cache" hidden>
       <div class="heading"><span>${svg('cache')}<span data-i18n="cacheTitle">Token cache</span></span><span class="tag" id="cache-coverage">—</span></div>
-      <dl>${[['cacheRate','cache-detail-rate'],['cacheMiss','cache-miss'],['cacheRead','cache-read'],['cacheOutput','cache-output'],['cacheWrite','cache-write']].map(([key,id])=>`<div ${id==='cache-write'?'id="cache-write-row" hidden':''}><dt data-i18n="${key}">${t(key)}</dt><dd id="${id}">—</dd></div>`).join('')}</dl><p class="footnote" id="cache-note" hidden></p>
+      <dl>${[['cacheRate','cache-detail-rate'],['cacheMiss','cache-miss'],['cacheRead','cache-read'],['cacheOutput','cache-output'],['cacheWrite','cache-write']].map(([key,id])=>`<div ${id==='cache-write'?'id="cache-write-row" hidden':''}><dt data-i18n="${key}">${t(key)}</dt><dd id="${id}">—</dd></div>`).join('')}<div id="task-own-row" hidden><dt data-i18n="taskOwn">${t('taskOwn')}</dt><dd id="task-own">—</dd></div><div id="task-subagents-row" hidden><dt id="task-subagents-label"></dt><dd id="task-subagents">—</dd></div></dl><p class="footnote" id="cache-note" hidden></p>
     </section><section class="card context-card" id="context-card" role="region" data-i18n-aria="context" hidden>
       <div class="heading"><span>${svg('context')}<span data-i18n="context">Context window</span></span></div>
       <strong id="context-summary">—</strong><p id="context-tokens">—</p>
@@ -648,9 +648,10 @@ module.exports = function installAgPulseInlineWidget() {
     const savedNote=speed?.restoredFromHistory?' '+t('savedStats',{time:speed.savedAt?language.resetDate(speed.savedAt):'—'}):'';
     const saveWarning=data.persistenceError?' '+t('saveFailed'):'';
     text('rate-note',[language.errorMessage(data.error||data.sessionError),language.rateNote(speed)].filter(Boolean).join(' ')+savedNote+saveWarning);
-    const cache=speed?.cache;
+    const taskUsage=Number.isSafeInteger(speed?.taskUsage?.subagents)&&speed.taskUsage.subagents>0?speed.taskUsage:null;
+    const usage=taskUsage||speed,cache=usage?.cache;
     text('cache-rate',pct(cache?.hitRate));text('cache-detail-rate',pct(cache?.hitRate));
-    const tokens=speed?.tokens || cache;
+    const tokens=usage?.tokens || cache;
     // Keep coverage in the data model; the compact card shows readable counters.
     const hasTotal=tokens?.measuredRequests&&Number.isSafeInteger(tokens.totalTokens)&&tokens.totalTokens>=0;
     text('cache-total',hasTotal?`${compact(tokens.totalTokens)} tok`:'— tok');
@@ -662,7 +663,14 @@ module.exports = function installAgPulseInlineWidget() {
       text(id,available&&known?`${count(tokens[field])} tok`:'—');
     }
     hidden($('cache-write-row'),!(tokens?.cacheWriteTokens>0));
-    hidden($('cache-note'),true);
+    hidden($('task-own-row'),!taskUsage);hidden($('task-subagents-row'),!taskUsage);
+    text('task-subagents-label',taskUsage?t('taskSubagents',{n:count(taskUsage.subagents)}):'');
+    for(const [field,id]of[['ownTokens','task-own'],['subagentTokens','task-subagents']]){
+      const value=taskUsage?.[field],known=field!=='subagentTokens'||taskUsage?.loadedSubagents>0;
+      text(id,known&&Number.isSafeInteger(value)&&value>=0?`${count(value)} tok`:'—');
+    }
+    const taskNote=taskUsage?.state==='loading'?t('taskLoading'):taskUsage?.state==='partial'?t('taskPartial'):'';
+    text('cache-note',taskNote);hidden($('cache-note'),!taskNote);
     for(const [window,name]of[['5h','five'],['weekly','week']]){
       const b=group?.windows?.[window];text(name,pct(b?.remaining));text(`${name}-balance`,pct(b?.remaining));text(`${name}-reset`,date(b?.resetAt));
       style($(`${name}-fill`),'width',typeof b?.remaining==='number'?`${b.remaining*100}%`:'0%');style($(`${name}-fill`),'background',b?.remaining<.05?'var(--pulse-danger)':b?.remaining<.2?'var(--pulse-warning)':'');

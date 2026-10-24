@@ -7,7 +7,7 @@
 Token throughput, cache hits and context usage in the model selector row. Hover over context for five-hour and weekly quotas too.<br>
 Keep the summary visible. Hover for the details.
 
-[![Version 0.8.8](https://img.shields.io/badge/version-0.8.8-91adff?style=flat-square&labelColor=252936)](CHANGELOG.md)
+[![Version 0.8.9](https://img.shields.io/badge/version-0.8.9-91adff?style=flat-square&labelColor=252936)](CHANGELOG.md)
 [![Platforms](https://img.shields.io/badge/host-Windows%20%7C%20Linux%20%7C%20macOS-83d8b9?style=flat-square&labelColor=252936)](COMPATIBILITY.md)
 [![Antigravity 2.21.1 / 2.22.0](https://img.shields.io/badge/Antigravity-2.21.1%20%2F%202.22.0-c5a0ff?style=flat-square&labelColor=252936)](COMPATIBILITY.md)
 [![MIT](https://img.shields.io/badge/license-MIT-d4d9e6?style=flat-square&labelColor=252936)](LICENSE)
@@ -16,7 +16,7 @@ Keep the summary visible. Hover for the details.
 
 </div>
 
-**v0.8.8:** Add Traditional Chinese across App, IDE and CLI, with explicit three-language selection and persistent preferences. Existing statistics and UTC+8 accounting are retained. [Release notes](https://github.com/YOU-SHOULD-KNOW-ME/antigrative-dashboard/releases/tag/v0.8.8).
+**v0.8.9:** Include delegated subagents in task Token/cache usage, with separate contributions and duplicate-safe daily/monthly accounting. Speed and context remain local to the selected agent. [Release notes](https://github.com/YOU-SHOULD-KNOW-ME/antigrative-dashboard/releases/tag/v0.8.9).
 
 ## Preview
 
@@ -56,7 +56,7 @@ Keep the summary visible. Hover for the details.
 - **Stable menus.** Quota-group menus stay open across polling cycles while countdowns continue ticking.
 - **Actual account data.** Remaining quota comes from the account API, not an estimate based on text length. Expired windows do not automatically become 100%.
 - **Conversation-aware.** Switch chats without carrying the previous chat's throughput into a new one.
-- **Subagent-aware.** Show the current child's speed, cache and context beside its input box. Detail cards distinguish child statistics from shared account quotas. Navigation refreshes immediately; late results cannot overwrite another visit's data.
+- **Subagent-aware.** Token/cache totals include the selected agent and its reachable descendants, with separate current-agent/subagent contributions. Speed and context describe the selected agent, while quotas remain account-wide. Background collection, request deduplication and saved totals keep nested tasks responsive. [Accounting and limits](docs/USAGE.md#delegated-tasks-boost--teamwork--subagents).
 - **Teamwork compatibility (v0.8.1).** Keep the strip through send/stop/cancel transitions and support deeply nested static agent badges. Conversation IDs come from the current input's DOM owner when available, including switches without a URL change. Hidden/inert or deeper editors are ignored; ambiguous visible inputs/badges are not guessed. Six-level English/Chinese browser fixtures pass, including usage remount and context-to-usage language synchronization. Windows real three-level delegation was checked with independent metrics, return navigation and a generating-state screenshot; this host changed its URL at each level and rendered one composer. Same-URL/six-level DOM cases remain fixture coverage; signed-in Linux/macOS GUI checks are still pending.
 - **Survives updates.** Plugin-owned runtime attachment reconnects after app updates, without modifying the application archive.
 - **Persistent conversations.** TPS and cache statistics are saved separately for each conversation and account; reloads can recover saved statistics.
@@ -68,7 +68,7 @@ Keep the summary visible. Hover for the details.
 ## Antigravity IDE
 
 **v0.7.0** adds a separate VSIX for Google's own standalone IDE. Download
-`antigrative-dashboard-ide-0.8.8.vsix` from the release and choose **Install from VSIX…**
+`antigrative-dashboard-ide-0.8.9.vsix` from the release and choose **Install from VSIX…**
 in the IDE's Extensions view. No desktop App installation is required.
 
 Fully quit the IDE, then start it with

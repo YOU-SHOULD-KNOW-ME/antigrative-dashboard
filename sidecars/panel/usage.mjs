@@ -6,6 +6,7 @@ import {tokenCount,requestCacheMetrics} from './metrics.mjs';
 import {platformPaths} from '../../compat/platform.mjs';
 import {discoverLocalConversations,conversationId} from './local-conversations.mjs';
 import {setImmediate as yieldToLiveRequests} from 'node:timers/promises';
+import {delegatedIds} from './delegation.mjs';
 const HASH=/^[a-f0-9]{64}$/,GUID=/^[a-f0-9-]{36}$/i;
 const hash=value=>createHash('sha256').update(value).digest('hex');
 const keys=['uncached','cacheRead','cacheWrite','output'];
@@ -118,10 +119,17 @@ export class DesktopUsage{
   constructor(store,ledger=new UsageLedger(),{host=null,discoverLocal=null,owns=()=>true,now=Date.now,sliceMs=3000,continueDelay=250}={}){
     this.store=store;this.ledger=ledger;this.fingerprints=new Map();this.host=host;this.owns=owns;this.now=now;
     this.discoverLocal=discoverLocal||(()=>host?discoverLocalConversations({host}):Promise.resolve({conversations:[],errors:0}));
-    this.sliceMs=sliceMs;this.continueDelay=continueDelay;this.fullRemaining=new Set();this.passSeen=new Set();this.passFailures=new Set();this.readFailures=new Map();
+    this.sliceMs=sliceMs;this.continueDelay=continueDelay;this.fullRemaining=new Set();this.passSeen=new Set();this.passFailures=new Set();this.readFailures=new Map();this.delegatedCandidates=new Map();
   }
   syncing=false;lastSync=0;status='waiting';missingConversations=0;confirmedMissingConversations=0;retryingConversations=0;scope=null;scopeEpoch=null;forceQueued=false;disposed=false;continuation=null;
-  async ingest(scope,id,raw){await this.ledger.ingest(scope,id,raw);}
+  rememberDelegates(scope,id,raw){
+    if(scope!==this.store.identity)return [];
+    if(this.delegatedScope!==scope||this.delegatedEpoch!==this.store.epoch){this.delegatedCandidates.clear();this.delegatedScope=scope;this.delegatedEpoch=this.store.epoch;}
+    const children=delegatedIds(id,raw,this.store.client.reader?.summaries||{});
+    for(const child of children){if(this.delegatedCandidates.size>=20000)break;this.delegatedCandidates.set(child,{id:child});}
+    return children;
+  }
+  async ingest(scope,id,raw){this.rememberDelegates(scope,id,raw);await this.ledger.ingest(scope,id,raw);}
   sync(forceFull=false){
     if(this.disposed||!this.owns())return Promise.resolve();
     if(forceFull)this.forceQueued=true;
@@ -158,12 +166,15 @@ export class DesktopUsage{
     for(const c of local.conversations||[])if(conversationId.test(c.id)){
       const id=c.id.toLowerCase();candidates.set(id,{...candidates.get(id),...c,id});
     }
+    if(this.delegatedScope===scope&&this.delegatedEpoch===epoch)for(const [id,c]of this.delegatedCandidates)if(!candidates.has(id))candidates.set(id,c);
     if(forceFull){this.fullRemaining=new Set(candidates.keys());this.passSeen.clear();this.passFailures.clear();}
     const started=this.now();let processed=0,more=false,dirty=false;
     for(const c of candidates.values()){
       if(!current())return {current};
       const key=hash(c.id),s=c.listed,mark=JSON.stringify([s?.stepCount,s?.modifiedAt,s?.status,s?.lastUserInputStepIndex]);
-      const signature=c.signature?hash(c.signature+mark):hash(mark),old=journal[key];
+      // Recheck older imports once: they could finish without discovering
+      // delegated conversations that were absent from the host's top-level list.
+      const signature=hash('delegation-v1:'+(c.signature||'')+mark),old=journal[key];
       const unchanged=old?.signature===signature;
       const forced=this.fullRemaining.has(c.id);
       if(!forced&&this.passSeen.has(c.id))continue;
@@ -172,7 +183,7 @@ export class DesktopUsage{
       // A persisted checkpoint already verified both disk and host revision.
       // Restarting the collector alone must not force all settled chats to load.
       const settled=s?.modifiedAt&&/IDLE|DONE|COMPLETED|CANCELLED|CANCELED|STOPPED|FAILED|ERROR/.test(String(s.status||''));
-      if(!forced&&(c.signature?unchanged&&old.state==='complete'&&(!s||cached||settled):cached))continue;
+      if(!forced&&!old?.hasDelegates&&(c.signature?unchanged&&old.state==='complete'&&(!s||cached||settled):cached))continue;
       if(processed&&this.now()-started>=this.sliceMs){more=true;break;}
       processed++;
       this.passSeen.add(c.id);
@@ -186,6 +197,13 @@ export class DesktopUsage{
         if(!current())return {current};
         if(!raw?.trajectory||!Array.isArray(raw.trajectory.steps)||!Array.isArray(raw.trajectory.generatorMetadata))throw Error('Incomplete historical statistics');
         if(!s&&!raw.trajectory.steps.length&&!raw.trajectory.generatorMetadata.length)throw Error('History not yet readable');
+        const children=this.rememberDelegates(scope,c.id,raw);
+        for(const id of children)if(!candidates.has(id)){
+          // Match the existing local-history discovery ceiling and keep an
+          // iterative map walk, so nested/shared/cyclic delegation cannot recurse.
+          if(candidates.size>=20000){missing++;break;}
+          candidates.set(id,{id});
+        }
         await this.ingest(scope,c.id,raw);if(!current())return {current};
         const stable=!c.readSignature||await c.readSignature()===c.signature;
         if(!current())return {current};
@@ -193,7 +211,7 @@ export class DesktopUsage{
         this.fingerprints.set(c.id,mark);
         this.passFailures.delete(c.id);
         this.readFailures.delete(c.id);
-        if(this.host&&c.signature){journal[key]={signature,state:'complete',failures:0,retryAt:0};dirty=true;}
+        if(this.host&&c.signature){journal[key]={signature,state:'complete',failures:0,retryAt:0,hasDelegates:children.length>0};dirty=true;}
       }catch{
         if(!current())return {current};this.passFailures.add(c.id);
         const failures=c.signature?(unchanged?(old?.failures||0)+1:1):(this.readFailures.get(c.id)||0)+1;

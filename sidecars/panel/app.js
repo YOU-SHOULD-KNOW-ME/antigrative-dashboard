@@ -14,6 +14,8 @@ const language=createI18n(localGet('ag-pulse-language'));
 const t=language.t;
 
 const $ = id => document.getElementById(id);
+const text=(id,value)=>{const element=$(id);if(element.textContent!==String(value))element.textContent=String(value);};
+const hidden=(id,value)=>{const element=$(id);if(element.hidden!==value)element.hidden=value;};
 const compact=n=>typeof n!=='number'||!Number.isFinite(n)?'—':n>=1e9?`${(n/1e9).toFixed(1).replace(/\.0$/,'')}B`:n>=1e6?`${(n/1e6).toFixed(1).replace(/\.0$/,'')}M`:n>=1e3?`${(n/1e3).toFixed(1).replace(/\.0$/,'')}K`:String(n);
 const chips = [...document.querySelectorAll('[data-card]')];
 let snapshot = null, selectedGroup = localGet('ag-pulse-group'), group = null;
@@ -50,9 +52,9 @@ for (const chip of chips) {
 }
 function localize(){
   document.documentElement.lang=language.language;
-  for(const e of document.querySelectorAll('[data-i18n]'))e.textContent=t(e.dataset.i18n);
-  for(const e of document.querySelectorAll('[data-i18n-aria]'))e.setAttribute('aria-label',t(e.dataset.i18nAria));
-  for(const e of document.querySelectorAll('[data-i18n-aria][title]'))e.title=t(e.dataset.i18nAria);
+  for(const e of document.querySelectorAll('[data-i18n]')){const value=t(e.dataset.i18n);if(e.textContent!==value)e.textContent=value;}
+  for(const e of document.querySelectorAll('[data-i18n-aria]')){const value=t(e.dataset.i18nAria);if(e.getAttribute('aria-label')!==value)e.setAttribute('aria-label',value);}
+  for(const e of document.querySelectorAll('[data-i18n-aria][title]')){const value=t(e.dataset.i18nAria);if(e.title!==value)e.title=value;}
   languagePicker?.update();$('language-toggle').dataset.saveFailed=String(preferences.error);if(preferences.error)$('language-toggle').title+=' · '+t('languageSaveFailed');
 }
 
@@ -106,7 +108,8 @@ function render() {
   const savedNote=speed?.restoredFromHistory?' '+t('savedStats',{time:speed.savedAt?language.resetDate(speed.savedAt):'—'}):'';
   const saveWarning=snapshot.persistenceError?' '+t('saveFailed'):'';
   $('speed-basis').textContent = language.rateNote(speed)+savedNote+saveWarning;
-  const cache=speed?.cache;
+  const taskUsage=Number.isSafeInteger(speed?.taskUsage?.subagents)&&speed.taskUsage.subagents>0?speed.taskUsage:null;
+  const usage=taskUsage||speed,cache=usage?.cache;
   const context=speed?.context,hasCapacity=typeof context?.usedFraction==='number';
   $('strip-context').textContent=hasCapacity?`${Math.round(context.usedFraction*100)}%`:'—';
   $('strip-context-size').textContent=context?`${compact(context.usedTokens)} / ${context.maxTokens===null?'—':compact(context.maxTokens)}`:'—';
@@ -117,20 +120,27 @@ function render() {
   $('context-fill').style.width=hasCapacity?`${Math.min(1,context.usedFraction)*100}%`:'0%';
   $('context-fill').style.background=hasCapacity&&context.usedFraction>=.9?'var(--pulse-danger)':'';
   if(hasCapacity){$('context-track').setAttribute('aria-valuenow',String(Math.min(100,context.usedFraction*100)));$('context-track').setAttribute('aria-valuemin','0');$('context-track').setAttribute('aria-valuemax','100');}else $('context-track').removeAttribute('aria-valuenow');
-  $('strip-cache').textContent=percent(cache?.hitRate);$('cache-rate').textContent=percent(cache?.hitRate);
-  const tokens=speed?.tokens || cache;
+  text('strip-cache',percent(cache?.hitRate));text('cache-rate',percent(cache?.hitRate));
+  const tokens=usage?.tokens || cache;
   // Coverage remains available in raw statistics and documented separately.
   const hasTotal=tokens?.measuredRequests&&Number.isSafeInteger(tokens.totalTokens)&&tokens.totalTokens>=0;
-  $('strip-cache-total').textContent=hasTotal?`${compact(tokens.totalTokens)} tok`:'— tok';
+  text('strip-cache-total',hasTotal?`${compact(tokens.totalTokens)} tok`:'— tok');
   const inputCoverage={uncachedTokens:'uncachedRequests',cachedTokens:'cachedRequests',cacheWriteTokens:'cacheWriteRequests'};
   for(const [field,id]of[['cachedTokens','cache-read'],['uncachedTokens','cache-miss'],['cacheWriteTokens','cache-write'],['outputTokens','cache-output']]) {
     const available=field==='outputTokens'?(tokens?.outputAvailable??(tokens?.outputRequests??tokens?.measuredRequests)):(tokens?.[inputCoverage[field]]??tokens?.inputRequests??tokens?.measuredRequests);
     const known=Number.isSafeInteger(tokens?.[field])&&tokens[field]>=0;
-    $(id).textContent=available&&known?`${count(tokens[field])} tok`:'—';
+    text(id,available&&known?`${count(tokens[field])} tok`:'—');
   }
-  $('cache-coverage').textContent=hasTotal?`${count(tokens.totalTokens)} tok`:'— tok';
-  $('cache-write-row').hidden=!(tokens?.cacheWriteTokens>0);
-  $('cache-note').hidden=true;
+  text('cache-coverage',hasTotal?`${count(tokens.totalTokens)} tok`:'— tok');
+  hidden('cache-write-row',!(tokens?.cacheWriteTokens>0));
+  hidden('task-own-row',!taskUsage);hidden('task-subagents-row',!taskUsage);
+  text('task-subagents-label',taskUsage?t('taskSubagents',{n:count(taskUsage.subagents)}):'');
+  for(const [field,id]of[['ownTokens','task-own'],['subagentTokens','task-subagents']]){
+    const value=taskUsage?.[field],known=field!=='subagentTokens'||taskUsage?.loadedSubagents>0;
+    text(id,known&&Number.isSafeInteger(value)&&value>=0?`${count(value)} tok`:'—');
+  }
+  const taskNote=taskUsage?.state==='loading'?t('taskLoading'):taskUsage?.state==='partial'?t('taskPartial'):'';
+  text('cache-note',taskNote);hidden('cache-note',!taskNote);
   $('connection-dot').className = `connection-dot ${snapshot.connection}`;
   $('connection-dot').title = t(snapshot.connection === 'live'?'live':snapshot.connection === 'stale'?'stale':'offline');
   const timestamp = snapshot.quotaUpdatedAt ? new Date(snapshot.quotaUpdatedAt).toLocaleTimeString(language.language,{hour12:false}) : null;

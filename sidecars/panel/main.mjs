@@ -18,7 +18,7 @@ import { AppUpdater } from './updater.mjs';
 const HERE = dirname(fileURLToPath(import.meta.url));
 const createTheme=createRequire(import.meta.url)('../../compat/theme.cjs');
 const themeCss=()=>createTheme().css(':root');
-const store = new MetricsStore();
+const store = new MetricsStore(undefined,{owns:()=>(!ownership||ownership.isOwner())&&runtimeSettings().enabled!==false});
 const usage=new DesktopUsage(store,undefined,{host:'app',owns:()=>(!ownership||ownership.isOwner())&&runtimeSettings().enabled!==false});
 store.onTrajectory=(scope,id,raw)=>usage.ingest(scope,id,raw);
 const preferences=new PreferencesStore();
@@ -72,7 +72,7 @@ if (process.env.ANTIGRAVITY_SIDECAR_WEB_PORT) {
   app.run();
   integration.start();
   const shutdown=async()=>{
-    usage.dispose();
+    usage.dispose();store.dispose();
     const exitTimer=setTimeout(()=>process.exit(0),2000);exitTimer.unref();
     await integration.stop();ownership.stop();process.exit(0);
   };

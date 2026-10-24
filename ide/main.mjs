@@ -16,7 +16,7 @@ if(!profile)throw Error('IDE profile is required');
 const data=process.env.AG_PULSE_IDE_DATA||join(profile,'User','globalStorage','you-should-know-me.antigrative-dashboard-ide');
 let debugPort=0;
 const client=new IdeClient({profile,debugPort:()=>debugPort});
-const store=new MetricsStore(client,{history:new SessionHistory(join(data,'history-v1')),transcripts:new TranscriptReader({root:transcriptBrainRoot('ide')})});
+const store=new MetricsStore(client,{history:new SessionHistory(join(data,'history-v1')),transcripts:new TranscriptReader({root:transcriptBrainRoot('ide')}),owns:()=>ownership.isOwner()});
 const usage=new LocalUsage(store,new UsageLedger(join(data,'usage-v1'),{source:'ide-local'}),{host:'ide',owns:()=>ownership.isOwner()});
 store.onTrajectory=(scope,id,raw)=>usage.ingest(scope,id,raw);
 const preferences=new PreferencesStore({file:join(data,'preferences.json')});
@@ -35,7 +35,7 @@ const snapshot=async input=>{
   else{
     try{
       const server=await client.discover();
-      if(server.pid!==store.serverPid){store.epoch++;store.transcripts?.reset();store.identity=null;store.quota=null;store.quotaAt=0;store.sessions.clear();store.serverPid=server.pid;}
+      if(server.pid!==store.serverPid){store.epoch++;store.delegated.reset();store.transcripts?.reset();store.identity=null;store.quota=null;store.quotaAt=0;store.sessions.clear();store.serverPid=server.pid;}
       await store.refreshQuota(input.force);
       value={connection:'live',speed:null,groups:store.quota||[],quotaUpdatedAt:new Date(store.quotaAt).toISOString()};
     }catch{value={connection:'offline',speed:null,groups:[],error:'IDE local API unavailable'};}
@@ -49,7 +49,7 @@ await mkdir(data,{recursive:true});
 await writeFile(join(data,'runtime.json'),JSON.stringify({pid:process.pid,startedAt:new Date().toISOString(),mode:'ide'}));
 ui.start();
 const keepAlive=setInterval(()=>{},60000);
-async function stop(){usage.dispose();clearInterval(keepAlive);await ui.stop();ownership.stop();process.exit(0);}
+async function stop(){usage.dispose();store.dispose();clearInterval(keepAlive);await ui.stop();ownership.stop();process.exit(0);}
 ownership.watch(stop);
 process.on('message',message=>{if(message?.type==='stop')void stop();});
 if(process.connected)process.once('disconnect',()=>{void stop();});

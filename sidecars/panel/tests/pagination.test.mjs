@@ -74,6 +74,17 @@ test('idle caches periodically revalidate the tail even if summary timestamps di
  const {client,state,tick}=fixture();await client.trajectory(id);for(let i=0;i<5;i++)tick();state.generators[1]={i:1,stepIndices:[3],chatModel:{usage:{outputTokens:345}}};state.calls=[];
  const r=await client.trajectory(id);assert.equal(r.trajectory.generatorMetadata[1].chatModel.usage.outputTokens,345);assert.equal(state.calls.find(([m])=>m==='GetCascadeTrajectorySteps')[1].stepOffset,3);
 });
+
+test('subagent result IDs arriving behind newer requests are not frozen in the immutable prefix',async()=>{
+ const {client,state}=fixture();
+ state.steps=[{type:'USER_INPUT'},{type:'CORTEX_STEP_TYPE_INVOKE_SUBAGENT',metadata:{startedAt:'2026-10-24T01:00:00Z'},invokeSubagent:{}},{type:'PLANNER_RESPONSE'},{type:'PLANNER_RESPONSE'}];
+ state.generators=[{stepIndices:[2]},{stepIndices:[3]}];state.summary=summary(4,'CASCADE_RUN_STATUS_RUNNING');
+ await client.trajectory(id);state.calls=[];
+ const child='22222222-2222-2222-2222-222222222222';state.steps[1]={...state.steps[1],invokeSubagent:{results:[{conversationId:child}]}};
+ const next=await client.trajectory(id);
+ assert.equal(state.calls.find(([name])=>name==='GetCascadeTrajectorySteps')[1].stepOffset,1);
+ assert.equal(next.trajectory.steps[1].invokeSubagent.results[0].conversationId,child);
+});
 test('a planner created before its first metadata entry is revalidated when the request finishes',async()=>{
  const {client,state}=fixture();state.steps=[{type:'USER_INPUT'},{type:'PLANNER_RESPONSE'}];state.generators=[];state.summary=summary(2,'CASCADE_RUN_STATUS_RUNNING');await client.trajectory(id);
  state.steps[1]={type:'PLANNER_RESPONSE',plannerResponse:{toolCalls:[{}]}};state.generators=[{stepIndices:[1]}];state.calls=[];

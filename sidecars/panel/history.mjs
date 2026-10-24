@@ -5,6 +5,8 @@ import { randomUUID } from 'node:crypto';
 import { safeContext } from './context.mjs';
 import { safeTranscriptStats } from './transcript.mjs';
 import { RATE_VERSION, RATE_REASONS } from './rate-quality.mjs';
+import {safeTaskUsage} from './task-usage.mjs';
+import {normalizeConversationId} from './delegation.mjs';
 
 const GUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const SCOPE = /^[0-9a-f]{64}$/;
@@ -74,6 +76,9 @@ export function safeMetrics(value, conversationId) {
   result.model = typeof value.model === 'string' ? value.model.slice(0,256) : null;
   result.status = typeof value.status === 'string' && /^[A-Z0-9_]+$/.test(value.status) ? value.status : null;
   result.context = safeContext(value.context) || null;
+  const task=safeTaskUsage(value.taskUsage);
+  if(task)result.taskUsage=task;
+  if(Array.isArray(value.delegatedConversations))result.delegatedConversations=[...new Set(value.delegatedConversations.map(normalizeConversationId).filter(id=>id&&id!==conversationId.toLowerCase()))].slice(0,128);
   const transcript=safeTranscriptStats(value.transcriptStats);
   // Transient loading/I/O status must not churn history timestamps or revive
   // a prior estimate. Persist only a measured numeric snapshot.
@@ -94,7 +99,7 @@ export function safeMetrics(value, conversationId) {
 
 export function usableMetrics(metrics) {
   return number(metrics?.tps) && metrics.measuredRequests > 0 || metrics?.tokens?.measuredRequests > 0 || metrics?.cache?.measuredRequests > 0 ||
-    metrics?.requests > 0 && metrics?.counts?.output > 0 || !!safeContext(metrics?.context);
+    metrics?.requests > 0 && metrics?.counts?.output > 0 || !!safeContext(metrics?.context) || safeTaskUsage(metrics?.taskUsage)?.tokens.measuredRequests > 0;
 }
 
 export function shouldKeepSaved(saved, fresh) {
@@ -105,7 +110,7 @@ export function shouldKeepSaved(saved, fresh) {
 }
 
 export function reconcileMetrics(saved, fresh, savedAt = null) {
-  if (shouldKeepSaved(saved,fresh)) return {...saved,transcriptStats:fresh.transcriptStats||null,transcriptRestoredFromHistory:false,context:fresh.context || null,contextRestored:false,
+  if (shouldKeepSaved(saved,fresh)) return {...saved,taskUsage:safeTaskUsage(fresh.taskUsage)||safeTaskUsage(saved.taskUsage),delegatedConversations:fresh.delegatedConversations||saved.delegatedConversations,transcriptStats:fresh.transcriptStats||null,transcriptRestoredFromHistory:false,context:fresh.context || null,contextRestored:false,
     restoredFromHistory:true,savedAt};
   const result = {...fresh,contextRestored:false,transcriptRestoredFromHistory:false,restoredFromHistory:false,
     speedRestoredFromHistory:fresh.speedRestoredFromHistory===true,
@@ -158,7 +163,7 @@ export class SessionHistory {
     if (previous && shouldKeepSaved(previous.metrics,metrics)) {
       // Regression guards protect cumulative TPS/cache. A valid current context
       // can shrink after compaction; it must still replace the prior snapshot.
-      if (!metrics.context&&!Object.hasOwn(value,'transcriptStats')) return previous;
+      if (!metrics.context&&!Object.hasOwn(value,'transcriptStats')&&!Object.hasOwn(value,'taskUsage')) return previous;
       metrics = reconcileMetrics(previous.metrics,metrics,previous.savedAt);
     } else if (previous) {
       metrics = reconcileMetrics(previous.metrics,metrics,previous.savedAt);

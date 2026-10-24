@@ -14,7 +14,7 @@ export class TrajectoryReader {
   if(provided)return provided;
   if(force||!this.summaries||this.client.now()-this.summaryAt>=1800){
    if(!this.summaryPending){const epoch=this.epoch;
-    const pending=this.client.call('GetAllCascadeTrajectories').then(r=>{
+    const pending=this.client.call('GetAllCascadeTrajectories',{excludeSubtrajectories:false}).then(r=>{
      if(epoch!==this.epoch)throw unavailable();this.summaries=r.trajectorySummaries||{};this.summaryAt=this.client.now();
     }).finally(()=>{if(this.summaryPending===pending)this.summaryPending=null;});this.summaryPending=pending;
    }
@@ -54,7 +54,7 @@ export class TrajectoryReader {
     // Background tools can finish after newer model requests have started.
     // Refresh from the earliest unresolved timed tool as well as the last model.
     const pendingTool=old.trajectory.steps.findIndex(s=>s?.metadata&&(s.metadata.startedAt||s.metadata.createdAt)&&!s.metadata.completedAt&&
-     (/SEARCH_WEB|BROWSE|RUN_COMMAND|COMMAND|READ|WRITE|EDIT|CODE_ACTION|TOOL|MCP|LIST|GREP|VIEW|FIND|TERMINAL/i.test(String(s.type||''))||s.metadata.toolCall));
+     (/SEARCH_WEB|BROWSE|RUN_COMMAND|COMMAND|READ|WRITE|EDIT|CODE_ACTION|TOOL|MCP|LIST|GREP|VIEW|FIND|TERMINAL|INVOKE_SUBAGENT/i.test(String(s.type||''))||s.metadata.toolCall));
     if(pendingTool>=0)stepOffset=Math.min(stepOffset,pendingTool);
     if(gs.some(g=>!Array.isArray(g.stepIndices)||!g.stepIndices.length))metadataOffset=0;
    }

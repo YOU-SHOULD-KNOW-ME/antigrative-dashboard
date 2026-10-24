@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.8.9 — 2026-10-24
+
+- Address [#20](https://github.com/YOU-SHOULD-KNOW-ME/antigrative-dashboard/issues/20): include delegated subagent Token/cache usage in the selected task's summary, with current-agent and subagent contribution rows. Selecting a child shows its own subtree; TPS, timing, steps, sampled model, context and account quotas retain their original scopes.
+- Discover descendants through structured parent/root metadata and legacy/modern `invokeSubagent` result IDs. Exclude ordinary forks and discard embedded messages, prompts and tool-result text through the streaming projection.
+- Collect children asynchronously using bounded pagination, request/conversation deduplication, account/backend/ownership checks, retry backoff and manual refresh. Resume unread children first after a bounded pass; preserve coherent known totals during incomplete responses and restarts.
+- Ingest each conversation independently into the daily/monthly ledger. Backfill unlisted descendants across batches and recheck older checkpoints once, without adding task totals as a second parent request.
+- Cover App, standalone IDE and side panel in English, Simplified Chinese and Traditional Chinese. Single-agent tasks do not initiate child RPCs. See [accounting and limits](docs/USAGE.md#delegated-tasks-boost--teamwork--subagents).
+
 ## 0.8.8 — 2026-10-21
 
 - Settle malformed projected-statistics RPC failures directly before closing transport, avoiding an unresolved request when a completed request emits no further error. Add a deterministic regression and bounded fixture/test cleanup.

@@ -18,6 +18,47 @@ Model colors are generated from the current host accent and actual background. A
 
 ## Accounting
 
+### Delegated tasks (Boost / Teamwork / subagents)
+
+When the current conversation has delegated work, its Token/cache summary includes
+the current agent and its reachable descendants. The detail card shows the current
+agent's contribution and the combined subagent contribution. Selecting a subagent
+shows that subagent's own subtree. Speed, request/step counts, response/thinking,
+sampled model and context still describe the selected agent. Account quota windows
+remain the host's account-level values.
+
+Relationships come only from the host's `parentConversationId` / `rootConversationId`
+metadata and structured `invokeSubagent` result IDs (including the legacy field).
+Ordinary conversation forks, matching titles, prompts and workspace paths are not
+treated as delegation. Summaries and trajectories use streaming allowlists; embedded
+messages, subagent prompts and tool-result text are discarded.
+
+Child collection runs in the background and uses the existing paginated statistics
+reader, including its revision, memory and time checks. It does not block the
+parent's metrics. Children are refreshed independently even when the parent is
+idle. Single-agent conversations do not trigger additional child RPCs. Traversal
+deduplicates conversation IDs and request identities, handles cycles iteratively,
+and bounds one task to 128 descendants and an 8 MiB shared numeric-record cache.
+A pass stops starting new child reads after 30 seconds; an in-flight paginated read
+retains its own deadline. Later passes prioritize children not yet checked.
+Reaching a bound or losing a child produces partial
+status, never a claim of complete task consumption. Failed children retry with
+backoff; manual refresh bypasses it. Known records survive temporarily incomplete
+responses and reloads.
+
+Daily/monthly accounting ingests each agent under its own conversation ID, never
+the combined task total. Opening a child after its parent therefore does not add
+the same requests twice. Historical backfill also follows delegated IDs missing
+from the top-level list or local directory. Existing completed checkpoints are
+rechecked once to find previously omitted children; unchanged ordinary histories
+then retain their existing fast-start behavior.
+
+The saved conversation snapshot additionally contains bounded child conversation
+IDs and numeric task totals. It contains no child prompts, replies or request IDs.
+The historical usage ledger continues to use hashed request/conversation identities.
+
+### Token accounting rules
+
 - Total = uncached input + cache reads + cache writes + output. Output already includes thinking.
 - Repeated reads upsert request records. Matching request IDs across conversation records count once per account.
 - Token usage is independent of TPS timing-quality exclusions.

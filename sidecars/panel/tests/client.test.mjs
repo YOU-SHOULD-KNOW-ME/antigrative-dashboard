@@ -63,6 +63,19 @@ test('ordinary RPC JSON errors never expose a private response fragment',async t
  state.body='{}';assert.deepEqual(await client.call('GetUserStatus'),{});assert.equal(state.scans,1);
 });
 
+test('conversation-list RPC keeps delegation metadata while discarding embedded messages',async t=>{
+ const {client,state}=await fixture(t);state.status=200;
+ const root='11111111-1111-1111-1111-111111111111',child='22222222-2222-2222-2222-222222222222';
+ state.body=JSON.stringify({trajectorySummaries:{[root]:{stepCount:4,status:'IDLE'},[child]:{
+  stepCount:2,hasActiveChildren:true,trajectoryMetadata:{parentConversationId:root,rootConversationId:root,subagentSpec:{initialPrompt:'PRIVATE_PROMPT'}},
+  latestNotifyUserStep:{message:'PRIVATE_REPLY'},waitingSteps:[{response:'PRIVATE_TOOL'}],
+ }}});
+ const result=await client.call('GetAllCascadeTrajectories',{excludeSubtrajectories:false});
+ assert.equal(result.trajectorySummaries[child].trajectoryMetadata.parentConversationId,root);
+ assert.equal(result.trajectorySummaries[child].hasActiveChildren,true);
+ assert.doesNotMatch(JSON.stringify(result),/PRIVATE|subagentSpec|waitingSteps|latestNotifyUserStep/);
+});
+
 test('cold-start discovery failures coalesce and back off while the backend starts',async()=>{
  let now=0,scans=0,ready=false;
  const client=new AntigravityClient({now:()=>now,paths:()=>({log:'fixture'}),readLog:async()=> 'listening on random port at 1234 for HTTP\n',

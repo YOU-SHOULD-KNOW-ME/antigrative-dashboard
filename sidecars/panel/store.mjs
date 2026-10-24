@@ -3,10 +3,23 @@ import { AntigravityClient } from './client.mjs';
 import { quotaMetrics, trajectoryMetrics } from './metrics.mjs';
 import { SessionHistory, usableMetrics, reconcileMetrics } from './history.mjs';
 import { TranscriptReader } from './transcript.mjs';
+import {DelegatedUsage} from './delegated-usage.mjs';
+import {delegatedIds} from './delegation.mjs';
 
 const GUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 export class MetricsStore {
-  constructor(client = new AntigravityClient(), { history = new SessionHistory(), onTrajectory = null, transcripts = new TranscriptReader() } = {}) { this.client = client; this.history = history; this.onTrajectory=onTrajectory; this.transcripts=transcripts; }
+  constructor(client = new AntigravityClient(), { history = new SessionHistory(), onTrajectory = null, transcripts = new TranscriptReader(), owns=()=>true } = {}) {
+    this.client = client; this.history = history; this.onTrajectory=onTrajectory; this.transcripts=transcripts;
+    this.delegated=new DelegatedUsage(client,{owns,
+      onSource:async(scope,id,raw)=>{if(scope===this.identity&&this.onTrajectory)await this.onTrajectory(scope,id,raw);},
+      onUpdate:async(scope,id,taskUsage,delegatedConversations)=>{
+        const entry=this.sessions.get(id);if(scope!==this.identity||!entry?.data)return;
+        const epoch=this.epoch;entry.data={...entry.data,taskUsage,delegatedConversations};
+        try{const saved=await this.history.save(scope,id,entry.data);if(saved&&scope===this.identity&&epoch===this.epoch&&this.sessions.get(id)===entry)entry.savedAt=saved.savedAt;}
+        catch{if(scope===this.identity&&epoch===this.epoch)this.persistenceError='统计暂时无法保存到本地';}
+      },
+    });
+  }
   quota = null;
   quotaAt = 0;
   quotaPending = null;
@@ -20,6 +33,7 @@ export class MetricsStore {
 
   async cachedSession(id) {
     if (!GUID.test(id) || !this.identity) return null;
+    id=id.toLowerCase();
     const scope = this.identity, epoch = this.epoch;
     const entry = this.sessions.get(id);
     if (usableMetrics(entry?.data)) return { ...entry.data, transcriptRestoredFromHistory:!!entry.data.transcriptStats, restoredFromHistory: true, savedAt: entry.savedAt || null };
@@ -39,7 +53,7 @@ export class MetricsStore {
       if (epoch !== this.epoch) throw new Error('后台已重新连接，请等待刷新');
       const email = user.userStatus?.email;
       const identity = email ? createHash('sha256').update(email).digest('hex') : null;
-      if (identity !== this.identity) { this.transcripts?.reset(); this.client.resetTrajectories?.(); this.quota = null; this.quotaAt = 0; this.sessions.clear(); this.summaries = []; this.summariesAt = 0; }
+      if (identity !== this.identity) { this.delegated.reset();this.transcripts?.reset(); this.client.resetTrajectories?.(); this.quota = null; this.quotaAt = 0; this.sessions.clear(); this.summaries = []; this.summariesAt = 0; }
       this.identity = identity;
       const response = await this.client.call('RetrieveUserQuotaSummary');
       if (epoch !== this.epoch || identity !== this.identity) throw new Error('后台已重新连接，请等待刷新');
@@ -52,7 +66,7 @@ export class MetricsStore {
   async listConversations(force = false) {
     if (!force && Date.now() - this.summariesAt < 5000) return this.summaries;
     const scope = this.identity, epoch = this.epoch;
-    const response = await this.client.call('GetAllCascadeTrajectories');
+    const response = await this.client.call('GetAllCascadeTrajectories',{excludeSubtrajectories:false});
     if (scope !== this.identity || epoch !== this.epoch) throw new Error('后台已重新连接，请等待刷新');
     this.summaries = Object.entries(response.trajectorySummaries || {}).map(([id, value]) => ({
       id, title: value.summary || '未命名会话', modifiedAt: value.lastModifiedTime, status: value.status,stepCount:value.stepCount,lastUserInputStepIndex:value.lastUserInputStepIndex,
@@ -63,6 +77,7 @@ export class MetricsStore {
 
   async session(id, force = false) {
     if (!GUID.test(id)) throw new Error('会话标识无效');
+    id=id.toLowerCase();
     const scope = this.identity, epoch = this.epoch;
     let entry = this.sessions.get(id);
     if (entry?.pending) return entry.pending;
@@ -76,11 +91,13 @@ export class MetricsStore {
         if (!current()) throw new Error('后台已重新连接，请等待刷新');
         if (saved) { entry.data = saved.metrics; entry.savedAt = saved.savedAt; }
       }
-      const raw = await this.client.trajectory(id,{force});
+      const raw = await this.client.trajectory(id,{force,isCurrent:current});
       if (!current()) throw new Error('后台已重新连接，请等待刷新');
       if(this.onTrajectory&&scope){try{await this.onTrajectory(scope,id,raw);if(current())this.usagePersistenceError=false;}catch{if(current())this.usagePersistenceError=true;}}
       if (!current()) throw new Error('后台已重新连接，请等待刷新');
       const fresh = trajectoryMetrics(raw);
+      fresh.delegatedConversations=[...new Set([...delegatedIds(id,raw,this.client.reader?.summaries||{}),...(entry.data?.delegatedConversations||[])])].slice(0,128);
+      fresh.taskUsage=this.delegated.request(scope,id,raw,{saved:entry.data?.taskUsage,knownIds:fresh.delegatedConversations,force,isCurrent:current});
       // Optional background I/O cannot delay or fail the core metrics request.
       try { if(scope&&this.transcripts)fresh.transcriptStats=this.transcripts.request(scope,id,raw); } catch {}
       entry.data = {...reconcileMetrics(entry.data,fresh,entry.savedAt || null),conversationId:id}; entry.updatedAt = Date.now();
@@ -100,7 +117,7 @@ export class MetricsStore {
     try {
       const server = await this.client.discover();
       if (server.pid !== this.serverPid) {
-        this.epoch++; this.transcripts?.reset(); this.quota = null; this.quotaAt = 0; this.sessions.clear(); this.identity = null; this.summaries = []; this.summariesAt = 0; this.serverPid = server.pid;
+        this.epoch++; this.delegated.reset();this.transcripts?.reset(); this.quota = null; this.quotaAt = 0; this.sessions.clear(); this.identity = null; this.summaries = []; this.summariesAt = 0; this.serverPid = server.pid;
       }
       try { await this.refreshQuota(force); }
       catch (e) { connection = this.quota ? 'stale' : 'offline'; error = e.message; }
@@ -128,4 +145,5 @@ export class MetricsStore {
       source: 'Antigravity local API',
     };
   }
+  dispose(){this.delegated.dispose();this.transcripts?.reset();this.epoch++;}
 }

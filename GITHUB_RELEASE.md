@@ -1,34 +1,57 @@
-# Antigrative Dashboard v0.8.8
+# Antigrative Dashboard v0.8.9
 
-Traditional Chinese support across App, IDE and CLI, with consistent language selection and persistent preferences.
+Delegated subagent usage now contributes to the task's Token/cache summary.
 
-## Traditional Chinese — PR #18
+## Issue #20: delegated task accounting
 
-Thanks to @Lorin1470 for contributing the Traditional Chinese localization in [PR #18](https://github.com/YOU-SHOULD-KNOW-ME/antigrative-dashboard/pull/18).
+Thanks to @zhenglan843-jpg for the detailed report and numeric example in
+[#20](https://github.com/YOU-SHOULD-KNOW-ME/antigrative-dashboard/issues/20).
 
-- Add localized Traditional Chinese labels for speed, cache, context, shared quotas, Token usage charts, onboarding, update progress and errors.
-- Keep English / 简体中文 / 繁體中文 directly available at the bottom of context details. The side panel and usage window use an explicit three-choice language menu, with keyboard navigation and Escape dismissal.
-- Remember `zh-TW` through restarts and independent onboarding writes. Keep English as the first-use default and retain existing English/Simplified selections.
-- CLI accepts `--language zh-TW`, or follows the saved desktop preference when no override is supplied. Preserve CJK terminal width handling and existing cache/quota behavior.
+- Include the selected agent and its reachable subagents in Token totals and the
+  token-weighted cache ratio. The detail card shows **Current agent** and
+  **Subagents (N)** contributions. Selecting a child shows that child's subtree.
+- Keep TPS, model/tool time, request/step counts, sampled model and context tied to
+  the selected agent. Five-hour and weekly quotas remain account-level values.
+- Discover descendants using the host's structured parent/root metadata and
+  legacy/modern `invoke_subagent` result IDs. Ordinary forks are not delegation.
+- Read child statistics asynchronously with the existing pagination and memory
+  guards. Deduplicate conversations and requests, handle cycles, retry failures,
+  and preserve known totals through incomplete responses and reloads. Unloaded
+  subagent usage is unavailable rather than a fabricated zero.
+- Import each agent independently into daily/monthly usage. Visiting a child after
+  its parent does not count the same request again. Historical backfill discovers
+  unlisted children and rechecks earlier checkpoints once.
+- Project only allowlisted statistics and relationship fields; embedded prompts,
+  messages and tool-result text are discarded. Settings and existing ledgers are
+  retained.
 
-## Additional integration fixes
+The change applies to the desktop App, standalone IDE and side panel in English,
+Simplified Chinese and Traditional Chinese. Single-agent conversations initiate no
+additional child RPCs. The CLI status line is unchanged.
 
-- Use English translation fallback rather than accidentally showing Traditional text in English. Localize unknown backend errors safely.
-- Preserve the bilingual first-use discovery flow and the existing UTC+8 Token accounting boundaries. Language selection changes presentation, never recorded totals.
-- Avoid redundant guide DOM writes during polling, retaining stable context-card scroll position.
-- Settle rejected statistics streams immediately before closing transport. A malformed projected JSON reply can no longer leave an RPC pending when request destruction emits no further error. Add a deterministic regression and bounded test diagnostics.
-- Keep the current annual heatmap, model charts, responsive icon layout and theme adaptation.
+## Install or update
 
-## Installation
+- **App:** context details → **⋯ → Check for updates**, or extract
+  `antigrative-dashboard-0.8.9.zip` and run `python manage.py install`
+  (`python3` on Linux/macOS). Completely reopen the App after a manual install.
+- **Standalone IDE:** install `antigrative-dashboard-ide-0.8.9.vsix` via **Install
+  from VSIX…**, then reload the IDE window.
+- SHA-256 files are included for both packages.
 
-App / CLI: download `antigrative-dashboard-0.8.8.zip` and follow the included installer instructions. Existing App users can use **Context details → ⋯ → Check for updates**.
+## Verification and boundaries
 
-IDE: download `antigrative-dashboard-ide-0.8.8.vsix`, install from VSIX, then reload the IDE window. CLI-only installations use `python manage.py install-cli` (`python3` on Linux/macOS), optionally with `--language zh-TW`.
+The report's numeric example is covered by a synthetic regression:
+980,101 own + 191,749 delegated = **1,171,850 tokens**. Tests cover nested/shared
+children, cycles, duplicate requests, unavailable children, account/backend changes,
+restart recovery, zero own usage, traversal budgets and independent ledger ingestion.
 
-Existing statistics and preferences are retained. SHA-256 files are included for both packages.
+Local verification: 275 Node tests passed (1 skipped), 57 Python tests passed
+(1 skipped), and 11 IDE unit tests passed. Browser regressions cover App/IDE/panel
+language switching, partial/loading/ready states, unchanged polling, use of the
+selected agent's own rate/context, and long-chat usage-window behavior. Automated
+Windows/Linux/macOS release gates run before publication.
 
-## Verification
-
-Local Windows checks: 228 Node tests passed (1 skipped), 57 Python tests passed (1 skipped), and 11 IDE unit tests passed. Browser checks cover App/IDE usage, the sandboxed side panel, three-language selection and restart persistence, narrow layouts, update UI, and large-chat open/close performance. The local App was verified with the new Traditional Chinese choice and unchanged preferences.
-
-Automated Windows/Linux/macOS release gates run before publication. These checks do not establish signed-in Linux/macOS GUI acceptance.
+The original reporter's signed-in Boost conversation was not available locally;
+the exact scenario still benefits from their confirmation. Collection is bounded
+and may report partial coverage when descendants cannot be read or a resource limit
+is reached. See [accounting, privacy and limits](docs/USAGE.md).
