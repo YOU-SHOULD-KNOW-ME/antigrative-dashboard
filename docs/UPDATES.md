@@ -18,11 +18,12 @@ metadata on stderr; the verified final result remains a separate stdout message.
 
 ## Windows working-directory fix (Issue #21)
 
-Windows can refuse to rename `sidecars` while the running sidecar or update worker
-has its current directory inside that tree. This produced a successful version
-check followed by an installation error. The sidecar now moves its own current
-directory to the stable plugin root, and workers explicitly use that root too.
-Installation still uses the existing verified staging, backup and rollback.
+Windows can refuse to rename `sidecars` while the sidecar's parent `cmd.exe`
+launcher has its current directory inside that tree. Moving Node alone does not
+release the parent's directory handle. This produced a successful version check
+followed by an installation error. Windows now atomically replaces public runtime
+files while leaving directory identities intact. The sidecar and Python worker
+also use the stable plugin root. The host launcher itself is not modified.
 
 Old installations with this bug may fail before they can install the fixed
 updater. Install a package containing the fix once using `python manage.py install`
@@ -72,7 +73,11 @@ The lock file remains on disk; its existence alone does not mean an operation is
 running. Older third-party installers that ignore the lock cannot be coordinated.
 
 The updater creates a full backup, stages the new runtime on the same filesystem,
-and writes a recovery journal before replacing runtime trees. Ordinary failures
+and writes a recovery journal before replacing runtime files on Windows or runtime
+trees on Linux/macOS. Windows records a validated file inventory, preserves private
+data directories, removes obsolete public files, and commits the manifest last.
+Recovery rejects linked/junction paths and layout conflicts before restoring any
+file. Ordinary failures
 restore the previous runtime. Recovery failure retains the previous files,
 backup, journal and a standalone recovery helper. A completed installation keeps
 its external backup under the plugin data directory's `updates/backup-*` folder.
@@ -106,9 +111,10 @@ cannot be guaranteed recoverable by this mechanism.
 
 ## Validation scope
 
-Windows tests force process termination before/after each of the four runtime
-replacements, retry interrupted recovery, recover a missing main manifest using
-the saved helper, exclude concurrent processes, and preserve synthetic user data.
+Windows tests reproduce the full command-launcher/Node/Python chain, force process
+termination before/after each runtime group and during file replacement, retry
+interrupted recovery, reject junction escapes, recover a missing main manifest
+using the saved helper, exclude concurrent processes, and preserve synthetic user data.
 Node and browser tests cover multiple install clicks, slow asynchronous checks,
 expired plans, version changes, text-only release notes, reopening the dialog,
 installation polling, reload, retry and both languages.

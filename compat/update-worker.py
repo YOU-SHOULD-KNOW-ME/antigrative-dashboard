@@ -379,6 +379,81 @@ def write_journal(working, value):
     os.replace(temporary, working / 'journal.json')
 
 
+def file_inventory(value):
+    """Validate the public file paths used by a file-by-file transaction."""
+    if not isinstance(value, list) or len(value) > 8192:
+        raise ValueError('Invalid update file inventory')
+    checked, seen = [], set()
+    reserved = {'CON', 'PRN', 'AUX', 'NUL'} | {f'{p}{i}' for p in ('COM', 'LPT') for i in range(1, 10)}
+    for name in value:
+        if not isinstance(name, str) or len(name) > 4096:
+            raise ValueError('Invalid update file path')
+        parts = PurePosixPath(name).parts
+        if (not parts or PurePosixPath(name).as_posix() != name or name.startswith('/') or
+                '\\' in name or ':' in name or any(p in ('.', '..') or p.lower() in PRIVATE or
+                p.rstrip(' .') != p or p.split('.')[0].upper() in reserved or
+                re.search(r'[\x00-\x1f<>"|?*]', p) for p in parts) or
+                not (name == 'plugin.json' or len(parts) > 1 and parts[0] in RUNTIME[:3])):
+            raise ValueError('Invalid update file path')
+        key = name.casefold()
+        if key in seen:
+            raise ValueError('Duplicate update file path')
+        seen.add(key)
+        checked.append(name)
+    return checked
+
+
+def public_files(root, names=RUNTIME):
+    """Stable directories and private SDK/data trees are never file targets."""
+    result = []
+    for name in names:
+        path = root / name
+        if path.is_file():
+            result.append(name)
+        elif path.is_dir():
+            for directory, dirs, files in os.walk(path):
+                dirs[:] = [d for d in dirs if d.lower() not in PRIVATE]
+                for filename in files:
+                    if filename.lower() not in PRIVATE:
+                        result.append((Path(directory) / filename).relative_to(root).as_posix())
+                        if len(result) > 8192:
+                            raise ValueError('Update file inventory exceeds budget')
+    return file_inventory(sorted(result))
+
+
+def check_file_targets(target, paths):
+    for name in paths:
+        path = target / name
+        if path.exists() and not path.is_file():
+            raise ValueError('Runtime file layout changed')
+        parent = path.parent
+        while parent != target:
+            if parent.exists() and not parent.is_dir():
+                raise ValueError('Runtime directory layout changed')
+            parent = parent.parent
+
+
+def restore_files(working, target, backup, original, new_files):
+    # Validate the entire inventory and every backup before mutating anything.
+    for name in RUNTIME:
+        reject_links(target / name)
+    old_files = public_files(backup, original)
+    check_file_targets(target, [*old_files, *new_files])
+    for name in old_files:
+        source, destination = backup / name, target / name
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        temporary = working / 'restore-file'
+        shutil.copy2(source, temporary)
+        os.replace(temporary, destination)
+    old_keys = {name.casefold() for name in old_files}
+    for name in new_files:
+        if name.casefold() in old_keys:
+            continue
+        path = target / name
+        if path.exists():
+            path.unlink()
+
+
 def recover_transaction(working, target):
     """Idempotent rollback, including after termination halfway through recovery.
 
@@ -401,6 +476,10 @@ def recover_transaction(working, target):
         if not isinstance(original, list) or len(original) != len(set(original)) or any(n not in RUNTIME for n in original):
             raise ValueError('Invalid recovery inventory')
         version(value['current']); version(value['expected'])
+        strategy = value.get('strategy', 'trees')
+        if strategy not in ('trees', 'files'):
+            raise ValueError('Invalid recovery strategy')
+        new_files = file_inventory(value.get('newFiles')) if strategy == 'files' else []
         if value['phase'] in ('committed', 'restored'):
             try: shutil.rmtree(working)
             except OSError: pass  # Runtime is already valid; retry cleanup later.
@@ -411,6 +490,14 @@ def recover_transaction(working, target):
                 raise ValueError('Recovery backup is incomplete')
         if json.loads((backup / 'plugin.json').read_text(encoding='utf-8-sig')).get('version') != value['current']:
             raise ValueError('Recovery backup version mismatch')
+        if strategy == 'files':
+            restore_files(working, target, backup, original, new_files)
+            if json.loads((target / 'plugin.json').read_text(encoding='utf-8-sig')).get('version') != value['current']:
+                raise ValueError('Recovered version mismatch')
+            write_journal(working, {**value, 'phase': 'restored'})
+            try: shutil.rmtree(working)
+            except OSError: pass
+            return True
         # Build each restore tree from an intact backup on every attempt. The
         # journal stays installing until every tree has been put back.
         for name in reversed(RUNTIME):
@@ -438,7 +525,7 @@ def recover_transaction(working, target):
     return True
 
 
-def install_staged(stage, target, backup, current, expected, fault=None, progress=None):
+def install_staged(stage, target, backup, current, expected, fault=None, progress=None, strategy='trees'):
     """Complete backup precedes mutation; undo every moved item on failure."""
     def report(phase):
         if progress:
@@ -448,6 +535,12 @@ def install_staged(stage, target, backup, current, expected, fault=None, progres
         raise ValueError('Installed version changed or update would downgrade')
     if not stage.resolve().parent.is_relative_to(target.parent.resolve()):
         raise ValueError('Stage must be on the target filesystem')
+    if strategy not in ('trees', 'files'):
+        raise ValueError('Unsupported update strategy')
+    new_files = public_files(stage) if strategy == 'files' else []
+    old_files = public_files(target) if strategy == 'files' else []
+    if strategy == 'files':
+        check_file_targets(target, new_files)
     report('backup')
     backup.mkdir(parents=True, exist_ok=False)
     for name in RUNTIME:
@@ -462,6 +555,39 @@ def install_staged(stage, target, backup, current, expected, fault=None, progres
     shutil.copy2(Path(__file__), working / 'recover.py')
     shutil.copy2(Path(__file__).with_name('update-lock.py'), working / 'update-lock.py')
     shutil.copytree(backup, working / 'recovery-backup')
+    if strategy == 'files':
+        journal = {'schema': 1, 'current': current, 'expected': expected,
+                   'original': [name for name in RUNTIME if (target / name).exists()],
+                   'strategy': 'files', 'newFiles': new_files, 'phase': 'installing'}
+        write_journal(working, journal)
+        try:
+            report('install')
+            # A cmd.exe parent created by the host can keep panel's directory
+            # handle open even after Node changes cwd. Replace public files
+            # atomically while keeping all directory identities stable.
+            for name in RUNTIME:
+                if fault:
+                    fault(name)
+                for item in new_files:
+                    if PurePosixPath(item).parts[0] != name:
+                        continue
+                    destination = target / item
+                    destination.parent.mkdir(parents=True, exist_ok=True)
+                    os.replace(stage / item, destination)
+                new_keys = {item.casefold() for item in new_files}
+                for item in old_files:
+                    if item.casefold() in new_keys:
+                        continue
+                    if PurePosixPath(item).parts[0] == name:
+                        (target / item).unlink()
+            if json.loads((target / 'plugin.json').read_text(encoding='utf-8-sig'))['version'] != expected:
+                raise ValueError('Installed version verification failed')
+            write_journal(working, {**journal, 'phase': 'committed'})
+        except BaseException:
+            report('recover')
+            recover_transaction(working, target)
+            raise
+        return
     # Preserve old sidecar-local preferences/statistics if an older installer
     # stored them inside its runtime instead of the current external data root.
     for name in RUNTIME[:3]:
@@ -540,7 +666,8 @@ def perform(plan, target, updates, progress=None):
             report('extract')
             stage_archive(archive, stage, latest)
             backup = updates / ('backup-' + str(uuid.uuid4()))
-            install_staged(stage, target, backup, current, latest, progress=progress)
+            install_staged(stage, target, backup, current, latest, progress=progress,
+                           strategy='files' if os.name == 'nt' else 'trees')
             result = {'version': latest, 'backup': str(backup), 'verified': True, 'reloadRequired': True}
         except RollbackError:
             # Preserve both the journal and previous runtime for manual retry.

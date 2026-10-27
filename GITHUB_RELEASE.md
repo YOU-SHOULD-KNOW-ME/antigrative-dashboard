@@ -7,9 +7,10 @@ Delegated subagent usage now contributes to the task's Token/cache summary.
 The existing **v0.8.9** App ZIP and SHA-256 assets are refreshed to address
 [#21](https://github.com/YOU-SHOULD-KNOW-ME/antigrative-dashboard/issues/21).
 
-- Fix a reproduced Windows update failure: the running sidecar's working directory
-  locked `sidecars/panel`, so version checking succeeded but installation failed.
-  Both the sidecar and Python update worker now use a stable working directory.
+- Fix a reproduced Windows update failure: the sidecar's parent command launcher
+  can keep `sidecars/panel` locked even after Node moves its working directory.
+  Windows now replaces verified public files atomically while preserving directory
+  identities; the sidecar and Python worker also use a stable working directory.
 - Find a working Python 3.10+ before starting the worker, skipping unusable Store
   aliases or older interpreters. A started installation is never run again as an
   interpreter fallback.
@@ -32,11 +33,12 @@ archives retain the original release snapshot. Use the current main branch or th
 patch source commit linked below for this fix; the refreshed installation ZIP
 contains the patch.
 
-Patch verification: 282 Node tests passed (1 skipped), 72 Python tests passed
+Patch verification: 282 Node tests passed (1 skipped), 81 Python tests passed
 (1 skipped), and 11 IDE unit tests passed locally. The real Windows subprocess
 regression first reproduces the directory-lock failure and retains the original
-installation, then completes verified installation from the same initial working
-directory with the fix. GitHub release metadata/downloads are fixtures in that
+installation, then completes verified installation while the parent command
+launcher still holds that directory. Crash/recovery and junction rejection tests
+cover the Windows file transaction. GitHub release metadata/downloads are fixtures in that
 test; a local real check request also succeeded. Cross-platform Verify gates run
 before the refreshed assets are published.
 

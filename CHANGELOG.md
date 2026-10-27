@@ -2,7 +2,7 @@
 
 ## 0.8.9 patch — 2026-10-27
 
-- Fix [#21](https://github.com/YOU-SHOULD-KNOW-ME/antigrative-dashboard/issues/21): release the Windows sidecar's current-directory handle before replacing runtime folders, and launch Python workers from the stable plugin root. This repairs the reproduced successful-check/failed-install sequence while preserving verified staging, backup and rollback.
+- Fix [#21](https://github.com/YOU-SHOULD-KNOW-ME/antigrative-dashboard/issues/21): the Windows parent command launcher can retain a runtime-directory handle after Node relocates. Keep directory identities stable and atomically replace verified public files on Windows; launch Node/Python from a stable directory. Retain durable backup, crash recovery and private data, and reject linked recovery paths before any file mutation.
 - Probe Python 3.10+ before running a worker. Unusable Windows Store aliases and old interpreters can fall back to `py -3` or `python3`; an installation that has started is never retried automatically with another interpreter.
 - Preserve Windows static system proxies when the environment contains only `NO_PROXY`, retain explicit protocol overrides, and share a bounded check budget across the API and official-page fallback. Keep certificate and hostname verification enabled.
 - Show localized, predefined failure reasons for locked/unwritable files, Python, timeouts, DNS, certificates, proxies and HTTP/connection errors. Do not expose raw exception text, paths or proxy credentials.
