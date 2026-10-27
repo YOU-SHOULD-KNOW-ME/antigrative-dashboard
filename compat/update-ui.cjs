@@ -38,7 +38,18 @@ module.exports = function createUpdateMenu({root,row,language,setMarkup,request,
   $('update-current-label').textContent=w('当前版本','Installed','目前版本');$('update-latest-label').textContent=w('最新版本','Latest','最新版本');$('update-host-label').textContent=w('安装类型','Installation','安裝類型');$('update-current').textContent=state.currentVersion?'v'+state.currentVersion:'—';$('update-latest').textContent=state.latestVersion?'v'+state.latestVersion:'—';
   $('update-notes-wrap').hidden=state.state!=='available'||!state.notes;$('update-notes-label').textContent=w('更新内容','What’s new','更新內容');$('update-notes').textContent=(state.notes||'').split(/\r?\n/).map(line=>line.trim()).filter(line=>line&&!line.startsWith('#')).slice(0,3).join('\n');
   const errors={network:w('连接失败，请稍后重试','Connection failed. Please retry.','連線失敗，請稍後重試'),python:w('未找到 Python','Python was not found.','找不到 Python'),verification:w('未通过安装包校验','Package verification failed.','安裝套件驗證未通過'),busy:w('已有更新正在进行','Another update is in progress.','已有更新正在進行中'),install:w('安装未完成，原版已保留','Installation incomplete; previous files retained.','安裝未完成，已保留原始檔案'),rollback:w('恢复失败，可从备份恢复','Recovery failed; a local backup is available.','還原失敗，可從本機備份還原')};
-  $('update-feedback').textContent=state.state==='error'?(errors[state.error]||errors.network):state.state==='available'?w('设置和统计记录将保留','Settings and statistics are retained','現有設定與統計記錄將會保留'):'';
+  const details={
+   timeout:w('连接超时，请检查网络后重试','Connection timed out. Check your network and retry.','連線逾時，請檢查網路後重試'),
+   dns:w('无法解析 GitHub 地址，请检查网络','Could not resolve GitHub. Check your network.','無法解析 GitHub 位址，請檢查網路'),
+   certificate:w('无法验证下载连接的证书，请检查代理证书','The download certificate could not be verified. Check proxy certificate trust.','無法驗證下載連線憑證，請檢查代理憑證'),
+   proxy:w('代理连接失败，请检查代理设置','Proxy connection failed. Check proxy settings.','代理連線失敗，請檢查代理設定'),
+   http:w('GitHub 暂时拒绝下载，请稍后重试','GitHub rejected the download. Please retry later.','GitHub 暫時拒絕下載，請稍後重試'),
+   connection:w('下载连接中断，请检查网络后重试','Download connection failed. Check your network and retry.','下載連線中斷，請檢查網路後重試'),
+   permission:w('插件目录被占用或无写入权限，请关闭其他实例后重试','Plugin files are locked or not writable. Close other instances and retry.','外掛目錄被占用或無寫入權限，請關閉其他執行個體後重試'),
+   'python-version':w('需要 Python 3.10 或更新版本','Python 3.10 or newer is required.','需要 Python 3.10 或更新版本'),
+   'python-missing':w('未找到可用的 Python，请安装 Python 3.10+','No working Python found. Install Python 3.10+.','找不到可用的 Python，請安裝 Python 3.10+'),
+  };
+  $('update-feedback').textContent=state.state==='error'?(details[state.errorDetail]||errors[state.error]||errors.network):state.state==='available'?w('设置和统计记录将保留','Settings and statistics are retained','現有設定與統計記錄將會保留'):'';
   const actionable=['available','installed','error'].includes(state.state);$('update-action').hidden=!actionable;$('update-action').disabled=busy;
   $('update-action').textContent=state.state==='installed'?w('重新加载插件','Reload plugin','重新載入外掛'):state.state==='error'?w('重试','Retry','重試'):w('更新','Update','更新');
  }

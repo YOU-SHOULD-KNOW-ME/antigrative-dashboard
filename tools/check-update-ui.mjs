@@ -51,5 +51,20 @@ try{
  await page.locator('#plugin-menu-button').click();assert.equal(await page.locator('#check-update').textContent(),'檢查更新');
  await page.locator('#check-update').click();await page.locator('#update-status').filter({hasText:'已是最新版本'}).waitFor();
  assert.equal(await page.locator('#update-title').textContent(),'外掛更新');assert.equal(await page.locator('#update-close').getAttribute('aria-label'),'關閉');
+ // Safe, localized failure categories explain actionable causes without paths,
+ // proxy secrets or raw Python tracebacks entering the dialog.
+ for(const [language,detail,message]of [
+  ['zh-CN','permission','插件目录被占用或无写入权限，请关闭其他实例后重试'],
+  ['en','certificate','The download certificate could not be verified. Check proxy certificate trust.'],
+  ['zh-TW','python-version','需要 Python 3.10 或更新版本'],
+ ]){
+  await page.locator('#update-close').click();await page.locator('[data-card=context]').click();
+  await page.locator(`[data-language-choice="${language}"]`).click();await page.locator('[data-card=context]').click();
+  await page.evaluate(detail=>{agPulseHost.updatePlugin=async()=>({state:'error',host:'app',currentVersion:'0.8.8',latestVersion:'0.8.9',error:detail==='certificate'?'network':'install',errorDetail:detail});},detail);
+  await page.locator('#plugin-menu-button').click();await page.locator('#check-update').click();
+  await page.locator('#update-feedback').filter({hasText:message}).waitFor();
+  assert.equal(await page.locator('#update-feedback').textContent(),message);
+  await page.screenshot({path:join(repo,`.data/update-ui/error-${detail}.png`)});
+ }
  assert.deepEqual(errors,[]);console.log(JSON.stringify({manualOnly:true,currentVersion:true,bilingual:true,plainTextNotes:true,installationPolling:true,reload:true,retry:true,pageErrors:errors}));
 }finally{await browser.close();await new Promise(r=>server.close(r));}

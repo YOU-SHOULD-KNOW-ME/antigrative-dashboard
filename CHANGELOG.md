@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.8.9 patch — 2026-10-27
+
+- Fix [#21](https://github.com/YOU-SHOULD-KNOW-ME/antigrative-dashboard/issues/21): release the Windows sidecar's current-directory handle before replacing runtime folders, and launch Python workers from the stable plugin root. This repairs the reproduced successful-check/failed-install sequence while preserving verified staging, backup and rollback.
+- Probe Python 3.10+ before running a worker. Unusable Windows Store aliases and old interpreters can fall back to `py -3` or `python3`; an installation that has started is never retried automatically with another interpreter.
+- Preserve Windows static system proxies when the environment contains only `NO_PROXY`, retain explicit protocol overrides, and share a bounded check budget across the API and official-page fallback. Keep certificate and hostname verification enabled.
+- Show localized, predefined failure reasons for locked/unwritable files, Python, timeouts, DNS, certificates, proxies and HTTP/connection errors. Do not expose raw exception text, paths or proxy credentials.
+- Add real Node/Python subprocess regressions for the host's working directory to Verify/Release gates. Refresh the existing v0.8.9 packages and SHA-256 assets without changing the version or original Git tag. Existing v0.8.9 users and affected older updaters should install the refreshed ZIP manually once and completely reopen the App.
+
 ## 0.8.9 — 2026-10-24
 
 - Address [#20](https://github.com/YOU-SHOULD-KNOW-ME/antigrative-dashboard/issues/20): include delegated subagent Token/cache usage in the selected task's summary, with current-agent and subagent contribution rows. Selecting a child shows its own subtree; TPS, timing, steps, sampled model, context and account quotas retain their original scopes.

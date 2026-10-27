@@ -1,9 +1,9 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {mkdtemp,writeFile,readFile,rm,readdir} from 'node:fs/promises';
-import {join} from 'node:path';
+import {join,resolve} from 'node:path';
 import {tmpdir} from 'node:os';
-import {AppUpdater,runUpdateWorker} from '../updater.mjs';
+import {AppUpdater,runUpdateWorker,releaseRuntimeDirectory} from '../updater.mjs';
 import {EventEmitter} from 'node:events';
 
 async function setup(t,run){const directory=await mkdtemp(join(tmpdir(),'ag-updater-'));t.after(()=>rm(directory,{recursive:true,force:true}));await writeFile(join(directory,'plugin.json'),JSON.stringify({name:'antigravity-pulse',version:'0.8.6'}));return {directory,service:new AppUpdater({pluginDir:directory,dataDir:directory,run})};}
@@ -60,9 +60,9 @@ test('reload is scheduled once even if multiple views request it',async t=>{
 });
 
 test('worker runner bounds output, requires zero exit status and hides subprocess windows',async()=>{
- const spawnImpl=({output,code})=>(_command,_args,options)=>{
+ const spawnImpl=({output,code})=>(_command,args,options)=>{
   assert.equal(options.windowsHide,true);const child=new EventEmitter();child.stdout=new EventEmitter();child.stderr=new EventEmitter();child.kill=()=>{};
-  queueMicrotask(()=>{for(const chunk of output)child.stdout.emit('data',chunk);child.emit('close',code);});return child;
+  queueMicrotask(()=>{if(args.includes('-c')){child.stdout.emit('data',JSON.stringify({pulseUpdatePython:1,supported:true}));child.emit('close',0);return;}for(const chunk of output)child.stdout.emit('data',chunk);child.emit('close',code);});return child;
  };
  const valid=JSON.stringify({ok:true,result:{version:'0.8.7'}});
  assert.deepEqual(await runUpdateWorker('worker.py',['apply'],{spawnImpl:spawnImpl({output:[valid],code:0})}),{version:'0.8.7'});
@@ -95,8 +95,9 @@ test('download progress reports measured bytes, drops extra fields and never reg
 
 test('stderr progress parsing tolerates chunks and ignores unbounded or unrelated diagnostic data',async()=>{
  const received=[];const valid=JSON.stringify({ok:true,result:{verified:true}});
- const spawnImpl=()=>{const child=new EventEmitter();child.stdout=new EventEmitter();child.stderr=new EventEmitter();child.kill=()=>{};
+ const spawnImpl=(_command,args)=>{const child=new EventEmitter();child.stdout=new EventEmitter();child.stderr=new EventEmitter();child.kill=()=>{};
   queueMicrotask(()=>{
+   if(args.includes('-c')){child.stdout.emit('data',JSON.stringify({pulseUpdatePython:1,supported:true}));child.emit('close',0);return;}
    child.stderr.emit('data','unrelated private diagnostic\n'+'x'.repeat(50000)+'\n');
    const event=JSON.stringify({event:'pulse-update-progress',phase:'download',received:5,total:10,private:'ignored'})+'\n';
    child.stderr.emit('data',event.slice(0,17));child.stderr.emit('data',event.slice(17));
@@ -105,4 +106,78 @@ test('stderr progress parsing tolerates chunks and ignores unbounded or unrelate
   });return child;};
  assert.deepEqual(await runUpdateWorker('worker.py',['apply'],{spawnImpl,onProgress:value=>received.push(value)}),{verified:true});
  assert.deepEqual(received,[{phase:'download',received:5,total:10}]);
+});
+
+test('Windows relocates only cwd inside a replaced runtime tree',()=>{
+ const root='C:\\Users\\Fixture\\plugins\\antigravity-pulse',changes=[];
+ for(const current of [root+'\\sidecars\\panel',root+'\\compat',root+'\\assets\\icons']){
+  assert.equal(releaseRuntimeDirectory(root,{platform:'win32',cwd:()=>current,chdir:dir=>changes.push(dir)}),true);
+ }
+ assert.deepEqual(changes,[root,root,root]);
+ for(const current of [root,root+'\\sidecars-other',root+'-other\\sidecars','D:\\external']){
+  assert.equal(releaseRuntimeDirectory(root,{platform:'win32',cwd:()=>current,chdir:()=>assert.fail('external cwd changed')}),false);
+ }
+ assert.equal(releaseRuntimeDirectory(root,{platform:'linux',cwd:()=>assert.fail('unix cwd read'),chdir:()=>assert.fail('unix cwd changed')}),false);
+});
+
+function scriptedSpawn(handler){
+ return (command,args,options)=>{
+  const child=new EventEmitter();child.stdout=new EventEmitter();child.stderr=new EventEmitter();child.kill=()=>{};
+  queueMicrotask(()=>handler({command,args,options,child,respond:(value,code=0)=>{if(value!==null)child.stdout.emit('data',typeof value==='string'?value:JSON.stringify(value));child.emit('close',code);}}));
+  return child;
+ };
+}
+
+test('Windows probes past Store aliases and selects py -3 before running the worker once',async()=>{
+ const calls=[],stable=join(tmpdir(),'ag-worker-stable');
+ const result=await runUpdateWorker('C:\\plugin\\compat\\update-worker.py',['apply'],{platform:'win32',cwd:stable,spawnImpl:scriptedSpawn(({command,args,options,respond})=>{
+  calls.push({command,args});assert.equal(options.cwd,stable);
+  if(command==='python'){respond(null,9009);return;}
+  assert.equal(command,'py');assert.equal(args[0],'-3');
+  respond(args.includes('-c')?{pulseUpdatePython:1,supported:true}:{ok:true,result:{verified:true}});
+ })});
+ assert.deepEqual(result,{verified:true});assert.equal(calls.length,3);assert.deepEqual(calls.map(c=>c.command),['python','py','py']);
+});
+
+test('unsupported Python falls back during probes; missing and old runtimes remain distinct',async()=>{
+ const calls=[];
+ await runUpdateWorker('worker.py',['check'],{platform:'win32',spawnImpl:scriptedSpawn(({command,args,respond})=>{
+  calls.push(command);respond(args.includes('-c')?{pulseUpdatePython:1,supported:command!=='python'}:{ok:true,result:{}});
+ })});
+ assert.deepEqual(calls,['python','py','py']);
+ for(const [supported,detail] of [[false,'python-version'],[null,'python-missing']]){
+  await assert.rejects(()=>runUpdateWorker('worker.py',['apply'],{platform:'win32',spawnImpl:scriptedSpawn(({respond})=>respond(supported===null?null:{pulseUpdatePython:1,supported},supported===null?9009:0))}),error=>error.message==='python'&&error.detail===detail);
+ }
+});
+
+test('a selected worker failure is never retried and exposes only allowed static detail',async()=>{
+ for(const [response,expectedDetail] of [[{ok:false,code:'install',detail:'permission'},'permission'],[{ok:false,code:'network',detail:'secret proxy URL'},undefined],['not JSON',undefined]]){
+  let calls=0;
+  await assert.rejects(()=>runUpdateWorker('worker.py',['apply'],{platform:'win32',spawnImpl:scriptedSpawn(({args,respond})=>{
+   calls++;respond(args.includes('-c')?{pulseUpdatePython:1,supported:true}:response,args.includes('-c')?0:1);
+  })}),error=>error.detail===expectedDetail);
+  assert.equal(calls,2,'only one probe and one worker execution');
+ }
+});
+
+test('retrying a check clears a previous static error detail',async t=>{
+ const {service}=await setup(t,async()=>{throw Object.assign(Error('network'),{detail:'certificate'});});
+ assert.equal((await service.check()).errorDetail,'certificate');
+ service.run=async()=>({host:'app',currentVersion:'0.8.6',latestVersion:'0.8.6',hasUpdate:false});
+ assert.equal((await service.check()).errorDetail,undefined);
+});
+
+test('relative worker paths become absolute before changing subprocess cwd',async()=>{
+ const worker=join('compat','worker.py'),expected=resolve(worker);
+ await runUpdateWorker(worker,['check'],{spawnImpl:scriptedSpawn(({args,options,respond})=>{
+  assert.equal(options.cwd,resolve('compat','..'));
+  if(!args.includes('-c'))assert.equal(args[0],expected);
+  respond(args.includes('-c')?{pulseUpdatePython:1,supported:true}:{ok:true,result:{}});
+ })});
+});
+
+test('permission failures retain a static detail without leaking filesystem messages',async t=>{
+ const {service}=await setup(t,async()=>{throw Object.assign(Error('private filesystem path'),{code:'EACCES'});});
+ const state=await service.check();assert.equal(state.error,'install');assert.equal(state.errorDetail,'permission');
+ assert.equal(JSON.stringify(state).includes('private'),false);
 });

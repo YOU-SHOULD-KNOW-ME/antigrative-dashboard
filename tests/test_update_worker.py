@@ -310,7 +310,10 @@ with w.lifecycle_lock(Path(sys.argv[2])):w.install_staged(Path(sys.argv[3]),Path
         expected={'tag_name':'v0.8.6','assets':[]}
         for error in [urllib.error.URLError('network unavailable'),TimeoutError()]:
             with patch.object(worker,'fetch',side_effect=error),patch.object(worker,'public_release',return_value=expected) as fallback:
-                self.assertEqual(worker.latest_release('0.8.6'),expected);fallback.assert_called_once_with('0.8.6')
+                self.assertEqual(worker.latest_release('0.8.6'),expected)
+                self.assertEqual(fallback.call_args.args,('0.8.6',))
+                self.assertIsInstance(fallback.call_args.kwargs['deadline'],float)
+                fallback.assert_called_once()
 
     def test_tls_compatibility_keeps_certificate_and_hostname_verification(self):
         import io
@@ -333,6 +336,22 @@ with w.lifecycle_lock(Path(sys.argv[2])):w.install_staged(Path(sys.argv[3]),Path
         with patch.object(worker.urllib.request,'build_opener',return_value=first) as opener:
             with self.assertRaises(urllib.error.URLError):worker.fetch('https://github.com/file',100)
             self.assertEqual(opener.call_count,1)
+
+    def test_worker_reports_only_static_permission_and_certificate_details(self):
+        import io
+        import ssl
+        for error, code, detail in [
+            (PermissionError('PRIVATE_PATH'), 'install', 'permission'),
+            (worker.NetworkError('certificate'), 'network', 'certificate'),
+            (ssl.SSLCertVerificationError('PRIVATE_CERTIFICATE'), 'network', 'certificate'),
+        ]:
+            output = io.StringIO()
+            with self.subTest(detail=detail), patch.object(worker.sys, 'argv', ['worker', 'check', '--target', str(self.target)]), \
+                    patch.object(worker, 'validate_location', side_effect=error), patch.object(worker.sys, 'stdout', output):
+                self.assertEqual(worker.main(), 1)
+            data=json.loads(output.getvalue())
+            self.assertEqual(data, {'ok':False, 'code':code, 'detail':detail})
+            self.assertNotIn('PRIVATE', output.getvalue())
 
 
 if __name__ == '__main__':

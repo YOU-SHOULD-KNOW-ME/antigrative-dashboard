@@ -11,6 +11,7 @@ import os
 from pathlib import Path, PurePosixPath
 import re
 import shutil
+import socket
 import ssl
 import stat
 import sys
@@ -39,6 +40,65 @@ REQUIRED = ('plugin.json', 'compat/inline-widget.cjs', 'compat/runtime-ui.mjs',
             'sidecars/panel/metrics.mjs', 'sidecars/panel/history.mjs', 'assets/logo.svg')
 MAX_ZIP = 64 * 1024 * 1024
 MAX_EXPANDED = 256 * 1024 * 1024
+CHECK_BUDGET = 60
+API_BUDGET = 12
+SOCKET_TIMEOUT = 8
+NETWORK_DETAILS = frozenset({'timeout', 'dns', 'certificate', 'proxy', 'http', 'connection'})
+
+
+class NetworkError(urllib.error.URLError):
+    """Only static categories and an HTTP status survive network wrapping."""
+    def __init__(self, detail, status=None):
+        self.detail = detail if detail in NETWORK_DETAILS else 'connection'
+        self.status = status if type(status) is int and 100 <= status <= 599 else None
+        super().__init__(self.detail)
+
+
+def network_failure(error):
+    """Classify without returning URLs, proxy credentials or exception text."""
+    details, pending, seen = set(), [error], set()
+    while pending:
+        item = pending.pop()
+        if not isinstance(item, BaseException) or id(item) in seen:
+            continue
+        seen.add(id(item))
+        if isinstance(item, NetworkError):
+            details.add(item.detail)
+        elif isinstance(item, ssl.SSLCertVerificationError):
+            details.add('certificate')
+        elif isinstance(item, (TimeoutError, socket.timeout)):
+            details.add('timeout')
+        elif isinstance(item, socket.gaierror):
+            details.add('dns')
+        elif isinstance(item, urllib.error.HTTPError):
+            details.add('proxy' if item.code == 407 else 'http')
+        elif isinstance(item, (urllib.error.URLError, ConnectionError, ssl.SSLError, EOFError)):
+            details.add('connection')
+        reason = getattr(item, 'reason', None)
+        # urllib represents an HTTP CONNECT rejection as an OSError string.
+        # Inspect it only to select a static category, never expose the text.
+        if isinstance(item, OSError) and 'Tunnel connection failed:' in str(item):
+            details.add('proxy')
+        pending.extend((reason, item.__cause__, item.__context__))
+    return next((detail for detail in ('certificate', 'proxy', 'dns', 'timeout', 'http', 'connection') if detail in details), None)
+
+
+def update_proxies():
+    """Merge Windows static settings with explicit per-scheme env overrides.
+
+    urllib's Windows environment-or-registry selection loses the system proxy
+    when the environment contains only NO_PROXY. Empty env settings still
+    explicitly disable their scheme; lowercase wins as it does in urllib.
+    """
+    proxies = dict(urllib.request.getproxies_registry()) if os.name == 'nt' else {}
+    environment = urllib.request.getproxies_environment()
+    declared = {name[:-6].lower() for name in os.environ if name.lower().endswith('_proxy')}
+    if 'REQUEST_METHOD' in os.environ and not any(name == 'http_proxy' for name in os.environ):
+        declared.discard('http')  # Ignore the CGI HTTP_PROXY header convention.
+    for scheme in declared:
+        proxies.pop(scheme, None)
+    proxies.update(environment)
+    return proxies
 
 
 def version(value):
@@ -52,13 +112,30 @@ class NoRedirect(urllib.request.HTTPRedirectHandler):
         return None
 
 
-def fetch(url, limit, destination=None, metadata=False, method='GET', progress=None):
-    opener = urllib.request.build_opener(NoRedirect())  # Retains configured proxy support.
+def fetch(url, limit, destination=None, metadata=False, method='GET', progress=None, deadline=None):
+    try:
+        return _fetch(url, limit, destination, metadata, method, progress, deadline)
+    except Exception as error:
+        detail = network_failure(error)
+        if detail is None:
+            raise
+        raise NetworkError(detail, getattr(error, 'code', None)) from error
+
+
+def _fetch(url, limit, destination, metadata, method, progress, deadline):
+    proxies = update_proxies()
+    opener = urllib.request.build_opener(urllib.request.ProxyHandler(proxies), NoRedirect())
+    deadline = min(deadline, time.monotonic() + 90) if deadline is not None else time.monotonic() + 90
+    def remaining_timeout():
+        remaining = deadline - time.monotonic()
+        if remaining <= 0:
+            raise TimeoutError('Update request timed out')
+        return min(SOCKET_TIMEOUT, remaining)
     compatibility = False
     def open_verified(request):
         nonlocal opener, compatibility
         try:
-            return opener.open(request, timeout=8)
+            return opener.open(request, timeout=remaining_timeout())
         except urllib.error.URLError as error:
             reason = error.reason
             # Some local TLS interception proxies fail the initial TLS 1.3
@@ -69,12 +146,11 @@ def fetch(url, limit, destination=None, metadata=False, method='GET', progress=N
                 raise
             context = ssl.create_default_context()
             context.maximum_version = ssl.TLSVersion.TLSv1_2
-            opener = urllib.request.build_opener(NoRedirect(), urllib.request.HTTPSHandler(context=context))
+            opener = urllib.request.build_opener(urllib.request.ProxyHandler(proxies), NoRedirect(), urllib.request.HTTPSHandler(context=context))
             compatibility = True
-            return opener.open(request, timeout=8)
+            return opener.open(request, timeout=remaining_timeout())
     allowed = {'api.github.com', 'github.com', 'release-assets.githubusercontent.com',
                'objects.githubusercontent.com', 'github-releases.githubusercontent.com'}
-    deadline = time.monotonic() + 90
     for _ in range(5):
         parsed = urllib.parse.urlsplit(url)
         if parsed.scheme != 'https' or parsed.hostname not in allowed or parsed.username or parsed.password or parsed.port not in (None, 443):
@@ -94,9 +170,15 @@ def fetch(url, limit, destination=None, metadata=False, method='GET', progress=N
             handle = destination.open('wb') if destination else None
             try:
                 while True:
-                    if time.monotonic() > deadline:
-                        raise TimeoutError('Update download timed out')
-                    chunk = response.read(65536)
+                    timeout = remaining_timeout()
+                    # HTTPResponse.read(n) can wait for many socket reads while
+                    # a slow peer keeps sending. read1 returns after one read so
+                    # the shared wall deadline is checked between arrivals.
+                    sock = getattr(getattr(getattr(response, 'fp', None), 'raw', None), '_sock', None)
+                    if sock is not None:
+                        sock.settimeout(timeout)
+                    read = getattr(response, 'read1', response.read)
+                    chunk = read(65536)
                     if not chunk:
                         break
                     total += len(chunk)
@@ -121,9 +203,9 @@ def fetch(url, limit, destination=None, metadata=False, method='GET', progress=N
     raise ValueError('Too many update redirects')
 
 
-def public_release(current):
+def public_release(current, deadline=None):
     """Public HTML fallback for API rate limits; no credentials are requested."""
-    _, final, _ = fetch(f'https://github.com/{REPO}/releases/latest', 1048576, metadata=True)
+    _, final, _ = fetch(f'https://github.com/{REPO}/releases/latest', 1048576, metadata=True, deadline=deadline)
     parsed = urllib.parse.urlsplit(final)
     prefix = f'/{REPO}/releases/tag/v'
     if parsed.hostname != 'github.com' or not parsed.path.startswith(prefix) or parsed.query:
@@ -133,14 +215,14 @@ def public_release(current):
     release = {'tag_name': 'v' + latest, 'assets': []}
     if version(latest) <= version(current):
         return release
-    content = html.unescape(fetch(f'https://github.com/{REPO}/releases/expanded_assets/v{latest}', 1048576).decode('utf-8'))
+    content = html.unescape(fetch(f'https://github.com/{REPO}/releases/expanded_assets/v{latest}', 1048576, deadline=deadline).decode('utf-8'))
     name = f'antigrative-dashboard-{latest}.zip'
     base = f'https://github.com/{REPO}/releases/download/v{latest}/'
     for filename in (name, name + '.sha256'):
         path = f'/{REPO}/releases/download/v{latest}/{filename}'
         if f'href="{path}"' not in content and f'href="{base + filename}"' not in content:
             raise ValueError('Missing exact public release asset')
-        _, _, length = fetch(base + filename, 0, metadata=True, method='HEAD')
+        _, _, length = fetch(base + filename, 0, metadata=True, method='HEAD', deadline=deadline)
         release['assets'].append({'name': filename, 'browser_download_url': base + filename,
                                   'size': int(length) if length and length.isdigit() else None})
     return release
@@ -179,16 +261,26 @@ def release_plan(release, current, host='app'):
 
 
 def latest_release(current):
+    deadline = time.monotonic() + CHECK_BUDGET
+    initial_error = None
     try:
-        return json.loads(fetch(f'https://api.github.com/repos/{REPO}/releases/latest', 262144))
-    except urllib.error.HTTPError as error:
-        if error.code not in (403, 429):
+        return json.loads(fetch(f'https://api.github.com/repos/{REPO}/releases/latest', 262144,
+                                deadline=min(deadline, time.monotonic() + API_BUDGET)))
+    except (urllib.error.HTTPError, NetworkError) as error:
+        status = error.code if isinstance(error, urllib.error.HTTPError) else error.status
+        if status is not None and status not in (403, 429):
             raise
-    except (urllib.error.URLError, TimeoutError):
+        initial_error = error
+    except (urllib.error.URLError, TimeoutError) as error:
         # The public page remains an HTTPS resource under the same repository;
         # it is also usable when a proxy cannot reach api.github.com.
-        pass
-    return public_release(current)
+        initial_error = error
+    try:
+        return public_release(current, deadline=deadline)
+    except Exception as error:
+        if initial_error is not None and network_failure(initial_error) == 'certificate' and network_failure(error):
+            raise NetworkError('certificate') from error
+        raise
 
 
 def checksum(text, name):
@@ -509,8 +601,9 @@ def main():
     except Exception as error:
         # Only static error categories cross into the renderer, never proxy
         # credentials, paths, HTTP response text or helper tracebacks.
-        code = 'rollback' if isinstance(error, RollbackError) else 'network' if isinstance(error, (urllib.error.URLError, TimeoutError)) else 'busy' if isinstance(error, FileExistsError) else 'verification' if isinstance(error, ValueError) else 'install'
-        print(json.dumps({'ok': False, 'code': code}))
+        detail = 'permission' if isinstance(error, PermissionError) else network_failure(error)
+        code = 'rollback' if isinstance(error, RollbackError) else 'network' if detail in NETWORK_DETAILS else 'busy' if isinstance(error, FileExistsError) else 'verification' if isinstance(error, ValueError) else 'install'
+        print(json.dumps({'ok': False, 'code': code, **({'detail': detail} if detail else {})}))
         return 1
     return 0
 

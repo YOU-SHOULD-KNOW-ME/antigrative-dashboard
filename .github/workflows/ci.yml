@@ -26,6 +26,8 @@ jobs:
         run: node --expose-gc tools/check-trajectory-resources.mjs 0 32768 --expect-budget-rejection
       - run: node --test ide/tests/*.test.mjs
       - run: python -m unittest discover -s tests -v
+      - name: Update through real worker processes from the host working directory
+        run: npm run test:update-process
       - name: Install Chromium for shared UI regressions
         run: |
           npm install --no-save --package-lock=false playwright

@@ -13,9 +13,12 @@ import { PreferencesStore } from '../../compat/preferences.mjs';
 import { SidecarOwner } from '../../compat/sidecar-owner.mjs';
 import { readHostTheme } from '../../compat/host-theme.mjs';
 import { panelAppSource,panelPageSource } from './panel-source.mjs';
-import { AppUpdater } from './updater.mjs';
+import { AppUpdater, releaseRuntimeDirectory } from './updater.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
+// The host starts this sidecar in sidecars/panel. Windows holds the process's
+// current directory open; release that handle before an update renames sidecars.
+try { releaseRuntimeDirectory(join(HERE,'..','..')); } catch {}
 const createTheme=createRequire(import.meta.url)('../../compat/theme.cjs');
 const themeCss=()=>createTheme().css(':root');
 const store = new MetricsStore(undefined,{owns:()=>(!ownership||ownership.isOwner())&&runtimeSettings().enabled!==false});

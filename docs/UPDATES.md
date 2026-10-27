@@ -16,6 +16,35 @@ uses transform-only motion. A stage change does not animate a completed check
 backwards into a new download. Worker progress is optional, bounded, allowlisted
 metadata on stderr; the verified final result remains a separate stdout message.
 
+## Windows working-directory fix (Issue #21)
+
+Windows can refuse to rename `sidecars` while the running sidecar or update worker
+has its current directory inside that tree. This produced a successful version
+check followed by an installation error. The sidecar now moves its own current
+directory to the stable plugin root, and workers explicitly use that root too.
+Installation still uses the existing verified staging, backup and rollback.
+
+Old installations with this bug may fail before they can install the fixed
+updater. Install a package containing the fix once using `python manage.py install`
+and completely reopen the App. Existing language preferences and usage records
+are retained. A failed old attempt does not imply data should be deleted.
+
+Interpreter discovery checks Python 3.10+ before starting a worker. On Windows,
+an unusable Store alias or old Python can fall back to `py -3` or `python3` during
+this read-only check. Once an installation worker has started, a failure never
+launches another installation automatically.
+
+Network errors use short predefined messages for timeouts, DNS, certificate trust,
+proxy connections and HTTP rejection. Locked/unwritable files and unavailable
+Python have their own messages. Raw paths, proxy credentials, HTTP payloads and
+tracebacks are not passed to the UI. Certificate/hostname verification stays on.
+Windows static system proxies remain available when the environment contains only
+`NO_PROXY`; explicit per-protocol environment settings still take precedence.
+Checks share one 60-second network budget across the API and official-page fallback,
+with a separate outer cancellation guard. This does not change system settings or
+install any certificates. DNS resolution and operating-system scheduling can delay
+cleanup; an installation is never killed in the middle of a filesystem swap.
+
 ## Verification before replacement
 
 - Exact repository, stable version, App archive name and checksum asset binding.
