@@ -18,7 +18,7 @@ Keep the summary visible. Hover for the details.
 
 **v0.8.9:** Include delegated subagents in task Token/cache usage, with separate contributions and duplicate-safe daily/monthly accounting. Speed and context remain local to the selected agent. [Release notes](https://github.com/YOU-SHOULD-KNOW-ME/antigrative-dashboard/releases/tag/v0.8.9).
 
-**v0.8.9 patch (2026-10-27):** Fix Windows in-app installation failures and improve Python/network error handling. Download the refreshed ZIP and reinstall manually once; the version stays v0.8.9. [Patch details](docs/UPDATES.md#windows-working-directory-fix-issue-21).
+**v0.8.9 patch (2026-10-28):** Fix duplicate icons/status strips after host updates, alongside the Windows updater repair. Reinstall the refreshed package and fully quit/reopen the host once; the version stays v0.8.9. [Patch details](docs/UPDATES.md#widget-lifecycle-after-host-updates).
 
 ## Preview
 

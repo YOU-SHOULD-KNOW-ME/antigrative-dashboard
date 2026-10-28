@@ -16,6 +16,25 @@ uses transform-only motion. A stage change does not animate a completed check
 backwards into a new download. Worker progress is optional, bounded, allowlisted
 metadata on stderr; the verified final result remains a separate stdout message.
 
+## Widget lifecycle after host updates
+
+A disposed widget could finish a delayed preference read and schedule a new
+mount after its replacement had started. This left an offline icon-only copy
+beside the working strip. The failure was reproduced in a browser fixture and
+observed in Windows Antigravity App 2.28.0; host updates are not the only possible
+trigger for this asynchronous lifecycle bug.
+
+The widget now rejects preference/layout/mount callbacks after disposal and
+cleans up identifiable leftover plugin strips before mounting. Native controls
+and saved data are retained. Lifecycle regressions run in the shared UI gate.
+
+For this same-version v0.8.9 patch, reinstall the refreshed package and fully quit
+and reopen the host once. A plugin-only restart cannot revoke old callbacks that
+were already recreated in the open page. App users should use the release ZIP;
+standalone IDE users should use the matching VSIX. The original Git tag and its
+automatic source archives remain the original snapshot; current `main` and the
+patch source commit referenced in the release contain the fix.
+
 ## Windows working-directory fix (Issue #21)
 
 Windows can refuse to rename `sidecars` while the sidecar's parent `cmd.exe`

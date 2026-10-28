@@ -2,6 +2,26 @@
 
 Delegated subagent usage now contributes to the task's Token/cache summary.
 
+## Same-version patch — 2026-10-28
+
+- Fix duplicate status strips seen after updating to Antigravity App 2.28.0:
+  a disposed widget's delayed preference callback could mount an offline copy
+  beside the live strip, leaving three extra icons and crowding the toolbar.
+- Ignore delayed preference/layout callbacks after disposal. Before mounting,
+  remove only identifiable leftover plugin strips; retain native controls.
+- Add four browser lifecycle regressions to the cross-platform UI gate, covering
+  delayed preferences, repeated replacement, absent/returning composers and
+  orphan recovery, with working usage/context cards and native button targets.
+- Windows App 2.28.0 was checked with saved conversations, Token usage, context,
+  quotas and conversation switching. Linux/macOS and standalone IDE have shared
+  browser/CI coverage; this patch does not claim new native GUI acceptance there.
+
+The version remains **v0.8.9**. Download the refreshed App ZIP (or IDE VSIX for the
+standalone IDE), reinstall, then **fully quit and reopen the host application
+once**. Restarting only the plugin cannot remove callbacks already running from
+the old code. Settings and statistics are retained. Use the release attachments;
+the original tag and its automatic source archives remain unchanged.
+
 ## Same-version patch — 2026-10-27
 
 The existing **v0.8.9** App ZIP and SHA-256 assets are refreshed to address

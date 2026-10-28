@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.8.9 patch — 2026-10-28
+
+- Fix disposed widgets remounting after delayed preference reads, reproducing duplicate offline icons beside the live strip after an Antigravity App 2.28.0 update.
+- Guard preference completion, scheduled layout and mounting after disposal. Clean up only identifiable orphan plugin strips while preserving native controls.
+- Add four browser lifecycle regressions to the shared UI gate: delayed reads, repeated replacement, absent/returning composers and orphan recovery. Check active language/metrics, context/cache cards, usage entry and native hit targets.
+- Refresh existing v0.8.9 packages without changing the version or original tag. Reinstall the refreshed package and fully quit/reopen the host once to clear callbacks from old code; settings and statistics are retained.
+
 ## 0.8.9 patch — 2026-10-27
 
 - Fix [#21](https://github.com/YOU-SHOULD-KNOW-ME/antigrative-dashboard/issues/21): the Windows parent command launcher can retain a runtime-directory handle after Node relocates. Keep directory identities stable and atomically replace verified public files on Windows; launch Node/Python from a stable directory. Retain durable backup, crash recovery and private data, and reject linked recovery paths before any file mutation.

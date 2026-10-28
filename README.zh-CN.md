@@ -18,7 +18,7 @@
 
 **v0.8.9 更新：** 任务 Token／缓存统计纳入多层子代理，详情显示各自贡献；日／月用量去重入账。速率和上下文仍对应当前代理。[更新说明](https://github.com/YOU-SHOULD-KNOW-ME/antigrative-dashboard/releases/tag/v0.8.9)。
 
-**v0.8.9 补丁（2026-10-27）：** 修复 Windows 插件内安装失败，并完善 Python 检测、代理和错误提示。版本号不变，请下载刷新后的 ZIP 手动重装一次并完整重启 App。[补丁说明](docs/UPDATES.md#windows-working-directory-fix-issue-21)。
+**v0.8.9 补丁（2026-10-28）：** 修复宿主更新后的重复图标／控件，包含此前的 Windows 更新器修复。版本号不变，请重装刷新后的对应安装包，并完整退出、重新打开宿主一次。[补丁说明](docs/UPDATES.md#widget-lifecycle-after-host-updates)。
 
 ## 看看效果
 

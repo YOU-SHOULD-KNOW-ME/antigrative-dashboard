@@ -9,6 +9,8 @@
 上表面向 **Antigravity 桌面 App 2.21.1 / 2.22.0**。CLI 使用独立 statusLine 适配；v0.7.0 新增自带 IDE 的独立 VSIX。VS Code、Visual Studio、JetBrains、Zed、Xcode 中的 Antigravity 扩展以及 iOS 尚未兼容。Linux/macOS 官方资源检查固定为桌面 App 2.21.1，不等同于验证 IDE 或其 2.22.0 登录界面。
 Python 3.10+ 仅用于生命周期，无 pip 依赖；后台使用宿主 Node，内嵌桥接需原生 WebSocket，建议 Node 24。Linux/macOS 架构跟随宿主，不分发平台二进制。官方系统要求见 [Antigravity 下载页](https://antigravity.google/download)。
 
+2026-10-28 补充：Windows 11 / 桌面 App **2.28.0** 已实机验证修复后的单份控件、历史会话速率／Token／上下文恢复、详情卡、用量窗口、额度和会话往返切换。延迟回调与重复挂载的浏览器回归纳入三系统 CI；这不等同于 Linux/macOS 2.28.0 或新版独立 IDE 的登录后实机验收。安装本次同版本补丁后需要完整退出并重开宿主一次。
+
 ## Antigravity 自带 IDE
 
 专用包为 `antigrative-dashboard-ide-0.8.5.vsix`，安装入口与桌面 App 独立。
