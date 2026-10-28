@@ -612,8 +612,8 @@ module.exports = function installAgPulseInlineWidget() {
         .usage-summary strong{font-size:20px;font-weight:550;letter-spacing:-.5px;color:var(--pulse-foreground);font-variant-numeric:tabular-nums}.usage-unit{font-size:9px;letter-spacing:0;color:var(--pulse-muted)}
         #open-usage{align-items:center;min-height:34px;gap:12px;width:calc(100% + 12px);margin:5px -6px -3px;padding:7px 6px;border:0;border-radius:6px;background:transparent;color:var(--pulse-label);font-size:11px;text-align:left;line-height:20px}#open-usage:hover{background:var(--pulse-hover);color:var(--pulse-foreground)}#open-usage svg{width:14px;height:14px;color:var(--pulse-muted);flex:none}
       `;
-      usageDashboard=window.__agPulseUsageFactory({root,language,setMarkup,hostLabel:surface?.usageHostLabel||'Antigravity',guideDismissed:usageGuideDismissed,onDismissGuide:async()=>{const saved=await window.agPulseHost.setPreferences({usageGuideDismissed:true});if(saved?.usageGuideDismissed!==true)throw Error('Usage guide could not be saved');syncGuide(saved);},onLanguage:next=>preferences.choose(next),onRefresh:()=>refreshManually()});
-      $('open-usage').addEventListener('click',()=>{const trigger=root.querySelector('[data-card=cache]');hide();usageDashboard.open(data?.usage,trigger);});
+      usageDashboard=window.__agPulseUsageFactory({root,language,setMarkup,hostLabel:surface?.usageHostLabel||'Antigravity',guideDismissed:usageGuideDismissed,onDismissGuide:async()=>{const saved=await window.agPulseHost.setPreferences({usageGuideDismissed:true});if(saved?.usageGuideDismissed!==true)throw Error('Usage guide could not be saved');syncGuide(saved);},onLanguage:next=>preferences.choose(next),onRefresh:()=>refreshManually(true)});
+      $('open-usage').addEventListener('click',()=>{const trigger=root.querySelector('[data-card=cache]'),conversation=conversationId();hide();usageDashboard.open(data?.usage,trigger);void window.agPulseHost.getMetrics({conversationId:conversation,force:true,usageSync:true}).then(result=>{if(!disposed&&result?.usage)usageDashboard.update(result.usage);}).catch(()=>{});});
     }
     localize();
     render();refresh();
@@ -696,12 +696,12 @@ module.exports = function installAgPulseInlineWidget() {
       button.dataset.i18nAria=busy?'refreshing':'refresh';button.title=t(button.dataset.i18nAria);button.setAttribute('aria-label',button.title);
     }
   }
-  function refreshManually(){
+  function refreshManually(syncUsage=false){
     if(manualRequest)return manualRequest.promise;
     closeGroup();refreshBusy(true);const started=performance.now();
     const epoch=requestEpoch,request={};manualRequest=request;
     request.promise=(async()=>{
-      try{if(pending)await refreshRequest;if(!disposed&&epoch===requestEpoch)await refresh(true);}
+      try{if(pending)await refreshRequest;if(!disposed&&epoch===requestEpoch)await refresh(true,syncUsage);}
       finally{
         // A fast cached response still needs visible press feedback. This does
         // not delay data updates; only the indicator has a 250ms minimum.
@@ -712,7 +712,7 @@ module.exports = function installAgPulseInlineWidget() {
     })();
     return request.promise;
   }
-  function refresh(force=false){
+  function refresh(force=false,syncUsage=false){
     if(disposed)return;
     if(syncConversation())render();
     if(pending)return refreshRequest;
@@ -722,7 +722,7 @@ module.exports = function installAgPulseInlineWidget() {
     const current=()=>!disposed&&epoch===requestEpoch&&conversation===conversationId()&&conversation===lastConversation&&node?.isConnected;
     pending=true;lastFetch=Date.now();
     refreshRequest=(async()=>{
-      try{const result=await window.agPulseHost.getMetrics({conversationId:conversation,force});if(!current())return;node.style.visibility=result.enabled===false?'hidden':'';if(result.enabled===false){hide();return;}if(!conversation||result.speed&&result.speed.conversationId!==conversation)result.speed=null;data=result;if(result.preferences){syncGuide(result.preferences);preferences.sync(result.preferences);guideReady=!preferences.error;}if(Object.hasOwn(result,'theme'))themeController?.setHostTheme(result.theme);render();}
+      try{const result=await window.agPulseHost.getMetrics({conversationId:conversation,force,...(syncUsage?{usageSync:true}:{})});if(!current())return;node.style.visibility=result.enabled===false?'hidden':'';if(result.enabled===false){hide();return;}if(!conversation||result.speed&&result.speed.conversationId!==conversation)result.speed=null;data=result;if(result.preferences){syncGuide(result.preferences);preferences.sync(result.preferences);guideReady=!preferences.error;}if(Object.hasOwn(result,'theme'))themeController?.setHostTheme(result.theme);render();}
       catch{if(current()&&data){data.connection='stale';data.error=t('reconnecting');render();}}
       finally{if(epoch===requestEpoch){pending=false;refreshRequest=null;}}
     })();

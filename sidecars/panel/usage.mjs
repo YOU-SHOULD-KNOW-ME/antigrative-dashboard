@@ -116,19 +116,24 @@ export class UsageLedger{
 export function weekStart(date){const d=new Date(date+'T00:00:00Z');d.setUTCDate(d.getUTCDate()-((d.getUTCDay()+6)%7));return d.toISOString().slice(0,10);}
 
 export class DesktopUsage{
-  constructor(store,ledger=new UsageLedger(),{host=null,discoverLocal=null,owns=()=>true,now=Date.now,sliceMs=3000,continueDelay=250}={}){
+  constructor(store,ledger=new UsageLedger(),{host=null,discoverLocal=null,owns=()=>true,now=Date.now,sliceMs=3000,continueDelay=250,
+    maxCandidates=25,maxCandidatesPerSlice=25,maxPassMs=15000,maxMapEntries=4096,localScanMs=30000}={}){
     this.store=store;this.ledger=ledger;this.fingerprints=new Map();this.host=host;this.owns=owns;this.now=now;
     this.discoverLocal=discoverLocal||(()=>host?discoverLocalConversations({host}):Promise.resolve({conversations:[],errors:0}));
-    this.sliceMs=sliceMs;this.continueDelay=continueDelay;this.fullRemaining=new Set();this.passSeen=new Set();this.passFailures=new Set();this.readFailures=new Map();this.delegatedCandidates=new Map();
+    this.customDiscover=Boolean(discoverLocal);this.localScanMs=localScanMs;this.localScanAt=-Infinity;this.localScanResult=null;
+    this.sliceMs=sliceMs;this.continueDelay=continueDelay;this.maxCandidates=maxCandidates;this.maxCandidatesPerSlice=maxCandidatesPerSlice;
+    this.maxPassMs=maxPassMs;this.maxMapEntries=maxMapEntries;this.fullRemaining=new Set();this.passSeen=new Set();this.passFailures=new Set();this.readFailures=new Map();this.delegatedCandidates=new Map();
   }
   syncing=false;lastSync=0;status='waiting';missingConversations=0;confirmedMissingConversations=0;retryingConversations=0;scope=null;scopeEpoch=null;forceQueued=false;disposed=false;continuation=null;
   rememberDelegates(scope,id,raw){
     if(scope!==this.store.identity)return [];
     if(this.delegatedScope!==scope||this.delegatedEpoch!==this.store.epoch){this.delegatedCandidates.clear();this.delegatedScope=scope;this.delegatedEpoch=this.store.epoch;}
     const children=delegatedIds(id,raw,this.store.client.reader?.summaries||{});
-    for(const child of children){if(this.delegatedCandidates.size>=20000)break;this.delegatedCandidates.set(child,{id:child});}
+    for(const child of children){if(this.delegatedCandidates.size>=this.maxMapEntries)break;this.delegatedCandidates.set(child,{id:child});}
+    while(this.delegatedCandidates.size>this.maxMapEntries)this.delegatedCandidates.delete(this.delegatedCandidates.keys().next().value);
     return children;
   }
+  capMap(map){while(map.size>this.maxMapEntries)map.delete(map.keys().next().value);}
   async ingest(scope,id,raw){this.rememberDelegates(scope,id,raw);await this.ledger.ingest(scope,id,raw);}
   sync(forceFull=false){
     if(this.disposed||!this.owns())return Promise.resolve();
@@ -146,7 +151,7 @@ export class DesktopUsage{
       if(!result?.current())return;
       this.lastSync=this.now();this.missingConversations=result.missing;
       this.confirmedMissingConversations=result.confirmed;this.retryingConversations=result.retrying;
-      this.status=result.more?'syncing':result.missing?'partial':'ready';
+      this.status=result.more?'syncing':result.missing||result.partial?'partial':'ready';
       if(result.more){this.continuation=setTimeout(()=>void this.sync(),this.continueDelay);this.continuation.unref?.();}
     })().catch(()=>{this.status='offline';this.lastSync=this.now();}).finally(()=>{this.syncing=false;this.pending=null;});return this.pending;
   }
@@ -154,46 +159,61 @@ export class DesktopUsage{
     const scope=this.store.identity,epoch=this.store.epoch;
     const current=()=>!this.disposed&&this.owns()&&scope===this.store.identity&&epoch===this.store.epoch;
     if(!scope)return null;
-    if(this.scope!==scope||this.scopeEpoch!==epoch){this.scope=scope;this.scopeEpoch=epoch;this.fingerprints.clear();this.fullRemaining.clear();this.passSeen.clear();this.passFailures.clear();this.readFailures.clear();}
+    if(this.scope!==scope||this.scopeEpoch!==epoch){this.scope=scope;this.scopeEpoch=epoch;this.fingerprints.clear();this.fullRemaining.clear();this.passSeen.clear();this.passFailures.clear();this.readFailures.clear();this.localScanResult=null;this.localScanAt=-Infinity;}
     let missing=0,listed=[];
     try{listed=await this.store.listConversations(true);}catch{missing++;}
     if(!current())return {current};
-    const local=await this.discoverLocal();if(!current())return {current};missing+=local.errors||0;
+    let local;
+    if(!this.customDiscover&&this.localScanResult&&this.now()-this.localScanAt<this.localScanMs&&!forceFull)local=this.localScanResult;
+    else {local=await this.discoverLocal();if(!this.customDiscover){this.localScanResult=local;this.localScanAt=this.now();}}
+    if(!current())return {current};missing+=local.errors||0;
     const journal=this.host?await this.ledger.backfillState(scope,this.host):{};
     const candidates=new Map();
     // Current conversations get priority over unloaded archives.
-    for(const c of listed)if(conversationId.test(c.id))candidates.set(c.id.toLowerCase(),{id:c.id.toLowerCase(),listed:c});
+    for(const c of listed)if(conversationId.test(c.id)){
+      if(candidates.size>=this.maxMapEntries){missing++;break;}
+      candidates.set(c.id.toLowerCase(),{id:c.id.toLowerCase(),listed:c});
+    }
     for(const c of local.conversations||[])if(conversationId.test(c.id)){
-      const id=c.id.toLowerCase();candidates.set(id,{...candidates.get(id),...c,id});
+      const id=c.id.toLowerCase();if(candidates.has(id)||candidates.size<this.maxMapEntries)candidates.set(id,{...candidates.get(id),...c,id});else missing++;
     }
     if(this.delegatedScope===scope&&this.delegatedEpoch===epoch)for(const [id,c]of this.delegatedCandidates)if(!candidates.has(id))candidates.set(id,c);
-    if(forceFull){this.fullRemaining=new Set(candidates.keys());this.passSeen.clear();this.passFailures.clear();}
-    const started=this.now();let processed=0,more=false,dirty=false;
-    for(const c of candidates.values()){
+    if(forceFull||(this.sliceMs===0&&!this.fullRemaining.size)){this.fullRemaining=new Set(candidates.keys());this.passSeen.clear();this.passFailures.clear();}
+    const completePass=forceFull||this.fullRemaining.size>0;
+    const ordered=[...candidates.values()].sort((a,b)=>{
+      const running=c=>/RUNNING|IN_PROGRESS/.test(String(c.listed?.status||''));
+      if(running(a)!==running(b))return running(b)-running(a);
+      const time=c=>Date.parse(c.listed?.modifiedAt||c.listed?.lastModifiedTime||'')||0;
+      return time(b)-time(a);
+    });
+    const selected=completePass?ordered:ordered.slice(0,this.maxCandidates);
+    const started=this.now();let processed=0,more=false,dirty=false,partial=!completePass&&ordered.length>selected.length;
+    for(const c of selected){
       if(!current())return {current};
+      if(processed>=this.maxCandidatesPerSlice||(this.now()-started>=this.maxPassMs)){more=completePass;partial=partial||completePass;break;}
       const key=hash(c.id),s=c.listed,mark=JSON.stringify([s?.stepCount,s?.modifiedAt,s?.status,s?.lastUserInputStepIndex]);
       // Recheck older imports once: they could finish without discovering
       // delegated conversations that were absent from the host's top-level list.
-      const signature=hash('delegation-v1:'+(c.signature||'')+mark),old=journal[key];
+      const signature=hash('delegation-v1:'+c.id+':'+(c.signature||'')+mark),old=journal[key];
       const unchanged=old?.signature===signature;
       const forced=this.fullRemaining.has(c.id);
       if(!forced&&this.passSeen.has(c.id))continue;
-      if(!forced&&unchanged&&old.state==='retry'&&old.retryAt>this.now()){this.passFailures.add(c.id);continue;}
+      if(!forced&&unchanged&&old?.state==='retry'&&old.retryAt>this.now()){this.passFailures.add(c.id);continue;}
       const cached=s&&this.fingerprints.get(c.id)===mark&&!/RUNNING/.test(s.status||'');
       // A persisted checkpoint already verified both disk and host revision.
       // Restarting the collector alone must not force all settled chats to load.
       const settled=s?.modifiedAt&&/IDLE|DONE|COMPLETED|CANCELLED|CANCELED|STOPPED|FAILED|ERROR/.test(String(s.status||''));
       if(!forced&&!old?.hasDelegates&&(c.signature?unchanged&&old.state==='complete'&&(!s||cached||settled):cached))continue;
-      if(processed&&this.now()-started>=this.sliceMs){more=true;break;}
+      if(processed&&this.now()-started>=this.sliceMs){more=completePass;break;}
       processed++;
-      this.passSeen.add(c.id);
+      this.passSeen.add(c.id);this.capMap(this.passSeen);
       this.fullRemaining.delete(c.id);
       try{
         // An independently discovered ID has no summary. An empty summary
         // intentionally reads steps until EOF; the shared reader still enforces
         // pagination, revision checks, memory budgets and a wall-time deadline.
         const summary=s?{stepCount:s.stepCount,lastModifiedTime:s.modifiedAt,status:s.status,lastUserInputStepIndex:s.lastUserInputStepIndex}:{};
-        const raw=await this.store.client.trajectory(c.id,{summary,force:forced||!!c.signature,isCurrent:current});
+        const raw=await this.store.client.trajectory(c.id,{summary,force:forced,isCurrent:current});
         if(!current())return {current};
         if(!raw?.trajectory||!Array.isArray(raw.trajectory.steps)||!Array.isArray(raw.trajectory.generatorMetadata))throw Error('Incomplete historical statistics');
         if(!s&&!raw.trajectory.steps.length&&!raw.trajectory.generatorMetadata.length)throw Error('History not yet readable');
@@ -201,35 +221,36 @@ export class DesktopUsage{
         for(const id of children)if(!candidates.has(id)){
           // Match the existing local-history discovery ceiling and keep an
           // iterative map walk, so nested/shared/cyclic delegation cannot recurse.
-          if(candidates.size>=20000){missing++;break;}
-          candidates.set(id,{id});
+          if(candidates.size>=this.maxMapEntries){missing++;break;}
+          candidates.set(id,{id});if(completePass)this.fullRemaining.add(id);
         }
         await this.ingest(scope,c.id,raw);if(!current())return {current};
         const stable=!c.readSignature||await c.readSignature()===c.signature;
         if(!current())return {current};
         if(!stable)throw Error('History changed during import');
-        this.fingerprints.set(c.id,mark);
+        this.fingerprints.set(c.id,mark);this.capMap(this.fingerprints);
         this.passFailures.delete(c.id);
         this.readFailures.delete(c.id);
-        if(this.host&&c.signature){journal[key]={signature,state:'complete',failures:0,retryAt:0,hasDelegates:children.length>0};dirty=true;}
+        if(this.host){journal[key]={signature,state:'complete',failures:0,retryAt:0,hasDelegates:children.length>0};dirty=true;}
       }catch{
         if(!current())return {current};this.passFailures.add(c.id);
         const failures=c.signature?(unchanged?(old?.failures||0)+1:1):(this.readFailures.get(c.id)||0)+1;
-        this.readFailures.set(c.id,failures);
-        if(this.host&&c.signature){
+        this.readFailures.set(c.id,failures);this.capMap(this.readFailures);this.capMap(this.passFailures);
+        if(this.host){
           journal[key]={signature,state:'retry',failures,retryAt:this.now()+Math.min(30*60000,30000*2**Math.min(failures-1,6))};dirty=true;}
       }
       // Save progress after every archive, so a restart doesn't lose the batch.
       if(dirty){await this.ledger.saveBackfillState(scope,this.host,journal);dirty=false;}
       await yieldToLiveRequests();
     }
+    if(completePass&&this.fullRemaining.size>0)more=true;
     const confirmed=[...this.passFailures].filter(id=>(journal[hash(id)]?.failures||this.readFailures.get(id)||0)>=2).length;
-    return {current,missing:missing+this.passFailures.size,confirmed,retrying:missing+this.passFailures.size-confirmed,more};
+    return {current,missing:missing+this.passFailures.size,confirmed,retrying:missing+this.passFailures.size-confirmed,more,partial};
   }
-  async snapshot(){
+  async snapshot({sync=true}={}){
     if(!this.store.identity)return null;
     if(this.scope!==this.store.identity||this.scopeEpoch!==this.store.epoch){this.lastSync=0;this.status='waiting';this.missingConversations=0;this.confirmedMissingConversations=0;this.retryingConversations=0;if(this.pending)this.forceQueued=true;}
-    if(this.now()-this.lastSync>60000&&!this.continuation)void this.sync();
+    if(sync&&this.now()-this.lastSync>60000&&!this.continuation)void this.sync();
     const scope=this.store.identity,value=await this.ledger.summary(scope);
     return scope===this.store.identity?{...value,syncing:this.syncing||!!this.continuation,status:this.status,missingConversations:this.missingConversations,confirmedMissingConversations:this.confirmedMissingConversations,retryingConversations:this.retryingConversations,persistenceError:this.store.usagePersistenceError===true}:null;
   }

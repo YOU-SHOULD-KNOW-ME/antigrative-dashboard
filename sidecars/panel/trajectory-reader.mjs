@@ -6,16 +6,23 @@ export class TrajectoryReader {
  // Serialized statistics budget, not transcript/response size. Local resource
  // experiments cover 1K/8K/32K records; 8 MiB bounds retained objects well below
  // the 32K-record case (~100 MiB extra heap). See docs/LONG_CONVERSATIONS.md.
- constructor(client,{budgetBytes=8*1024*1024,idleRecheckMs=10000}={}){this.client=client;this.budgetBytes=budgetBytes;this.idleRecheckMs=idleRecheckMs;}
+ constructor(client,{budgetBytes=8*1024*1024,idleRecheckMs=10000,maxSummaryEntries=4096,maxPages=4096}={}){this.client=client;this.budgetBytes=budgetBytes;this.idleRecheckMs=idleRecheckMs;this.maxSummaryEntries=maxSummaryEntries;this.maxPages=maxPages;}
  entries=new Map();epoch=0;endpoint=null;summaries=null;summaryAt=-Infinity;summaryPending=null;cachedBytes=0;
  reset(){this.epoch++;this.entries.clear();this.summaries=null;this.summaryAt=-Infinity;this.summaryPending=null;this.cachedBytes=0;}
  trim(keep){for(const [key,e]of this.entries){if(this.cachedBytes<=this.budgetBytes)break;if(key===keep||e.pending)continue;this.cachedBytes-=e.bytes;this.entries.delete(key);}}
  async summary(id,provided,force){
   if(provided)return provided;
-  if(force||!this.summaries||this.client.now()-this.summaryAt>=1800){
+    if(force&&this.summaries&&this.client.now()-this.summaryAt<30000)force=false;
+   if(force||!this.summaries||this.client.now()-this.summaryAt>=1800){
    if(!this.summaryPending){const epoch=this.epoch;
     const pending=this.client.call('GetAllCascadeTrajectories',{excludeSubtrajectories:false}).then(r=>{
-     if(epoch!==this.epoch)throw unavailable();this.summaries=r.trajectorySummaries||{};this.summaryAt=this.client.now();
+     if(epoch!==this.epoch)throw unavailable();
+     const all=r.trajectorySummaries||{},entries=Object.entries(all);
+     // Keep the requested conversation even when the host returns more than
+     // the retained summary budget; ordinary entries are capped deterministically.
+     const kept=entries.slice(0,this.maxSummaryEntries);
+     if(all[id]&&!Object.hasOwn(Object.fromEntries(kept),id))kept.splice(Math.max(0,this.maxSummaryEntries-1),1,[id,all[id]]);
+     this.summaries=Object.fromEntries(kept);this.summaryAt=this.client.now();
     }).finally(()=>{if(this.summaryPending===pending)this.summaryPending=null;});this.summaryPending=pending;
    }
    await this.summaryPending;
@@ -65,17 +72,30 @@ export class TrajectoryReader {
     for(const item of items){bytes+=Buffer.byteLength(JSON.stringify(item))+1;if(bytes>this.budgetBytes)throw new Error('会话统计数据超过内存预算');target.push(item);}
    };
    const check=()=>{assertCurrent();if(this.client.now()>deadline)throw new Error('会话统计分页读取超时');};
+   const stepPages=new Set(),metadataPages=new Set();let pageCount=0;
    while(count===null||steps.length<count){
-    check();const page=await this.client.call('GetCascadeTrajectorySteps',{cascadeId:id,stepOffset:steps.length,trajectoryVerbosity:3});check();
+    check();if(++pageCount>this.maxPages)throw new Error('会话统计分页数量超过上限');
+    const offset=steps.length;if(stepPages.has(offset))throw new Error('会话统计分页没有推进');stepPages.add(offset);
+    const page=await this.client.call('GetCascadeTrajectorySteps',{cascadeId:id,stepOffset:offset,trajectoryVerbosity:3});check();
     const items=page.steps||[];if(!Array.isArray(items))throw new Error('会话统计分页格式无效');
     if(!items.length){if(count===null)break;throw new Error('完整会话统计分页暂不可用');}append(steps,items);
+    // Only compare stable item IDs. Some hosts legitimately return structurally
+    // identical marker objects on adjacent offsets; treating their full JSON as
+    // a page identity would reject valid pagination. A repeated offset is still
+    // rejected above, while repeated identified pages fail immediately.
+    const ids=items.map(item=>item?.id??item?.stepId??item?.metadata?.id).filter(Boolean);
+    if(ids.length===items.length){const fingerprint='page:'+JSON.stringify(ids);if(stepPages.has(fingerprint))throw new Error('会话统计分页重复返回');stepPages.add(fingerprint);}
    }
    // Full step semantics retain the tool-only timing markers. Their text and
    // large tool payloads are discarded by the streaming projector.
    for(;;){
-    check();const page=await this.client.call('GetCascadeTrajectoryGeneratorMetadata',{cascadeId:id,generatorMetadataOffset:generators.length,includeMessages:false});check();
+    check();if(++pageCount>this.maxPages)throw new Error('会话统计分页数量超过上限');
+    const offset=generators.length;if(metadataPages.has(offset))throw new Error('会话统计分页没有推进');metadataPages.add(offset);
+    const page=await this.client.call('GetCascadeTrajectoryGeneratorMetadata',{cascadeId:id,generatorMetadataOffset:offset,includeMessages:false});check();
     const items=page.generatorMetadata||page.generatorMetadatas||[];if(!Array.isArray(items))throw new Error('会话统计分页格式无效');
     if(!items.length)break;append(generators,items);
+    const ids=items.map(item=>item?.id??item?.generatorId??item?.responseId??item?.chatModel?.responseId).filter(Boolean);
+    if(ids.length===items.length){const fingerprint='page:'+JSON.stringify(ids);if(metadataPages.has(fingerprint))throw new Error('会话统计分页重复返回');metadataPages.add(fingerprint);}
    }
    // A growing host may return newer metadata than the step-count snapshot.
    // Do not cache or persist a mixed/incomplete revision.

@@ -1,7 +1,24 @@
-# Antigrative Dashboard v0.8.10
+# Antigrative Dashboard v0.8.11
 
-Maintenance update: fix duplicate widgets after host updates and make the fixes
-discoverable through the App's normal update check.
+Maintenance update: bound historical usage import so large conversation libraries
+do not cause continuous scans or unbounded memory growth.
+
+## Bounded history usage import
+
+- Normal refresh processes at most 25 prioritized conversations and reports partial
+  coverage; it does not scan a 1000+ conversation library indefinitely at startup.
+- Full history import requires an explicit refresh and resumes in bounded slices
+  with a wall-time budget.
+- Local discovery is cached briefly. Candidate maps, trajectory summaries and
+  retained pages are capped. Failed candidates, including delegated IDs without a
+  local signature, use persistent exponential backoff.
+- Repeated pagination offsets/pages stop immediately. Four focused regressions cover
+  1000 synthetic conversations, retry backoff, repeated pages and full-scan resume.
+
+Existing App users can choose **Context details → ⋯ → Check for updates** to
+discover and install **v0.8.11**. The usage collector will show partial coverage
+while older records remain pending. Settings, existing ledger data and the current
+conversation remain available.
 
 ## Widget lifecycle fix
 
@@ -17,8 +34,7 @@ discoverable through the App's normal update check.
   quotas and conversation switching. Linux/macOS and standalone IDE have shared
   browser/CI coverage; this patch does not claim new native GUI acceptance there.
 
-Existing App users can choose **Context details → ⋯ → Check for updates** to
-discover and install **v0.8.10**. After installation, **fully quit and reopen the
+After installation, **fully quit and reopen the
 App once**: restarting only the plugin cannot remove callbacks already running
 from old code. Settings and statistics are retained. Standalone IDE users should
 install the matching VSIX and fully reopen the IDE.
@@ -44,19 +60,17 @@ Includes the updater repairs from the previous v0.8.9 patch for
   provides both the App ZIP and IDE VSIX with their SHA-256 files.
 
 If an older updater already fails during installation, it may still need one
-manual install from `antigrative-dashboard-0.8.10.zip` using `python manage.py
+manual install from `antigrative-dashboard-0.8.11.zip` using `python manage.py
 install` (`python3` on Linux/macOS), then a complete App restart. A new version
 number makes the update discoverable; it cannot retroactively repair an updater
 that fails before the new files are installed. The existing v0.8.9 tag is retained.
 
-Patch verification: 282 Node tests passed (1 skipped), 81 Python tests passed
-(1 skipped), and 11 IDE unit tests passed locally. The real Windows subprocess
-regression first reproduces the directory-lock failure and retains the original
-installation, then completes verified installation while the parent command
-launcher still holds that directory. Crash/recovery and junction rejection tests
-cover the Windows file transaction. GitHub release metadata/downloads are fixtures in that
-test; a local real check request also succeeded. Cross-platform Verify gates run
-before the refreshed assets are published.
+Patch verification: 287 Node tests passed (1 skipped), 82 Python tests passed
+(1 skipped), and 11 IDE unit tests passed locally. The new safety tests cover
+1,000 synthetic histories, snapshot gating, delegated retry backoff, repeated
+pages and bounded full-scan resume. The real Windows subprocess regression
+upgrades 0.8.10 to 0.8.11 while the parent command launcher holds the runtime
+directory. GitHub Release gates run before the assets are published.
 
 ## Issue #20: delegated task accounting
 
@@ -88,9 +102,9 @@ additional child RPCs. The CLI status line is unchanged.
 ## Install or update
 
 - **App:** context details → **⋯ → Check for updates**, or extract
-  `antigrative-dashboard-0.8.10.zip` and run `python manage.py install`
+  `antigrative-dashboard-0.8.11.zip` and run `python manage.py install`
   (`python3` on Linux/macOS). Completely reopen the App after a manual install.
-- **Standalone IDE:** install `antigrative-dashboard-ide-0.8.10.vsix` via **Install
+- **Standalone IDE:** install `antigrative-dashboard-ide-0.8.11.vsix` via **Install
   from VSIX…**, then fully reopen the IDE.
 - SHA-256 files are included for both packages.
 

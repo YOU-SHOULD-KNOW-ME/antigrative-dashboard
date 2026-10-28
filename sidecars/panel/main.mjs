@@ -28,8 +28,8 @@ const preferences=new PreferencesStore();
 const updater=new AppUpdater({pluginDir:join(HERE,'..','..'),dataDir:platformPaths().data});
 const ownership=process.env.ANTIGRAVITY_SIDECAR_WEB_PORT?new SidecarOwner(platformPaths().data):null;
 const metrics = async input => {
-  const base=await store.snapshot(input);if(input?.force)void usage.sync(true);
-  return {...base,usage:await usage.snapshot(),preferences:await preferences.snapshot(),theme:await readHostTheme(),integration:integration.health};
+  const base=await store.snapshot(input);if(input?.usageSync)void usage.sync(true);
+  return {...base,usage:await usage.snapshot({sync:input?.usageSync===true}),preferences:await preferences.snapshot(),theme:await readHostTheme(),integration:integration.health};
 };
 const usageSource=()=>{const s=readFileSync(join(HERE,'..','..','compat','usage-ui.cjs'),'utf8');return `window.__agPulseUsageFactory=(${s.slice(s.indexOf('module.exports = ')+17).trim().replace(/;$/,'')});`;};
 const updateSource=()=>{const s=readFileSync(join(HERE,'..','..','compat','update-ui.cjs'),'utf8');return `window.__agPulseUpdateFactory=(${s.slice(s.indexOf('module.exports = ')+17).trim().replace(/;$/,'')});`;};

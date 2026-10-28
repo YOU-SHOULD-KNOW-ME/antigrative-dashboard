@@ -1,5 +1,15 @@
 # Long-conversation collection (v0.8.5)
 
+## History-library scheduling (v0.8.11)
+
+Trajectory memory budgets protect one conversation read, but they do not by
+themselves make a 1000-conversation backfill cheap. Normal usage refreshes now
+process a bounded prioritized set and report partial coverage. Full history
+import is explicit, resumable and sliced by count and wall time; local discovery,
+candidate maps, retry state and trajectory summaries are capped. Repeated pages
+and stalled offsets stop immediately. Existing usage records remain available,
+and the usage window's refresh action continues the pending import.
+
 ## Acquisition
 
 Statistics collection no longer calls `GetCascadeTrajectory`. It reads a conversation summary, then uses `GetCascadeTrajectorySteps` and `GetCascadeTrajectoryGeneratorMetadata` with their distinct offset fields. Generator requests explicitly set `includeMessages: false`. All host-provided pages are collected; an empty generator page signals the end. A known step count guards against incomplete step pages. Hosts without that count require an empty terminal step page.

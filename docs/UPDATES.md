@@ -28,13 +28,36 @@ The widget now rejects preference/layout/mount callbacks after disposal and
 cleans up identifiable leftover plugin strips before mounting. Native controls
 and saved data are retained. Lifecycle regressions run in the shared UI gate.
 
-These fixes are published as **v0.8.10**, which normal App update checks can
-discover from v0.8.9. Install through **Context details → ⋯ → Check for updates**,
+## Bounded history usage import
+
+Large local conversation libraries used to make the collector repeatedly build a
+full candidate set and continue importing archives for a long time. A 1000+ history
+library could keep the host API, disk ledger and Node heap busy even when the user
+was only viewing the current conversation.
+
+v0.8.11 changes the default behavior:
+
+- normal refresh handles at most 25 prioritized conversations, favoring the active
+  and recently modified sessions;
+- full history import runs only after an explicit refresh and resumes in bounded
+  slices with a wall-time budget;
+- local directory discovery is cached briefly, candidate maps are capped, and
+  failed candidates use persistent exponential backoff;
+- trajectory summaries and pages have count/offset/progress guards, so a repeated
+  host page stops quickly instead of looping;
+- usage status reports partial coverage while older history remains pending.
+
+The collector does not delete existing usage records. Full import can be continued
+from the usage window's refresh action. This is local observed usage, not billing.
+
+The widget fix is included in **v0.8.10**. The bounded history collector is
+published in **v0.8.11**, which normal App update checks can discover from
+v0.8.10. Install through **Context details → ⋯ → Check for updates**,
 then fully quit and reopen the host once. A plugin-only restart cannot revoke
 old callbacks already recreated in the open page. If an older updater already
-fails installation, use the v0.8.10 release ZIP for a one-time manual repair;
+fails installation, use the v0.8.11 release ZIP for a one-time manual repair;
 standalone IDE users should use the matching VSIX. Existing v0.8.9 tags/releases
-remain available, while v0.8.10 source archives contain the fix directly.
+remain available, while v0.8.11 source archives contain the fix directly.
 
 ## Windows working-directory fix (Issue #21)
 

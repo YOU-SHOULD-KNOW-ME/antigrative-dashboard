@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.8.11 — 2026-10-29
+
+- Bound historical usage imports: normal refresh processes at most 25 prioritized conversations and reports partial coverage instead of scanning a 1000+ history library continuously.
+- Keep full historical import behind an explicit refresh, with bounded slices, a 15-second pass budget, resumable continuation, capped maps and a 30-second local discovery cache.
+- Apply persistent exponential retry backoff to every candidate, including delegated IDs without a local signature. Repeated trajectory pages and excessive page counts stop immediately.
+- Keep the current conversation and recent running conversations responsive while historical import runs in the background. Existing ledgers and settings remain unchanged.
+- Publish App/CLI ZIP, standalone IDE VSIX and SHA-256 files for the normal v0.8.11 update path.
+
 ## 0.8.10 — 2026-10-28
 
 - Promote the accepted v0.8.9 widget-lifecycle and updater fixes to a normal versioned release so App users can discover it through Check for updates.

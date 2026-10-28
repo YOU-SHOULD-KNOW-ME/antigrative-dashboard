@@ -23,7 +23,11 @@ export function validTarget(target, port) {
 export function validatedInput(value) {
   if (!value || typeof value !== 'object' || Array.isArray(value)) throw new Error('Invalid metrics request');
   if (value.conversationId != null && !GUID.test(value.conversationId)) throw new Error('Invalid conversation ID');
-  return { conversationId: value.conversationId || null, force: value.force === true };
+  const result = { conversationId: value.conversationId || null, force: value.force === true };
+  // Historical usage import is an explicit, user-visible action. It must not
+  // be started by the high-frequency inline metrics poll.
+  if (value.usageSync === true) result.usageSync = true;
+  return result;
 }
 
 function jsonGet(port, path) {
