@@ -36,7 +36,7 @@ module.exports = function installAgPulseInlineWidget() {
     write:async input=>{const value=await window.agPulseHost.setPreferences(input);syncGuide(value);return value;},
     cache:value=>localSet('ag-pulse-language',value),changed:()=>{if(root){localize();render();tick();position();}},
   });
-  void preferences.ready.then(()=>{guideReady=!preferences.error;scheduleLayout();});
+  void preferences.ready.then(()=>{if(disposed)return;guideReady=!preferences.error;scheduleLayout();});
   const icon=(name)=>({speed:'<path d="M3 12a6 6 0 1 1 10 0M8 9l3-4"/>',cache:'<ellipse cx="8" cy="4" rx="5" ry="2"/><path d="M3 4v8c0 2 10 2 10 0V4M3 8c0 2 10 2 10 0"/>',five:'<circle cx="8" cy="8" r="5.6"/><path d="M8 4.7v3.6l2.3 1.4"/>',week:'<rect x="2.5" y="3.5" width="11" height="10" rx="2"/><path d="M5 2v3m6-3v3M3 7h10"/>'}[name]);
   const svg=name=>`<svg viewBox="0 0 16 16" aria-hidden="true">${name==='context'?'<circle cx="8" cy="8" r="5.6"/><path d="M8 2.4V8l4.8 2.8"/>':icon(name)}</svg>`;
   const pct=n=>typeof n==='number'&&Number.isFinite(n)?`${(n*100).toFixed(1)}%`:'—';
@@ -282,8 +282,8 @@ module.exports = function installAgPulseInlineWidget() {
     node.classList.toggle('native-no-room',room<76);
   }
   function scheduleLayout(){
-    if(layoutFrame!==null)return;
-    layoutFrame=requestAnimationFrame(()=>{layoutFrame=null;mount();fit();position();});
+    if(disposed||layoutFrame!==null)return;
+    layoutFrame=requestAnimationFrame(()=>{layoutFrame=null;if(disposed)return;mount();fit();position();});
   }
   function observeComposer(){
     resizeObserver?.disconnect();
@@ -473,6 +473,13 @@ module.exports = function installAgPulseInlineWidget() {
     return closest.find(pair=>pair.editor===document.activeElement)||closest.find(pair=>pair.branch===composer?.branch&&pair.editor===composer?.editor)||null;
   }
   function mount(){
+    if(disposed)return;
+    // A replaced instance's delayed preferences/observer callback must never
+    // resurrect it. Also remove identifiable leftovers from older runtimes
+    // before measuring the native toolbar or attaching this instance's host.
+    for(const orphan of document.querySelectorAll('[id="'+ID+'"]')){
+      if(orphan!==node&&['speed','cache','context'].every(name=>orphan.shadowRoot?.querySelector('.bar .chip[data-card="'+name+'"]')))orphan.remove();
+    }
     // Account usage does not belong to a composer lifecycle. Keep its frame
     // during reflows and park the host if the app replaces the input subtree.
     // Normal discovery reattaches the strip after the user closes the modal.
