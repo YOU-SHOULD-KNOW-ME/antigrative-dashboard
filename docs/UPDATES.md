@@ -28,12 +28,13 @@ The widget now rejects preference/layout/mount callbacks after disposal and
 cleans up identifiable leftover plugin strips before mounting. Native controls
 and saved data are retained. Lifecycle regressions run in the shared UI gate.
 
-For this same-version v0.8.9 patch, reinstall the refreshed package and fully quit
-and reopen the host once. A plugin-only restart cannot revoke old callbacks that
-were already recreated in the open page. App users should use the release ZIP;
-standalone IDE users should use the matching VSIX. The original Git tag and its
-automatic source archives remain the original snapshot; current `main` and the
-patch source commit referenced in the release contain the fix.
+These fixes are published as **v0.8.10**, which normal App update checks can
+discover from v0.8.9. Install through **Context details → ⋯ → Check for updates**,
+then fully quit and reopen the host once. A plugin-only restart cannot revoke
+old callbacks already recreated in the open page. If an older updater already
+fails installation, use the v0.8.10 release ZIP for a one-time manual repair;
+standalone IDE users should use the matching VSIX. Existing v0.8.9 tags/releases
+remain available, while v0.8.10 source archives contain the fix directly.
 
 ## Windows working-directory fix (Issue #21)
 

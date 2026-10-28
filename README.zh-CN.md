@@ -7,7 +7,7 @@
 模型选择旁只显示生成速率、缓存和上下文占用；悬停上下文，一并查看上下文、5 小时和周额度详情。<br>
 缩略信息常驻；鼠标悬停，才展开详细统计。
 
-[![Version 0.8.9](https://img.shields.io/badge/version-0.8.9-91adff?style=flat-square&labelColor=252936)](CHANGELOG.md)
+[![Version 0.8.10](https://img.shields.io/badge/version-0.8.10-91adff?style=flat-square&labelColor=252936)](CHANGELOG.md)
 [![Platforms](https://img.shields.io/badge/host-Windows%20%7C%20Linux%20%7C%20macOS-83d8b9?style=flat-square&labelColor=252936)](COMPATIBILITY.md)
 [![Antigravity 2.21.1 / 2.22.0](https://img.shields.io/badge/Antigravity-2.21.1%20%2F%202.22.0-c5a0ff?style=flat-square&labelColor=252936)](COMPATIBILITY.md)
 [![MIT](https://img.shields.io/badge/license-MIT-d4d9e6?style=flat-square&labelColor=252936)](LICENSE)
@@ -16,9 +16,7 @@
 
 </div>
 
-**v0.8.9 更新：** 任务 Token／缓存统计纳入多层子代理，详情显示各自贡献；日／月用量去重入账。速率和上下文仍对应当前代理。[更新说明](https://github.com/YOU-SHOULD-KNOW-ME/antigrative-dashboard/releases/tag/v0.8.9)。
-
-**v0.8.9 补丁（2026-10-28）：** 修复宿主更新后的重复图标／控件，包含此前的 Windows 更新器修复。版本号不变，请重装刷新后的对应安装包，并完整退出、重新打开宿主一次。[补丁说明](docs/UPDATES.md#widget-lifecycle-after-host-updates)。
+**v0.8.10：** 修复宿主更新后的重复图标／控件，包含此前的 Windows 更新器修复。已有用户可通过插件内检查更新正常升级，安装后请完整退出并重新打开宿主一次。[发布说明](https://github.com/YOU-SHOULD-KNOW-ME/antigrative-dashboard/releases/tag/v0.8.10) · [修复详情](docs/UPDATES.md#widget-lifecycle-after-host-updates)。
 
 ## 看看效果
 
@@ -66,7 +64,7 @@
 ## Antigravity IDE
 
 **v0.7.0** 新增反重力自己的独立 IDE 适配。下载发布页的
-`antigrative-dashboard-ide-0.8.9.vsix`，在 IDE 扩展页选择「从 VSIX 安装」。
+`antigrative-dashboard-ide-0.8.10.vsix`，在 IDE 扩展页选择「从 VSIX 安装」。
 仅安装 IDE 的用户也可以使用，无需先装桌面 App。
 
 完全退出 IDE 后，使用带

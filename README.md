@@ -7,7 +7,7 @@
 Token throughput, cache hits and context usage in the model selector row. Hover over context for five-hour and weekly quotas too.<br>
 Keep the summary visible. Hover for the details.
 
-[![Version 0.8.9](https://img.shields.io/badge/version-0.8.9-91adff?style=flat-square&labelColor=252936)](CHANGELOG.md)
+[![Version 0.8.10](https://img.shields.io/badge/version-0.8.10-91adff?style=flat-square&labelColor=252936)](CHANGELOG.md)
 [![Platforms](https://img.shields.io/badge/host-Windows%20%7C%20Linux%20%7C%20macOS-83d8b9?style=flat-square&labelColor=252936)](COMPATIBILITY.md)
 [![Antigravity 2.21.1 / 2.22.0](https://img.shields.io/badge/Antigravity-2.21.1%20%2F%202.22.0-c5a0ff?style=flat-square&labelColor=252936)](COMPATIBILITY.md)
 [![MIT](https://img.shields.io/badge/license-MIT-d4d9e6?style=flat-square&labelColor=252936)](LICENSE)
@@ -16,9 +16,7 @@ Keep the summary visible. Hover for the details.
 
 </div>
 
-**v0.8.9:** Include delegated subagents in task Token/cache usage, with separate contributions and duplicate-safe daily/monthly accounting. Speed and context remain local to the selected agent. [Release notes](https://github.com/YOU-SHOULD-KNOW-ME/antigrative-dashboard/releases/tag/v0.8.9).
-
-**v0.8.9 patch (2026-10-28):** Fix duplicate icons/status strips after host updates, alongside the Windows updater repair. Reinstall the refreshed package and fully quit/reopen the host once; the version stays v0.8.9. [Patch details](docs/UPDATES.md#widget-lifecycle-after-host-updates).
+**v0.8.10:** Fix duplicate icons/status strips after host updates, alongside the Windows updater repair. Existing users can receive this as a normal in-app update; fully quit/reopen the host after installation. [Release notes](https://github.com/YOU-SHOULD-KNOW-ME/antigrative-dashboard/releases/tag/v0.8.10) · [Patch details](docs/UPDATES.md#widget-lifecycle-after-host-updates).
 
 ## Preview
 
@@ -70,7 +68,7 @@ Keep the summary visible. Hover for the details.
 ## Antigravity IDE
 
 **v0.7.0** adds a separate VSIX for Google's own standalone IDE. Download
-`antigrative-dashboard-ide-0.8.9.vsix` from the release and choose **Install from VSIX…**
+`antigrative-dashboard-ide-0.8.10.vsix` from the release and choose **Install from VSIX…**
 in the IDE's Extensions view. No desktop App installation is required.
 
 Fully quit the IDE, then start it with

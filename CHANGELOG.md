@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.8.10 — 2026-10-28
+
+- Promote the accepted v0.8.9 widget-lifecycle and updater fixes to a normal versioned release so App users can discover it through Check for updates.
+- Prevent disposed widgets from remounting after delayed preference/layout callbacks; remove identifiable orphan strips while preserving native controls and saved data.
+- Include Windows stable-directory update transactions, Python discovery and network/error handling from the previous patch. Existing updaters that already fail installation can still require a one-time manual repair.
+- Publish matching App/CLI ZIP, standalone IDE VSIX and SHA-256 files. Fully quit/reopen the host once after installation to clear listeners already running from old code. Retain the v0.8.9 tag and release.
+
 ## 0.8.9 patch — 2026-10-28
 
 - Fix disposed widgets remounting after delayed preference reads, reproducing duplicate offline icons beside the live strip after an Antigravity App 2.28.0 update.

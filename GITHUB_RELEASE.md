@@ -1,8 +1,9 @@
-# Antigrative Dashboard v0.8.9
+# Antigrative Dashboard v0.8.10
 
-Delegated subagent usage now contributes to the task's Token/cache summary.
+Maintenance update: fix duplicate widgets after host updates and make the fixes
+discoverable through the App's normal update check.
 
-## Same-version patch — 2026-10-28
+## Widget lifecycle fix
 
 - Fix duplicate status strips seen after updating to Antigravity App 2.28.0:
   a disposed widget's delayed preference callback could mount an offline copy
@@ -16,15 +17,15 @@ Delegated subagent usage now contributes to the task's Token/cache summary.
   quotas and conversation switching. Linux/macOS and standalone IDE have shared
   browser/CI coverage; this patch does not claim new native GUI acceptance there.
 
-The version remains **v0.8.9**. Download the refreshed App ZIP (or IDE VSIX for the
-standalone IDE), reinstall, then **fully quit and reopen the host application
-once**. Restarting only the plugin cannot remove callbacks already running from
-the old code. Settings and statistics are retained. Use the release attachments;
-the original tag and its automatic source archives remain unchanged.
+Existing App users can choose **Context details → ⋯ → Check for updates** to
+discover and install **v0.8.10**. After installation, **fully quit and reopen the
+App once**: restarting only the plugin cannot remove callbacks already running
+from old code. Settings and statistics are retained. Standalone IDE users should
+install the matching VSIX and fully reopen the IDE.
 
-## Same-version patch — 2026-10-27
+## Updater reliability improvements
 
-The existing **v0.8.9** App ZIP and SHA-256 assets are refreshed to address
+Includes the updater repairs from the previous v0.8.9 patch for
 [#21](https://github.com/YOU-SHOULD-KNOW-ME/antigrative-dashboard/issues/21).
 
 - Fix a reproduced Windows update failure: the sidecar's parent command launcher
@@ -42,16 +43,11 @@ The existing **v0.8.9** App ZIP and SHA-256 assets are refreshed to address
   The CLI status line and IDE feature behavior are unchanged; the release still
   provides both the App ZIP and IDE VSIX with their SHA-256 files.
 
-**Install this patch manually once:** download the refreshed
-`antigrative-dashboard-0.8.9.zip`, extract it and run `python manage.py install`
-(`python3` on Linux/macOS), then completely exit and reopen Antigravity. The updater
-does not offer same-version reinstalls, and an older updater affected by this bug
-may not be able to install its own repair.
-
-No new version or tag is created. The original v0.8.9 Git tag and automatic source
-archives retain the original release snapshot. Use the current main branch or the
-patch source commit linked below for this fix; the refreshed installation ZIP
-contains the patch.
+If an older updater already fails during installation, it may still need one
+manual install from `antigrative-dashboard-0.8.10.zip` using `python manage.py
+install` (`python3` on Linux/macOS), then a complete App restart. A new version
+number makes the update discoverable; it cannot retroactively repair an updater
+that fails before the new files are installed. The existing v0.8.9 tag is retained.
 
 Patch verification: 282 Node tests passed (1 skipped), 81 Python tests passed
 (1 skipped), and 11 IDE unit tests passed locally. The real Windows subprocess
@@ -92,10 +88,10 @@ additional child RPCs. The CLI status line is unchanged.
 ## Install or update
 
 - **App:** context details → **⋯ → Check for updates**, or extract
-  `antigrative-dashboard-0.8.9.zip` and run `python manage.py install`
+  `antigrative-dashboard-0.8.10.zip` and run `python manage.py install`
   (`python3` on Linux/macOS). Completely reopen the App after a manual install.
-- **Standalone IDE:** install `antigrative-dashboard-ide-0.8.9.vsix` via **Install
-  from VSIX…**, then reload the IDE window.
+- **Standalone IDE:** install `antigrative-dashboard-ide-0.8.10.vsix` via **Install
+  from VSIX…**, then fully reopen the IDE.
 - SHA-256 files are included for both packages.
 
 ## Verification and boundaries
@@ -105,8 +101,8 @@ The report's numeric example is covered by a synthetic regression:
 children, cycles, duplicate requests, unavailable children, account/backend changes,
 restart recovery, zero own usage, traversal budgets and independent ledger ingestion.
 
-Local verification: 275 Node tests passed (1 skipped), 57 Python tests passed
-(1 skipped), and 11 IDE unit tests passed. Browser regressions cover App/IDE/panel
+Verification includes the existing Node/Python/IDE suites and four widget
+lifecycle regressions. Browser regressions cover App/IDE/panel
 language switching, partial/loading/ready states, unchanged polling, use of the
 selected agent's own rate/context, and long-chat usage-window behavior. Automated
 Windows/Linux/macOS release gates run before publication.

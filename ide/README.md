@@ -34,8 +34,8 @@ implemented. The desktop App and CLI retain their separate installers.
 
 ## Install a downloaded VSIX
 
-Download `antigrative-dashboard-ide-0.8.5.vsix` and its `.vsix.sha256` from the
-[release](https://github.com/YOU-SHOULD-KNOW-ME/antigrative-dashboard/releases/tag/v0.8.5).
+Download `antigrative-dashboard-ide-0.8.10.vsix` and its `.vsix.sha256` from the
+[release](https://github.com/YOU-SHOULD-KNOW-ME/antigrative-dashboard/releases/tag/v0.8.10).
 In Antigravity IDE, open Extensions, choose **Install from VSIX…** from the
 Extensions menu and select the file. No desktop App installation is required.
 
@@ -60,12 +60,12 @@ The debugger binds to localhost only; do not expose it to the network.
 
 ## Install / launch / uninstall from the source ZIP
 
-Download and extract `antigrative-dashboard-0.8.5.zip`, and download the VSIX to a
+Download and extract `antigrative-dashboard-0.8.10.zip`, and download the VSIX to a
 known location. Python 3.10+ is needed for this optional helper; it uses the IDE's
 bundled runtime and needs no separately installed Node.js or third-party packages.
 
 ```powershell
-python ide/manage.py install --exe 'D:\Antigravity IDE\Antigravity IDE.exe' --vsix 'C:\Downloads\antigrative-dashboard-ide-0.8.5.vsix'
+python ide/manage.py install --exe 'D:\Antigravity IDE\Antigravity IDE.exe' --vsix 'C:\Downloads\antigrative-dashboard-ide-0.8.10.vsix'
 python ide/manage.py launch --exe 'D:\Antigravity IDE\Antigravity IDE.exe'
 python ide/manage.py uninstall --exe 'D:\Antigravity IDE\Antigravity IDE.exe'
 ```
