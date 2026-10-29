@@ -26,6 +26,12 @@ implemented. The desktop App and CLI retain their separate installers.
   and stored locally in `usage-v1`. Desktop and IDE maintain separate ledgers;
   this is observed local consumption, not account billing. Prompts, replies and
   credentials are not retained in this ledger.
+- Open **View token usage**, or click its top-right **Refresh usage** button, to
+  request historical synchronization. Ordinary polling, card refreshes and quota
+  resets do not start backfill. Each import consumes a finite, bounded queue;
+  newly created top-level conversations wait for the next requested pass, and
+  missing or over-budget records remain partial. Superseded collectors cancel
+  queued writes before commit. Existing records and settings are preserved.
 - The cache card uses the same two-column Today / This month summary as desktop.
   First opening explains data import, local coverage and storage. **Got it** saves
   acknowledgment independently of language; changes to language/theme do not
@@ -34,8 +40,8 @@ implemented. The desktop App and CLI retain their separate installers.
 
 ## Install a downloaded VSIX
 
-Download `antigrative-dashboard-ide-0.8.11.vsix` and its `.vsix.sha256` from the
-[release](https://github.com/YOU-SHOULD-KNOW-ME/antigrative-dashboard/releases/tag/v0.8.11).
+Download `antigrative-dashboard-ide-0.8.12.vsix` and its `.vsix.sha256` from the
+[release](https://github.com/YOU-SHOULD-KNOW-ME/antigrative-dashboard/releases/tag/v0.8.12).
 In Antigravity IDE, open Extensions, choose **Install from VSIX…** from the
 Extensions menu and select the file. No desktop App installation is required.
 
@@ -60,12 +66,12 @@ The debugger binds to localhost only; do not expose it to the network.
 
 ## Install / launch / uninstall from the source ZIP
 
-Download and extract `antigrative-dashboard-0.8.11.zip`, and download the VSIX to a
+Download and extract `antigrative-dashboard-0.8.12.zip`, and download the VSIX to a
 known location. Python 3.10+ is needed for this optional helper; it uses the IDE's
 bundled runtime and needs no separately installed Node.js or third-party packages.
 
 ```powershell
-python ide/manage.py install --exe 'D:\Antigravity IDE\Antigravity IDE.exe' --vsix 'C:\Downloads\antigrative-dashboard-ide-0.8.11.vsix'
+python ide/manage.py install --exe 'D:\Antigravity IDE\Antigravity IDE.exe' --vsix 'C:\Downloads\antigrative-dashboard-ide-0.8.12.vsix'
 python ide/manage.py launch --exe 'D:\Antigravity IDE\Antigravity IDE.exe'
 python ide/manage.py uninstall --exe 'D:\Antigravity IDE\Antigravity IDE.exe'
 ```
@@ -106,7 +112,8 @@ to also reset language and first-use guidance. Uninstall does not erase history.
 Historical daily/weekly/monthly consumption is stored separately in `usage-v1`.
 Deleting `history-v1` does not clear those totals; deleting chats does not subtract
 recorded consumption. Stop the extension, then delete `usage-v1` to clear the
-ledger. Available local conversations will be backfilled again after activation.
+ledger. Available local conversations can be backfilled again by opening the
+usage window after reactivation.
 See [usage accounting and limitations](../docs/USAGE.md).
 
 ## Verification scope

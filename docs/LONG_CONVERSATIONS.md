@@ -1,14 +1,24 @@
 # Long-conversation collection (v0.8.5)
 
-## History-library scheduling (v0.8.11)
+## History-library scheduling (v0.8.12)
 
 Trajectory memory budgets protect one conversation read, but they do not by
-themselves make a 1000-conversation backfill cheap. Normal usage refreshes now
-process a bounded prioritized set and report partial coverage. Full history
-import is explicit, resumable and sliced by count and wall time; local discovery,
-candidate maps, retry state and trajectory summaries are capped. Repeated pages
-and stalled offsets stop immediately. Existing usage records remain available,
-and the usage window's refresh action continues the pending import.
+themselves make a 1000-conversation backfill cheap. Ordinary metrics polling,
+quota expiry and card refreshes do not initiate history import in either App or
+IDE. Opening **View token usage** or clicking its top-right **Refresh usage**
+button explicitly requests it. A full import captures one bounded queue and
+consumes it in count/time slices; deleted or temporarily unlisted candidates
+cannot strand a 250 ms continuation. New ordinary conversations are discovered
+on the next explicit pass. Unreadable candidates retain retry state and saved
+statistics. Repeated pages and stalled offsets stop immediately.
+
+Local discovery, candidates, retry state and trajectory summaries are capped.
+Checkpoint metadata is saved once per slice and limited to 4,096 entries with an
+8 MiB file guard. An oversized legacy checkpoint is preserved for recovery before
+bounded metadata is rebuilt; numeric usage records are retained. Resource limits
+report partial coverage. Cached synchronous ownership checks do not read disk per
+page; asynchronous verification and cancellation guards stop superseded work at
+collection and persistence boundaries. See [usage accounting](USAGE.md).
 
 ## Acquisition
 

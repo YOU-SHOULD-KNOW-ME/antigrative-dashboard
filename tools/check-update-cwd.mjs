@@ -17,21 +17,21 @@ if(process.argv[2]==='--child'){
  const {PULSE_CWD_TARGET:target,PULSE_CWD_HARNESS:worker,PULSE_CWD_DATA:data}=process.env;
  const updater=new AppUpdater({pluginDir:target,dataDir:data,worker});
  assert.equal((await updater.check()).state,'available');
- assert.equal((await updater.apply('0.8.11')).state,'installing');await updater.job;
+ assert.equal((await updater.apply('0.8.12')).state,'installing');await updater.job;
  if(process.argv[3]==='baseline'){
   assert.equal(updater.publicState().state,'error',JSON.stringify(updater.publicState()));
   assert.equal(updater.publicState().error,'install');
   assert.equal(updater.publicState().errorDetail,'permission','legacy baseline must fail on the Windows cwd lock');
-  assert.equal(JSON.parse(await readFile(join(target,'plugin.json'),'utf8')).version,'0.8.10');
+  assert.equal(JSON.parse(await readFile(join(target,'plugin.json'),'utf8')).version,'0.8.11');
   assert.equal(await readFile(join(target,'sidecars','panel','old.txt'),'utf8'),'old runtime');
   assert.equal(process.cwd(),target,'Node released its own cwd, while the parent cmd still holds panel');
   console.log('Confirmed: parent cmd retains panel cwd after Node relocates; legacy tree swap fails and original is retained.');
  }else{
   assert.equal(updater.publicState().state,'installed',JSON.stringify(updater.publicState()));
-  assert.equal(JSON.parse(await readFile(join(target,'plugin.json'),'utf8')).version,'0.8.11');
+  assert.equal(JSON.parse(await readFile(join(target,'plugin.json'),'utf8')).version,'0.8.12');
   await assert.rejects(()=>readFile(join(target,'sidecars','panel','old.txt')),error=>error.code==='ENOENT');
   if(process.platform==='win32')assert.equal(process.cwd(),target);
-  console.log(process.platform==='win32'?'Passed: real worker upgraded 0.8.10 to verified 0.8.11 with parent cmd retaining panel cwd; obsolete file removed.':'Passed: real worker upgraded 0.8.10 to verified 0.8.11 using the POSIX tree strategy; obsolete file removed.');
+  console.log(process.platform==='win32'?'Passed: real worker upgraded 0.8.11 to verified 0.8.12 with parent cmd retaining panel cwd; obsolete file removed.':'Passed: real worker upgraded 0.8.11 to verified 0.8.12 using the POSIX tree strategy; obsolete file removed.');
  }
  assert.equal(await readFile(join(target,'sidecars','panel','data','history-v1','record.json'),'utf8'),'saved private statistics');
  assert.equal(await readFile(join(target,'sidecars','panel','data','preferences.json'),'utf8'),'saved private preferences');
@@ -45,7 +45,7 @@ if(process.argv[2]==='--child'){
   const target=join(home,'.gemini','config','plugins','antigravity-pulse'),panel=join(target,'sidecars','panel'),data=join(home,'data'),harness=join(home,'compat','update-worker.py'),archive=join(home,'fixture.zip'),shim=join(home,'agy-node.cmd'),launcher=join(home,'source space 中文 & safe','check-update-cwd.mjs');
   await mkdir(panel,{recursive:true});await mkdir(dirname(harness),{recursive:true});await mkdir(data);
   await mkdir(dirname(launcher));await writeFile(launcher,`import ${JSON.stringify(pathToFileURL(script).href)};\n`);
-  await writeFile(join(target,'plugin.json'),manifest('0.8.10'));await writeFile(join(panel,'old.txt'),'old runtime');
+  await writeFile(join(target,'plugin.json'),manifest('0.8.11'));await writeFile(join(panel,'old.txt'),'old runtime');
   await mkdir(join(panel,'data','history-v1'),{recursive:true});await mkdir(join(data,'usage-v1'));
   await writeFile(join(panel,'data','history-v1','record.json'),'saved private statistics');await writeFile(join(panel,'data','preferences.json'),'saved private preferences');await writeFile(join(data,'usage-v1','ledger.json'),'saved external usage');
   // The shim intentionally never changes directory: cmd keeps its cwd open
@@ -56,7 +56,7 @@ if(process.argv[2]==='--child'){
 from pathlib import Path
 required=('plugin.json','compat/inline-widget.cjs','compat/runtime-ui.mjs','compat/i18n.cjs','compat/theme.cjs','sidecars/panel/main.mjs','sidecars/panel/metrics.mjs','sidecars/panel/history.mjs','assets/logo.svg')
 with zipfile.ZipFile(os.environ['PULSE_CWD_ARCHIVE'],'w') as bundle:
- for name in required:bundle.writestr('antigrative-dashboard/'+name,json.dumps({'name':'antigravity-pulse','version':'0.8.11'}) if name=='plugin.json' else 'fixture source')
+ for name in required:bundle.writestr('antigrative-dashboard/'+name,json.dumps({'name':'antigravity-pulse','version':'0.8.12'}) if name=='plugin.json' else 'fixture source')
 `;
   const built=spawnSync(python[0],[...python.slice(1),'-c',build],{env,encoding:'utf8',windowsHide:true,timeout:10000});assert.equal(built.status,0,built.stderr);
   await writeFile(harness,String.raw`import importlib.util,os,json,hashlib
@@ -69,9 +69,9 @@ if os.environ.get('PULSE_CWD_LEGACY')=='1':
   kwargs['strategy']='trees'
   return install(*args,**kwargs)
  w.install_staged=legacy_install
-archive=Path(os.environ['PULSE_CWD_ARCHIVE']);name='antigrative-dashboard-0.8.11.zip'
-base='https://github.com/'+w.REPO+'/releases/download/v0.8.11/'
-release={'tag_name':'v0.8.11','assets':[{'name':name,'size':archive.stat().st_size,'browser_download_url':base+name},{'name':name+'.sha256','browser_download_url':base+name+'.sha256'}]}
+archive=Path(os.environ['PULSE_CWD_ARCHIVE']);name='antigrative-dashboard-0.8.12.zip'
+base='https://github.com/'+w.REPO+'/releases/download/v0.8.12/'
+release={'tag_name':'v0.8.12','assets':[{'name':name,'size':archive.stat().st_size,'browser_download_url':base+name},{'name':name+'.sha256','browser_download_url':base+name+'.sha256'}]}
 w.latest_release=lambda current:release
 def fetch(url,limit,destination=None,progress=None,**kwargs):
  if destination is None:return (hashlib.sha256(archive.read_bytes()).hexdigest()+'  '+name).encode()

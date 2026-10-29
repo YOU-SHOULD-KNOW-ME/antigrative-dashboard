@@ -128,8 +128,8 @@ export function reconcileMetrics(saved, fresh, savedAt = null) {
 
 export class SessionHistory {
   pending = new Map();
-  constructor(directory = join(process.env.ANTIGRAVITY_EXECUTABLE_DATA_DIR || join(homedir(),'.gemini','antigravity','sidecar_data','antigravity-pulse','panel','data'),'history-v1')) {
-    this.directory = directory;
+  constructor(directory = join(process.env.ANTIGRAVITY_EXECUTABLE_DATA_DIR || join(homedir(),'.gemini','antigravity','sidecar_data','antigravity-pulse','panel','data'),'history-v1'), {io={}}={}) {
+    this.directory = directory;this.io={readFile,mkdir,writeFile,rename,unlink,...io};
   }
   file(scope, id) {
     if (!SCOPE.test(scope) || !GUID.test(id)) throw new Error('Invalid history scope');
@@ -138,7 +138,7 @@ export class SessionHistory {
   async load(scope, id) {
     if (!scope) return null;
     try {
-      const text = await readFile(this.file(scope,id),'utf8');
+      const text = await this.io.readFile(this.file(scope,id),'utf8');
       if (text.length > 65536) return null;
       const record = JSON.parse(text);
       if (record.schema !== 1 || record.account !== scope || record.conversationId !== id.toLowerCase() || !Number.isFinite(Date.parse(record.savedAt))) return null;
@@ -146,20 +146,22 @@ export class SessionHistory {
       return usableMetrics(metrics) ? { metrics, savedAt: record.savedAt } : null;
     } catch { return null; }
   }
-  async save(scope, id, value) {
-    if (!scope) return null;
+  async save(scope, id, value, {isCurrent=()=>true}={}) {
+    if (!scope||isCurrent()!==true) return null;
     const key = this.file(scope,id);
     const previous = this.pending.get(key) || Promise.resolve();
-    const pending = previous.catch(()=>{}).then(()=>this.write(scope,id,value));
+    const pending = previous.catch(()=>{}).then(()=>isCurrent()===true?this.write(scope,id,value,{isCurrent}):null);
     this.pending.set(key,pending);
     try { return await pending; }
     finally { if (this.pending.get(key) === pending) this.pending.delete(key); }
   }
-  async write(scope, id, value) {
+  async write(scope, id, value, {isCurrent=()=>true}={}) {
+    if(isCurrent()!==true)return null;
     let metrics = safeMetrics(value,id);
     const file = this.file(scope,id);
     if (!usableMetrics(metrics)) return null;
     const previous = await this.load(scope,id);
+    if(isCurrent()!==true)return null;
     if (previous && shouldKeepSaved(previous.metrics,metrics)) {
       // Regression guards protect cumulative TPS/cache. A valid current context
       // can shrink after compaction; it must still replace the prior snapshot.
@@ -172,9 +174,16 @@ export class SessionHistory {
     if (previous && JSON.stringify(previous.metrics) === JSON.stringify(metrics)) return previous;
     const record = {schema:1,account:scope,conversationId:id.toLowerCase(),savedAt:new Date().toISOString(),metrics};
     const temporary = file + '.' + randomUUID() + '.tmp';
-    await mkdir(join(this.directory,scope),{recursive:true});
-    try { await writeFile(temporary,JSON.stringify(record),{encoding:'utf8',mode:0o600}); await rename(temporary,file); }
-    catch (error) { await unlink(temporary).catch(()=>{}); throw error; }
+    try {
+      await this.io.mkdir(join(this.directory,scope),{recursive:true});
+      if(isCurrent()!==true)return null;
+      await this.io.writeFile(temporary,JSON.stringify(record),{encoding:'utf8',mode:0o600});
+      if(isCurrent()!==true){await this.io.unlink(temporary).catch(()=>{});return null;}
+      // Once rename has entered the OS it cannot be revoked. Recheck at its
+      // commit boundary; callers still discard late results after ownership loss.
+      await this.io.rename(temporary,file);
+    }
+    catch (error) { await this.io.unlink(temporary).catch(()=>{});if(isCurrent()!==true)return null;throw error; }
     return {metrics,savedAt:record.savedAt};
   }
 }

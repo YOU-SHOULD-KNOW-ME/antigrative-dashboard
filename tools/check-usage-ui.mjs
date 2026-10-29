@@ -15,7 +15,7 @@ days.unshift({date:'2024-11-01',models:{[models[0]]:{uncached:100,cacheRead:0,ca
 const fixture={accountKey:'fixture',today:'2026-10-11',timeZone:'Asia/Shanghai',models,days,todayTokens:45000,weekTokens:400000,monthTokens:700000,totalTokens:6000000,requests:500,firstDate:days[0].date,syncing:false,unknownRequests:0,partialRequests:0,unreadableFiles:0};
 const html=`<!doctype html><html><head><meta charset="utf-8">${ide?`<meta http-equiv="Content-Security-Policy" content="script-src 'unsafe-inline'; style-src 'unsafe-inline'; require-trusted-types-for 'script'; trusted-types 'none'">`:''}<style>body{margin:0;background:#17181a;color:#ddd;font:13px 'Segoe UI';padding:50px}.rounded-composer{max-width:900px;margin:300px auto 0;background:#27282a;padding:12px;border-radius:18px}.editor{height:45px}.actions{display:flex;align-items:center;gap:5px}.left{display:flex;flex:1;min-width:0}.right{display:flex;gap:5px}button{background:transparent;border:0;color:inherit;height:28px}</style></head><body>${ide?'<div class="antigravity-agent-side-panel"><div id="conversation" role="region"><div data-testid="conversation-view" data-cascade-id="11111111-1111-1111-1111-111111111111"></div>':''}<div class="rounded-composer" ${ide?'id="antigravity.agentSidePanelInputBox"':''}><div class="editor" contenteditable="true" role="combobox" aria-label="Message input"></div><div class="actions"><div class="left"><button aria-label="Add context">＋</button><button data-testid="model-selector-trigger">Gemini 3.8 Flash</button></div><div class="right"><button aria-label="Record voice memo">♩</button><button aria-label="Send message">➜</button></div></div></div>${ide?'</div></div>':''}<script>
 history.replaceState({},'', '/c/11111111-1111-1111-1111-111111111111');window.testData=${JSON.stringify(fixture)};window.testPrefs={language:'zh-CN',languageGuideDismissed:true,revision:1};
-window.agPulseHost={getMetrics:async()=>({connection:'live',usage:testData,preferences:testPrefs,groups:[],speed:null}),getPreferences:async()=>testPrefs,setPreferences:async x=>{if(window.failGuideSave&&x.usageGuideDismissed)throw Error('Fixture save failure');return testPrefs={...testPrefs,...x,revision:testPrefs.revision+1};}};
+window.metricsRequests=[];window.agPulseHost={getMetrics:async input=>{metricsRequests.push(input);return {connection:'live',usage:testData,preferences:testPrefs,groups:[],speed:null};},getPreferences:async()=>testPrefs,setPreferences:async x=>{if(window.failGuideSave&&x.usageGuideDismissed)throw Error('Fixture save failure');return testPrefs={...testPrefs,...x,revision:testPrefs.revision+1};}};
 ${ide?`window.__agPulseSurface=(${extract(surface)})();`:''}window.__agPulseI18nFactory=(${extract(sources[0])});window.__agPulseThemeFactory=(${extract(sources[1])});window.__agPulseUsageFactory=(${extract(sources[3])});(${extract(sources[2])})();
 </script></body></html>`;
 const server=createServer((req,res)=>{res.setHeader('Content-Type','text/html;charset=utf-8');res.end(html);});server.listen(0,'127.0.0.1');await new Promise(r=>server.once('listening',r));
@@ -33,10 +33,12 @@ try{
  await page.evaluate(()=>document.querySelector('.rounded-composer').style.display='');
  await page.locator('[data-card=cache]').waitFor({state:'visible'});
  assert.equal(await page.locator('#usage-dashboard').count(),1,'Restored composer must recreate the usage controller');
+ assert.equal(await page.evaluate(()=>metricsRequests.some(input=>input.usageSync===true)),false,'Ordinary widget polling must not request historical imports');
  for(const [choice,label,title] of [['en','View token usage','Token usage'],['zh-tw','檢視用量統計','用量統計'],['zh','查看用量统计','用量统计']]){
   await page.locator('[data-card=context]').click();await page.locator(`#card-language-${choice}`).click();
   await page.waitForFunction(label=>document.getElementById('ag-pulse-status-bar').shadowRoot.getElementById('usage-open-label').textContent===label,label);
   await page.locator('[data-card=cache]').click();await page.locator('#open-usage').click();
+  await page.waitForFunction(()=>metricsRequests.some(input=>input.usageSync===true));
   assert.equal(await page.locator('#usage-dashboard').evaluate(n=>n.open),true);
   assert.equal(await page.locator('#title').textContent(),title);
   await page.locator('#usage-dashboard #close').click();
@@ -107,11 +109,13 @@ try{
  assert.equal(new Set(actionGeometry.map(b=>b.y)).size,1);for(const b of actionGeometry){assert.equal(b.width,32);assert.equal(b.height,32);assert.equal(b.iconHeight,16);assert.equal(b.offsetX,0);assert.equal(b.offsetY,0);}
  // Manual refresh must queue behind an automatic poll, then force a fresh
  // request. An instant success must still leave a visible rotation.
- await page.evaluate(()=>{const original=agPulseHost.getMetrics;window.refreshCalls=[];window.holdAuto=true;agPulseHost.getMetrics=async input=>{refreshCalls.push({force:input.force});if(holdAuto&&!input.force){holdAuto=false;await new Promise(resolve=>window.releaseAuto=resolve);}return original(input);};});
+ await page.evaluate(()=>{const original=agPulseHost.getMetrics;window.refreshCalls=[];window.holdAuto=true;agPulseHost.getMetrics=async input=>{refreshCalls.push({force:input.force,usageSync:input.usageSync});if(holdAuto&&!input.force){holdAuto=false;await new Promise(resolve=>window.releaseAuto=resolve);}return original(input);};});
  await page.waitForFunction(()=>typeof window.releaseAuto==='function');await page.locator('#usage-dashboard #refresh').click();
  assert.equal(await page.locator('#usage-dashboard #refresh').getAttribute('aria-busy'),'true');assert.equal(await page.evaluate(()=>refreshCalls.filter(c=>c.force).length),0);
  await page.evaluate(()=>releaseAuto());await page.waitForFunction(()=>refreshCalls.some(c=>c.force));await page.waitForFunction(()=>!document.getElementById('ag-pulse-status-bar').shadowRoot.getElementById('usage-dashboard').firstElementChild.shadowRoot.getElementById('refresh').disabled);
  assert.equal(await page.evaluate(()=>refreshCalls.filter(c=>c.force).length),1);
+ assert.equal(await page.evaluate(()=>refreshCalls.filter(c=>c.force).every(c=>c.usageSync===true)),true,'Usage refresh explicitly opts into historical import');
+ assert.equal(await page.evaluate(()=>refreshCalls.filter(c=>!c.force).some(c=>c.usageSync===true)),false,'Polling an open usage window must not restart the full pass');
  await page.locator('#usage-dashboard #refresh').click();await page.waitForTimeout(100);assert.equal(await page.locator('#usage-dashboard #refresh').evaluate(n=>n.disabled&&n.querySelector('svg').getAnimations().length===1),true);
  await page.waitForFunction(()=>!document.getElementById('ag-pulse-status-bar').shadowRoot.getElementById('usage-dashboard').firstElementChild.shadowRoot.getElementById('refresh').disabled);
  const frame=()=>page.locator('#usage-dashboard').evaluate(n=>{const r=n.getBoundingClientRect();return {x:r.x,y:r.y,width:r.width,height:r.height};});const initialFrame=await frame();

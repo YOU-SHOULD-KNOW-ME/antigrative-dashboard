@@ -2,7 +2,6 @@ import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createServer } from 'node:http';
-import { homedir } from 'node:os';
 import { createRequire } from 'node:module';
 import { MetricsStore } from './store.mjs';
 import { DesktopUsage } from './usage.mjs';
@@ -21,14 +20,19 @@ const HERE = dirname(fileURLToPath(import.meta.url));
 try { releaseRuntimeDirectory(join(HERE,'..','..')); } catch {}
 const createTheme=createRequire(import.meta.url)('../../compat/theme.cjs');
 const themeCss=()=>createTheme().css(':root');
-const store = new MetricsStore(undefined,{owns:()=>(!ownership||ownership.isOwner())&&runtimeSettings().enabled!==false});
-const usage=new DesktopUsage(store,undefined,{host:'app',owns:()=>(!ownership||ownership.isOwner())&&runtimeSettings().enabled!==false});
-store.onTrajectory=(scope,id,raw)=>usage.ingest(scope,id,raw);
+const paths=platformPaths();
+const ownership=process.env.ANTIGRAVITY_SIDECAR_WEB_PORT?new SidecarOwner(paths.data):null;
+let settingsCache={},settingsAt=-Infinity;
+const owns=()=>(!ownership||ownership.owns())&&settingsCache.enabled!==false;
+const store = new MetricsStore(undefined,{owns});
+const usage=new DesktopUsage(store,undefined,{host:'app',owns});
+store.onTrajectory=async(scope,id,raw)=>{if(!ownership||await ownership.isOwner())await usage.ingest(scope,id,raw);};
 const preferences=new PreferencesStore();
-const updater=new AppUpdater({pluginDir:join(HERE,'..','..'),dataDir:platformPaths().data});
-const ownership=process.env.ANTIGRAVITY_SIDECAR_WEB_PORT?new SidecarOwner(platformPaths().data):null;
+const updater=new AppUpdater({pluginDir:join(HERE,'..','..'),dataDir:paths.data});
 const metrics = async input => {
-  const base=await store.snapshot(input);if(input?.usageSync)void usage.sync(true);
+  if(ownership&&!await ownership.isOwner())throw Error('Sidecar ownership changed');
+  runtimeSettings();
+  const base=await store.snapshot(input);if(input?.usageSync===true)void usage.sync(true);
   return {...base,usage:await usage.snapshot({sync:input?.usageSync===true}),preferences:await preferences.snapshot(),theme:await readHostTheme(),integration:integration.health};
 };
 const usageSource=()=>{const s=readFileSync(join(HERE,'..','..','compat','usage-ui.cjs'),'utf8');return `window.__agPulseUsageFactory=(${s.slice(s.indexOf('module.exports = ')+17).trim().replace(/;$/,'')});`;};
@@ -44,10 +48,11 @@ const inlineSource=()=>{
 const i18nModule=()=>{const s=readFileSync(join(HERE,'..','..','compat','i18n.cjs'),'utf8');return 'export const createI18n='+s.slice(s.indexOf('module.exports = ')+'module.exports = '.length);};
 const themeModule=()=>{const s=readFileSync(join(HERE,'..','..','compat','theme.cjs'),'utf8');return 'export const createTheme='+s.slice(s.indexOf('module.exports = ')+'module.exports = '.length);};
 const runtimeSettings = () => {
+  if(Date.now()-settingsAt<1000)return settingsCache;
   let settings = {};
-  try { settings = JSON.parse(readFileSync(platformPaths().settings,'utf8').replace(/^\uFEFF/,'')); } catch {}
-  try { if (JSON.parse(readFileSync(join(homedir(),'.gemini','config','config.json'),'utf8').replace(/^\uFEFF/,'')).plugins?.['antigravity-pulse']?.enabled === false) settings.enabled = false; } catch {}
-  return settings;
+  try { settings = JSON.parse(readFileSync(paths.settings,'utf8').replace(/^\uFEFF/,'')); } catch {}
+  try { if (JSON.parse(readFileSync(paths.pluginConfig,'utf8').replace(/^\uFEFF/,'')).plugins?.['antigravity-pulse']?.enabled === false) settings.enabled = false; } catch {}
+  settingsCache=settings;settingsAt=Date.now();return settings;
 };
 const integration = new RuntimeUi({
   snapshot: input => metrics(input),
@@ -55,7 +60,7 @@ const integration = new RuntimeUi({
   updater,
   owner:ownership?.token,owns:()=>ownership?ownership.isOwner():true,
   source: makeRendererSource(readFileSync(join(HERE,'..','..','compat','i18n.cjs'),'utf8'),readFileSync(join(HERE,'..','..','compat','inline-widget.cjs'),'utf8'),readFileSync(join(HERE,'..','..','compat','theme.cjs'),'utf8'),ownership?.token,ownership?.startedAt,updateSource()+usageSource()),
-  dataDir: platformPaths().data,
+  dataDir: paths.data,
   enabled: () => { const s = runtimeSettings(); return s.enabled !== false && s.inline !== false && s.mode !== 'legacy'; },
 });
 

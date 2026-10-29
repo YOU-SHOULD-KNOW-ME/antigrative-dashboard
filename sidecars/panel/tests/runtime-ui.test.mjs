@@ -33,10 +33,12 @@ test('discovery rejects remote pages, iframe targets, wrong transports and ports
   assert.equal(validTarget({}, 9123), false);
 });
 
-test('binding requests accept only a conversation identifier and force flag', () => {
+test('binding requests allow historical sync only with an explicit boolean true', () => {
   assert.deepEqual(validatedInput({ conversationId: null, force: 1, apiKey: 'must-not-forward' }), { conversationId: null, force: false });
   assert.throws(() => validatedInput({ conversationId: "');fetch('https://example.com')" }));
   assert.throws(() => validatedInput([]));
+  assert.deepEqual(validatedInput({conversationId:null,force:true,usageSync:true,extra:'discard'}),{conversationId:null,force:true,usageSync:true});
+  for(const usageSync of [false,1,'true',{},null])assert.deepEqual(validatedInput({conversationId:null,usageSync}),{conversationId:null,force:false});
 });
 
 test('app update replaces the renderer port and reconnects without archive edits', async () => {

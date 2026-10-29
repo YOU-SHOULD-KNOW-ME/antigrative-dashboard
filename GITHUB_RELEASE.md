@@ -1,127 +1,42 @@
-# Antigrative Dashboard v0.8.11
+# Antigrative Dashboard v0.8.12
 
-Maintenance update: bound historical usage import so large conversation libraries
-do not cause continuous scans or unbounded memory growth.
+Fix the three runtime problems reported in [#22](https://github.com/YOU-SHOULD-KNOW-ME/antigrative-dashboard/issues/22), and harden the related usage-storage paths. This maintenance release keeps the existing UI, settings and recorded statistics.
 
-## Bounded history usage import
+## Fixes for Issue #22
 
-- Normal refresh processes at most 25 prioritized conversations and reports partial
-  coverage; it does not scan a 1000+ conversation library indefinitely at startup.
-- Full history import requires an explicit refresh and resumes in bounded slices
-  with a wall-time budget.
-- Local discovery is cached briefly. Candidate maps, trajectory summaries and
-  retained pages are capped. Failed candidates, including delegated IDs without a
-  local signature, use persistent exponential backoff.
-- Repeated pagination offsets/pages stop immediately. Four focused regressions cover
-  1000 synthetic conversations, retry backoff, repeated pages and full-scan resume.
+- **Finite history-import queues.** A full import now consumes a stable, bounded candidate snapshot across slices. Deleting a queued conversation, temporarily losing a discovery source or moving an old candidate beyond the discovery cap cannot leave an unreachable ID that schedules a 250 ms continuation forever. Queue entries make progress even when a read fails; unavailable records remain partial and retryable. New top-level conversations created during an import wait for the next requested pass, while delegated children may join the current queue within its budget.
+- **The same explicit history gate in App and IDE.** Opening **View token usage**, or clicking its top-right circular-arrow **Refresh usage** button, requests historical synchronization. Ordinary metrics polling, ordinary card refreshes and automatic expired-quota refreshes do not start historical scans. The standalone IDE no longer bypasses this gate through `force` or a default snapshot option.
+- **Synchronous ownership guards.** Collection and pagination guards use a cached boolean instead of treating an asynchronous `isOwner()` Promise as true. Marker notifications invalidate the cache promptly; periodic verification remains a fallback. Runtime boundaries still verify ownership asynchronously, concurrent checks are coalesced, and per-page guards no longer trigger ownership/settings disk reads. Superseded collectors reject late results and stop accepting new work.
 
-Existing App users can choose **Context details → ⋯ → Check for updates** to
-discover and install **v0.8.11**. The usage collector will show partial coverage
-while older records remain pending. Settings, existing ledger data and the current
-conversation remain available.
+## Related hardening
 
-## Widget lifecycle fix
+- Recheck collector/account validity when queued usage and history writes begin, after asynchronous work and immediately before commit. Cancel superseded writes normally and remove their temporary files. An atomic rename already handed to the operating system cannot be recalled.
+- Save backfill checkpoints once per slice instead of rewriting the full journal after every conversation. Retain retry counters for histories without a local signature across restarts.
+- Limit checkpoint metadata to **4,096 entries** and an **8 MiB read/write budget**. An oversized legacy `backfill-v1.json` is retained as `backfill-v1.oversized-<uuid>.json` when bounded metadata is rebuilt. This does not delete usage-ledger records or settings.
+- Prevent a concurrent import from caching an older summary under a newer ledger revision. The next read can refresh the summary instead of keeping stale totals indefinitely.
+- Retain partial coverage when a discovery, queue, page, memory or time budget is reached; never treat an unread or over-budget history as complete.
+- Recheck file-marker generations before declaring ownership lost, avoiding false shutdown from overlapping notifications. Windows atomic marker replacement tolerates brief read locks with a bounded retry.
 
-- Fix duplicate status strips seen after updating to Antigravity App 2.28.0:
-  a disposed widget's delayed preference callback could mount an offline copy
-  beside the live strip, leaving three extra icons and crowding the toolbar.
-- Ignore delayed preference/layout callbacks after disposal. Before mounting,
-  remove only identifiable leftover plugin strips; retain native controls.
-- Add four browser lifecycle regressions to the cross-platform UI gate, covering
-  delayed preferences, repeated replacement, absent/returning composers and
-  orphan recovery, with working usage/context cards and native button targets.
-- Windows App 2.28.0 was checked with saved conversations, Token usage, context,
-  quotas and conversation switching. Linux/macOS and standalone IDE have shared
-  browser/CI coverage; this patch does not claim new native GUI acceptance there.
-
-After installation, **fully quit and reopen the
-App once**: restarting only the plugin cannot remove callbacks already running
-from old code. Settings and statistics are retained. Standalone IDE users should
-install the matching VSIX and fully reopen the IDE.
-
-## Updater reliability improvements
-
-Includes the updater repairs from the previous v0.8.9 patch for
-[#21](https://github.com/YOU-SHOULD-KNOW-ME/antigrative-dashboard/issues/21).
-
-- Fix a reproduced Windows update failure: the sidecar's parent command launcher
-  can keep `sidecars/panel` locked even after Node moves its working directory.
-  Windows now replaces verified public files atomically while preserving directory
-  identities; the sidecar and Python worker also use a stable working directory.
-- Find a working Python 3.10+ before starting the worker, skipping unusable Store
-  aliases or older interpreters. A started installation is never run again as an
-  interpreter fallback.
-- Correct Windows static-proxy discovery with `NO_PROXY`-only environments and
-  align network time budgets. Certificate and hostname checks remain enabled.
-- Show specific, localized failure categories for permissions/file locks, Python,
-  timeout, DNS, certificate trust, proxy and HTTP/connection errors.
-- Retain settings/statistics, package verification, backups and transaction rollback.
-  The CLI status line and IDE feature behavior are unchanged; the release still
-  provides both the App ZIP and IDE VSIX with their SHA-256 files.
-
-If an older updater already fails during installation, it may still need one
-manual install from `antigrative-dashboard-0.8.11.zip` using `python manage.py
-install` (`python3` on Linux/macOS), then a complete App restart. A new version
-number makes the update discoverable; it cannot retroactively repair an updater
-that fails before the new files are installed. The existing v0.8.9 tag is retained.
-
-Patch verification: 287 Node tests passed (1 skipped), 82 Python tests passed
-(1 skipped), and 11 IDE unit tests passed locally. The new safety tests cover
-1,000 synthetic histories, snapshot gating, delegated retry backoff, repeated
-pages and bounded full-scan resume. The real Windows subprocess regression
-upgrades 0.8.10 to 0.8.11 while the parent command launcher holds the runtime
-directory. GitHub Release gates run before the assets are published.
-
-## Issue #20: delegated task accounting
-
-Thanks to @zhenglan843-jpg for the detailed report and numeric example in
-[#20](https://github.com/YOU-SHOULD-KNOW-ME/antigrative-dashboard/issues/20).
-
-- Include the selected agent and its reachable subagents in Token totals and the
-  token-weighted cache ratio. The detail card shows **Current agent** and
-  **Subagents (N)** contributions. Selecting a child shows that child's subtree.
-- Keep TPS, model/tool time, request/step counts, sampled model and context tied to
-  the selected agent. Five-hour and weekly quotas remain account-level values.
-- Discover descendants using the host's structured parent/root metadata and
-  legacy/modern `invoke_subagent` result IDs. Ordinary forks are not delegation.
-- Read child statistics asynchronously with the existing pagination and memory
-  guards. Deduplicate conversations and requests, handle cycles, retry failures,
-  and preserve known totals through incomplete responses and reloads. Unloaded
-  subagent usage is unavailable rather than a fabricated zero.
-- Import each agent independently into daily/monthly usage. Visiting a child after
-  its parent does not count the same request again. Historical backfill discovers
-  unlisted children and rechecks earlier checkpoints once.
-- Project only allowlisted statistics and relationship fields; embedded prompts,
-  messages and tool-result text are discarded. Settings and existing ledgers are
-  retained.
-
-The change applies to the desktop App, standalone IDE and side panel in English,
-Simplified Chinese and Traditional Chinese. Single-agent conversations initiate no
-additional child RPCs. The CLI status line is unchanged.
+Current-conversation requests continue to be recorded during ordinary polling. The CLI status-line behavior is unchanged. Historical usage remains local observed consumption, not provider billing.
 
 ## Install or update
 
-- **App:** context details → **⋯ → Check for updates**, or extract
-  `antigrative-dashboard-0.8.11.zip` and run `python manage.py install`
-  (`python3` on Linux/macOS). Completely reopen the App after a manual install.
-- **Standalone IDE:** install `antigrative-dashboard-ide-0.8.11.vsix` via **Install
-  from VSIX…**, then fully reopen the IDE.
-- SHA-256 files are included for both packages.
+- **Antigravity App:** open context details → **⋯ → Check for updates**. Alternatively, extract `antigrative-dashboard-0.8.12.zip` and run `python manage.py install` (`python3` on Linux/macOS).
+- **Standalone Antigravity IDE:** install `antigrative-dashboard-ide-0.8.12.vsix` using **Install from VSIX…**. This is separate from the App installer.
+- Fully quit and reopen the corresponding host after installation. Keep using the IDE's loopback debugging launch arguments when required.
+- Existing settings, language choices, `history-v1` and `usage-v1` are preserved. No manual deletion or statistics reset is required. SHA-256 files accompany both packages.
 
-## Verification and boundaries
+If an older updater already fails before new files are installed, use the release ZIP for a one-time manual App install. The earlier release tags remain available.
 
-The report's numeric example is covered by a synthetic regression:
-980,101 own + 191,749 delegated = **1,171,850 tokens**. Tests cover nested/shared
-children, cycles, duplicate requests, unavailable children, account/backend changes,
-restart recovery, zero own usage, traversal budgets and independent ledger ingestion.
+## Verification and limits
 
-Verification includes the existing Node/Python/IDE suites and four widget
-lifecycle regressions. Browser regressions cover App/IDE/panel
-language switching, partial/loading/ready states, unchanged polling, use of the
-selected agent's own rate/context, and long-chat usage-window behavior. Automated
-Windows/Linux/macOS release gates run before publication.
+Local checks before publication:
 
-The original reporter's signed-in Boost conversation was not available locally;
-the exact scenario still benefits from their confirmation. Collection is bounded
-and may report partial coverage when descendants cannot be read or a resource limit
-is reached. See [accounting, privacy and limits](docs/USAGE.md).
+- **Node:** 334 passed, 1 skipped.
+- **Python:** 81 passed, 1 skipped (82 total).
+- **IDE unit tests:** 11 passed.
+- Related browser regressions passed, including the production App/IDE usage-entry refresh flow.
+
+Tests exercise disappearing/deleted candidates, interrupted discovery, candidate-cap churn, finite continuation, retry restart recovery, bounded checkpoint migration, summary-revision races, actual App/IDE entrypoint gating and ownership takeover during queued writes. Existing history recovery, privacy and request deduplication remain covered.
+
+Windows/Linux/macOS release gates run before assets are published. The local and browser results above do not establish signed-in native Linux/macOS GUI acceptance, every possible filesystem failure or the reporting user's exact environment. Marker notifications depend on filesystem support, so periodic verification remains necessary. The reporter's confirmation after upgrading is welcome.

@@ -16,13 +16,13 @@ if(!profile)throw Error('IDE profile is required');
 const data=process.env.AG_PULSE_IDE_DATA||join(profile,'User','globalStorage','you-should-know-me.antigrative-dashboard-ide');
 let debugPort=0;
 const client=new IdeClient({profile,debugPort:()=>debugPort});
-const store=new MetricsStore(client,{history:new SessionHistory(join(data,'history-v1')),transcripts:new TranscriptReader({root:transcriptBrainRoot('ide')}),owns:()=>ownership.isOwner()});
-const usage=new LocalUsage(store,new UsageLedger(join(data,'usage-v1'),{source:'ide-local'}),{host:'ide',owns:()=>ownership.isOwner()});
-store.onTrajectory=(scope,id,raw)=>usage.ingest(scope,id,raw);
+const ownership=new SidecarOwner(data);
+const store=new MetricsStore(client,{history:new SessionHistory(join(data,'history-v1')),transcripts:new TranscriptReader({root:transcriptBrainRoot('ide')}),owns:()=>ownership.owns()});
+const usage=new LocalUsage(store,new UsageLedger(join(data,'usage-v1'),{source:'ide-local'}),{host:'ide',owns:()=>ownership.owns()});
+store.onTrajectory=async(scope,id,raw)=>{if(await ownership.isOwner())await usage.ingest(scope,id,raw);};
 const preferences=new PreferencesStore({file:join(data,'preferences.json')});
 const files=await Promise.all(['compat/i18n.cjs','compat/inline-widget.cjs','compat/theme.cjs','ide/surface.cjs','compat/usage-ui.cjs'].map(f=>readFile(join(root,f),'utf8')));
 const extract=s=>s.slice(s.indexOf('module.exports = ')+17).trim().replace(/;$/,'');
-const ownership=new SidecarOwner(data);
 if(!await ownership.claim())process.exit(0);
 const usageSource=`window.__agPulseUsageFactory=(${extract(files[4])});`;
 const owner=ownership.token,source=makeRendererSource(...files.slice(0,3),owner,ownership.startedAt,usageSource);
@@ -30,6 +30,7 @@ const adapter=`window.__agPulseSurface=(${extract(files[3])})();`;
 // Each workbench has its own bridge request ID and DOM conversation ID. Empty
 // composers request account quota only; no most-recent-conversation fallback.
 const snapshot=async input=>{
+  if(!await ownership.isOwner())throw Error('Sidecar ownership changed');
   let value;
   if(input.conversationId)value=await store.snapshot(input);
   else{
@@ -40,8 +41,8 @@ const snapshot=async input=>{
       value={connection:'live',speed:null,groups:store.quota||[],quotaUpdatedAt:new Date(store.quotaAt).toISOString()};
     }catch{value={connection:'offline',speed:null,groups:[],error:'IDE local API unavailable'};}
   }
-  if(input.force)void usage.sync(true);
-  return {...value,usage:await usage.snapshot(),enabled:true,preferences:await preferences.snapshot()};
+  if(input.usageSync===true)void usage.sync(true);
+  return {...value,usage:await usage.snapshot({sync:input.usageSync===true}),enabled:true,preferences:await preferences.snapshot()};
 };
 const ui=new RuntimeUi({profile,source:adapter+source,owner,owns:()=>ownership.isOwner(),preferences,snapshot,dataDir:data,targetOrigin:()=> 'vscode-file://vscode-app',
   discover:async()=>{const result=await ideTargets(profile);debugPort=result.port;await client.discover();return result.targets;}});

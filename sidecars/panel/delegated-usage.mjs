@@ -8,6 +8,9 @@ export class DelegatedUsage {
   constructor(client,{onSource=async()=>{},onUpdate=async()=>{},owns=()=>true,now=Date.now,
     budgetBytes=8*1024*1024,maxAgents=128,maxEntries=4,refreshMs=5000}={}) {
     Object.assign(this,{client,onSource,onUpdate,owns,now,budgetBytes,maxAgents,maxEntries,refreshMs});
+    // A Promise is truthy but is never proof of ownership. Callers must supply
+    // the synchronous cached predicate, not the asynchronous marker verifier.
+    this.owns=()=>owns()===true;
   }
   tasks=new Map();epoch=0;scope=null;running=null;bytes=0;disposed=false;
   reset(){this.epoch++;this.tasks.clear();this.bytes=0;this.scope=null;}

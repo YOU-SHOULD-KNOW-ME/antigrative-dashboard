@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.8.12 — 2026-10-29
+
+- Fix [#22](https://github.com/YOU-SHOULD-KNOW-ME/antigrative-dashboard/issues/22): consume a stable, bounded history-import queue across slices so deleted, temporarily unlisted or evicted candidates cannot cause an endless 250 ms continuation loop. Retain failed imports for retry and preserve saved usage.
+- Apply the explicit `usageSync` gate to standalone IDE metrics as well as App metrics. Normal polling, card refreshes and expired-quota refreshes do not request historical backfill.
+- Use a synchronous cached ownership boolean in collection guards, with asynchronous verification at runtime boundaries. Stop accepting old collector results after detected takeover, and remove settings-file reads from per-page ownership checks.
+- Bound checkpoint persistence and save it once per slice instead of rewriting the full journal after every conversation. Retain an oversized legacy checkpoint for recovery while rebuilding bounded metadata; usage records remain intact.
+- Cancel queued statistics/history writes when their owning collector or account is superseded, retain unsigned-history retry counts across restarts, and prevent a concurrent import from caching stale totals under a newer ledger revision.
+- Request historical synchronization only when **View token usage** is opened or its top-right **Refresh usage** action is clicked. A full import consumes a finite candidate snapshot; new top-level conversations wait for the next pass, and resource limits retain partial coverage rather than implying completeness.
+- Preserve settings, recorded usage and per-conversation statistics during App/IDE upgrades. Retain oversized legacy checkpoint metadata as a recovery file while rebuilding bounded checkpoints; no usage ledger is deleted.
+
 ## 0.8.11 — 2026-10-29
 
 - Bound historical usage imports: normal refresh processes at most 25 prioritized conversations and reports partial coverage instead of scanning a 1000+ history library continuously.

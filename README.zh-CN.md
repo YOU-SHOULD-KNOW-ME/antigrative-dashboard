@@ -7,7 +7,7 @@
 模型选择旁只显示生成速率、缓存和上下文占用；悬停上下文，一并查看上下文、5 小时和周额度详情。<br>
 缩略信息常驻；鼠标悬停，才展开详细统计。
 
-[![Version 0.8.11](https://img.shields.io/badge/version-0.8.11-91adff?style=flat-square&labelColor=252936)](CHANGELOG.md)
+[![Version 0.8.12](https://img.shields.io/badge/version-0.8.12-91adff?style=flat-square&labelColor=252936)](CHANGELOG.md)
 [![Platforms](https://img.shields.io/badge/host-Windows%20%7C%20Linux%20%7C%20macOS-83d8b9?style=flat-square&labelColor=252936)](COMPATIBILITY.md)
 [![Antigravity 2.21.1 / 2.22.0](https://img.shields.io/badge/Antigravity-2.21.1%20%2F%202.22.0-c5a0ff?style=flat-square&labelColor=252936)](COMPATIBILITY.md)
 [![MIT](https://img.shields.io/badge/license-MIT-d4d9e6?style=flat-square&labelColor=252936)](LICENSE)
@@ -16,7 +16,7 @@
 
 </div>
 
-**v0.8.11：** 限制历史用量导入，避免大量历史会话触发持续扫描和内存增长；同时包含 v0.8.10 的重复控件和更新器修复。已有用户可通过插件内检查更新正常升级。[发布说明](https://github.com/YOU-SHOULD-KNOW-ME/antigrative-dashboard/releases/tag/v0.8.11) · [用量安全详情](docs/UPDATES.md#bounded-history-usage-import)。
+**v0.8.12：** 修复 [#22](https://github.com/YOU-SHOULD-KNOW-ME/antigrative-dashboard/issues/22) 的历史补录不退出、IDE 同步门控遗漏和异步所有权误判；同时取消失效后台的排队写入，限制检查点持久化开销，修复用量缓存的版本竞态。保留已有设置与统计。[发布说明](https://github.com/YOU-SHOULD-KNOW-ME/antigrative-dashboard/releases/tag/v0.8.12) · [用量安全详情](docs/UPDATES.md#bounded-history-usage-import)。
 
 ## 看看效果
 
@@ -64,7 +64,7 @@
 ## Antigravity IDE
 
 **v0.7.0** 新增反重力自己的独立 IDE 适配。下载发布页的
-`antigrative-dashboard-ide-0.8.11.vsix`，在 IDE 扩展页选择「从 VSIX 安装」。
+`antigrative-dashboard-ide-0.8.12.vsix`，在 IDE 扩展页选择「从 VSIX 安装」。
 仅安装 IDE 的用户也可以使用，无需先装桌面 App。
 
 完全退出 IDE 后，使用带
@@ -228,9 +228,9 @@ Antigravity 的 `inputTokens` 是未缓存输入。缓存率 = 缓存读取 ÷�
 
 首次使用提示说明历史导入、统计范围与隐私。点击「知道了」后保存完成状态，重启、换语言、换主题都不会重复弹出。直接关闭窗口则保留提示；保存失败可以重试。
 
-启动时汇总当前账号可读取的本地历史对话，此后每 60 秒检查历史；新完成请求随正常轮询记录。独立的 `usage-v1` 用量账本按账号去重，只保存时间、模型、Token 计数和哈希标识，不保存正文、回复或凭据。桌面与 IDE 账本独立。删除对话不会扣除已记录用量；这是本地已观察到的消耗，不是供应商账单，缺失或已删除的历史可能无法补齐。天、月按 UTC+8 划分，周一开始一周。
+打开「查看用量统计」，或点击窗口右上角的「刷新用量」按钮，才会请求历史同步；普通轮询、卡片刷新和额度重置不会启动历史扫描。每轮导入使用稳定、有上限的候选队列，分片处理；中途新建的主会话留到下一次请求的导入，不可读取或超出预算的记录保留为部分覆盖。当前对话中新完成的请求仍随正常轮询记录。独立的 `usage-v1` 用量账本按账号去重，只保存时间、模型、Token 计数和哈希标识，不保存正文、回复或凭据。桌面与 IDE 账本独立。删除对话不会扣除已记录用量；这是本地已观察到的消耗，不是供应商账单，缺失或已删除的历史可能无法补齐。天、月按 UTC+8 划分，周一开始一周。
 
-桌面路径：`~/.gemini/antigravity/sidecar_data/antigravity-pulse/panel/data/usage-v1/`（宿主可覆盖数据目录）。IDE 路径：其用户目录下的 `User/globalStorage/you-should-know-me.antigrative-dashboard-ide/usage-v1/`。清理前先停用插件；再次启用后，仍可读取的对话会重新导入。`history-v1` 继续单独保存每个对话最新的统计快照。[统计口径、清理和边界](docs/USAGE.md)。
+桌面路径：`~/.gemini/antigravity/sidecar_data/antigravity-pulse/panel/data/usage-v1/`（宿主可覆盖数据目录）。IDE 路径：其用户目录下的 `User/globalStorage/you-should-know-me.antigrative-dashboard-ide/usage-v1/`。清理前先停用插件；再次启用并打开用量窗口后，仍可读取的对话可以重新导入。`history-v1` 继续单独保存每个对话最新的统计快照。[统计口径、清理和边界](docs/USAGE.md)。
 
 ## 兼容性
 

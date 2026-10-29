@@ -81,9 +81,11 @@ test('reader stops paginating when the authenticated scope is superseded',async(
 
 test('an import that changes on disk is retried instead of marked complete',async t=>{
  const {ledger}=await setup(t);const store=baseStore();
+ await ledger.ingest(account,id,raw());
+ store.client.trajectory=async()=>raw(2);
  const usage=tracker(t,store,ledger,{discoverLocal:async()=>({conversations:[{id,signature:'one',readSignature:async()=> 'two'}],errors:0})});
  await usage.sync();assert.equal(usage.status,'partial');assert.equal((await ledger.backfillState(account,'app'))[key(id)].state,'retry');
- assert.equal((await ledger.summary(account)).totalTokens,40);
+ assert.equal((await ledger.summary(account)).totalTokens,40,'An unstable source cannot replace the known statistics');
 });
 
 test('manual full refresh continues through every slice including already imported archives',async t=>{

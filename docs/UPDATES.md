@@ -35,29 +35,46 @@ full candidate set and continue importing archives for a long time. A 1000+ hist
 library could keep the host API, disk ledger and Node heap busy even when the user
 was only viewing the current conversation.
 
-v0.8.11 changes the default behavior:
+**v0.8.12** completes the history-import protections and fixes the three runtime
+problems reported in [#22](https://github.com/YOU-SHOULD-KNOW-ME/antigrative-dashboard/issues/22):
 
-- normal refresh handles at most 25 prioritized conversations, favoring the active
-  and recently modified sessions;
-- full history import runs only after an explicit refresh and resumes in bounded
-  slices with a wall-time budget;
-- local directory discovery is cached briefly, candidate maps are capped, and
-  failed candidates use persistent exponential backoff;
-- trajectory summaries and pages have count/offset/progress guards, so a repeated
-  host page stops quickly instead of looping;
-- usage status reports partial coverage while older history remains pending.
+- Opening **View token usage**, or clicking the usage window's top-right circular
+  arrow **Refresh usage**, requests historical synchronization. Ordinary metrics
+  polling, card refreshes and expired-quota refreshes do not request backfill in
+  either App or standalone IDE.
+- An import consumes a stable, bounded candidate queue across slices instead of
+  rebuilding its source list every 250 ms. Deleted, temporarily unlisted or
+  evicted IDs cannot leave an unreachable item that schedules work forever.
+  New top-level conversations wait for the next requested pass; delegated children
+  may join the current queue within its budget. Each attempted item makes progress,
+  and unavailable records retain retry/partial status.
+- Collection guards use a synchronous cached ownership boolean. File-change
+  notifications invalidate it promptly, periodic checks remain the fallback, and
+  request/write boundaries verify ownership asynchronously. Per-page guards do
+  not create unawaited ownership reads or repeatedly read settings files.
+- Queued usage and conversation-history writes recheck ownership/account state
+  when they start and before commit, removing temporary files on cancellation.
+  An atomic rename already handed to the OS cannot be recalled.
+- Checkpoint metadata is limited to 4,096 entries and an 8 MiB read/write budget,
+  is saved once per slice, and preserves persistent retry counts across restarts.
+  An oversized legacy `backfill-v1.json` is retained as
+  `backfill-v1.oversized-<uuid>.json` when bounded metadata is rebuilt; this does
+  not delete the per-conversation usage ledger.
+- A concurrent import cannot publish an old summary as the cache for a newer
+  ledger revision. Candidate, page and memory/time limits retain partial coverage
+  instead of implying that every historical record was read.
 
-The collector does not delete existing usage records. Full import can be continued
-from the usage window's refresh action. This is local observed usage, not billing.
+Current-conversation requests continue to be recorded during ordinary polling.
+The collector preserves existing usage records and settings. Usage is local
+observed consumption, not provider billing.
 
-The widget fix is included in **v0.8.10**. The bounded history collector is
-published in **v0.8.11**, which normal App update checks can discover from
-v0.8.10. Install through **Context details → ⋯ → Check for updates**,
-then fully quit and reopen the host once. A plugin-only restart cannot revoke
-old callbacks already recreated in the open page. If an older updater already
-fails installation, use the v0.8.11 release ZIP for a one-time manual repair;
-standalone IDE users should use the matching VSIX. Existing v0.8.9 tags/releases
-remain available, while v0.8.11 source archives contain the fix directly.
+Install **v0.8.12** through **Context details → ⋯ → Check for updates**, then fully
+quit and reopen the host once. A plugin-only restart cannot revoke old callbacks
+already recreated in the open page. If an older updater already fails installation,
+use `antigrative-dashboard-0.8.12.zip` for a one-time manual repair; standalone IDE
+users should install `antigrative-dashboard-ide-0.8.12.vsix` and reopen the IDE.
+Existing release tags remain available. No statistics reset or manual deletion of
+checkpoint/ledger files is required for this upgrade.
 
 ## Windows working-directory fix (Issue #21)
 
