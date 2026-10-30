@@ -2,6 +2,8 @@
 module.exports = function createDashboardI18n(initialLanguage) {
   const dictionary={
     en:{
+      collectionBackgroundFailed:'Background collection could not finish. It will retry later.',collectionProcessing:'Completing statistics',collectionProcessingReason:'Processing in the background. You can keep working.',collectionProgress:'Processing details',collectionProgressCounts:'Processed {steps} steps · {requests} request records',collectionQueued:'Queued',collectionSteps:'Reading steps',collectionGenerators:'Reading request records',collectionReducing:'Calculating statistics',collectionPublishing:'Saving verified statistics',
+      collectionLimited:'Statistics limited',collectionSaved:'Last complete statistics',collectionSavedAt:'Last complete statistics · {time}',collectionReason:'This conversation exceeds the collection limit.',collectionDetails:'View reason',collectionDocs:'About collection limits',collectionProjected:'Serialized statistics',collectionRetained:'Retained-field estimate',collectionField:'Statistics field length',collectionObserved:'Observed at least {observed} / limit {limit}',collectionCharacters:'{n} characters',collectionUnavailable:'Statistics unavailable',collectionNoPartial:'The incomplete read was discarded.',
       tokenPartial:'Known tokens only (≥): {input} requests lack input usage; {output} lack output usage. Output is counted independently of cache availability.',
       tokenLegacy:'Saved token usage is a lower bound (≥); request-level coverage cannot be verified.',unknownCoverage:'unknown',
       cacheZeroInput:'Reported total input is 0; the cache hit rate has no denominator.',
@@ -9,7 +11,7 @@ module.exports = function createDashboardI18n(initialLanguage) {
       panelSpeed:'Speed',panelCache:'Cache',panelContext:'Context',panelDetails:'Metric details',panelUsed:'used',panelSharedQuota:'Shared quota',
       newConversationStats:'New conversation: send a message or open an existing conversation to view its statistics. Account quota is shown separately below.',
       subagentStats:'Current subagent statistics',accountQuota:'Account quota, shared across agents.',
-      taskOwn:'Current agent',taskSubagents:'Subagents ({n})',taskLoading:'Summing subagents…',taskPartial:'Some subagents unavailable',
+      taskOwn:'Current agent',taskSubagents:'Subagents ({n})',taskLoading:'Summing subagents…',taskPartial:'Some subagents unavailable',taskCurrentOnly:'Current agent only; subagent statistics unavailable.',
       transcriptTitle:'Recorded text estimate',transcriptUser:'User text',transcriptAssistant:'Replies + thinking',transcriptTool:'Tool output',transcriptSystem:'System text',transcriptMarkers:'Compaction markers',transcriptImages:'Image-generation steps',transcriptPartial:'partial',transcriptLoading:'Loading…',transcriptUnavailable:'Unavailable',transcriptSaved:'saved',transcriptBasis:'Estimated logged text, not active context or billed usage. Hidden prompts, media and tool-call arguments are excluded.',
       contextHostLimit:'Active window (host)',contextProviderCapacity:'Provider capacity reference',contextCompressionLimit:'Compaction threshold',contextLimitUnknown:'Unknown',contextReferenceBasis:'Provider specification; not this session\'s available capacity.',
       context:'Context window',contextShort:'Ctx',contextUsed:'{used}% used ({remaining}% left)',contextTokens:'{used} / {max} tok',contextUnknown:'Context capacity unavailable',contextUnavailable:'Context statistics are unavailable for this request.',contextBasis:'Host estimate at the latest request start; not cumulative tokens or a live streaming counter.',contextModel:'Sampled model',contextLimit:'Window capacity',contextUsage:'Used tokens (estimate)',contextSaved:'Showing saved context statistics ({time}).',contextExceeded:'The host estimate exceeds the reported capacity.',
@@ -32,6 +34,8 @@ module.exports = function createDashboardI18n(initialLanguage) {
       cacheCoverage:'{measured} of {total} requests',language:'Language',switchLanguage:'Switch to Chinese',languageSaveFailed:'Language preference could not be saved. Please retry.',reconnecting:'Waiting to reconnect',panelUnavailable:'The statistics panel cannot connect right now.',invalidData:'Incompatible statistics data',
     },
     'zh-CN':{
+      collectionBackgroundFailed:'后台暂时无法完成，稍后会自动重试。',collectionProcessing:'正在补全统计',collectionProcessingReason:'后台处理中，可继续使用。',collectionProgress:'查看进度',collectionProgressCounts:'已处理 {steps} 个步骤 · {requests} 条请求记录',collectionQueued:'等待处理',collectionSteps:'读取步骤',collectionGenerators:'读取请求记录',collectionReducing:'计算统计',collectionPublishing:'保存已校验统计',
+      collectionLimited:'统计受限',collectionSaved:'上次完整统计',collectionSavedAt:'上次完整统计 · {time}',collectionReason:'此会话统计量超过采集限制。',collectionDetails:'查看原因',collectionDocs:'了解采集限制',collectionProjected:'序列化统计大小',collectionRetained:'解析保留量估算',collectionField:'统计字段长度',collectionObserved:'已观测至少 {observed} / 上限 {limit}',collectionCharacters:'{n} 字符',collectionUnavailable:'统计暂不可用',collectionNoPartial:'本次未完成的读取未计入统计。',
       tokenPartial:'仅统计已知 Token（≥）：{input} 次请求缺少输入用量，{output} 次缺少输出用量。输出独立于缓存统计。',
       tokenLegacy:'已保存 Token 用量为下界（≥）；无法确认逐请求统计覆盖情况。',unknownCoverage:'未知',
       cacheZeroInput:'报告的总输入为 0，缓存命中率无可计算的分母。',
@@ -39,7 +43,7 @@ module.exports = function createDashboardI18n(initialLanguage) {
       panelSpeed:'速度',panelCache:'缓存',panelContext:'上下文',panelDetails:'统计详情',panelUsed:'已用',panelSharedQuota:'共享额度',
       newConversationStats:'当前为新对话：发送消息或打开已有对话后显示该会话统计。账号额度在下方单独展示。',
       subagentStats:'当前子代理统计',accountQuota:'账号共享额度，所有代理共用。',
-      taskOwn:'当前代理',taskSubagents:'子代理（{n}）',taskLoading:'正在汇总子代理…',taskPartial:'部分子代理暂不可读取',
+      taskOwn:'当前代理',taskSubagents:'子代理（{n}）',taskLoading:'正在汇总子代理…',taskPartial:'部分子代理暂不可读取',taskCurrentOnly:'仅当前代理；子代理统计暂不可用',
       transcriptTitle:'已记录文本估算',transcriptUser:'用户文本',transcriptAssistant:'回复与思考',transcriptTool:'工具输出',transcriptSystem:'系统文本',transcriptMarkers:'压缩标记记录',transcriptImages:'图像生成步骤',transcriptPartial:'不完整',transcriptLoading:'读取中…',transcriptUnavailable:'不可用',transcriptSaved:'已保存',transcriptBasis:'日志文本估算，非当前上下文或计费用量。不含隐藏提示、媒体和工具调用参数。',
       contextHostLimit:'当前窗口容量（宿主）',contextProviderCapacity:'供应商容量参考',contextCompressionLimit:'压缩触发阈值',contextLimitUnknown:'未知',contextReferenceBasis:'供应商规格参考，不代表当前会话可用容量。',
       context:'上下文窗口',contextShort:'上下文',contextUsed:'{used}% 已用（剩余 {remaining}%）',contextTokens:'{used} / {max} tok',contextUnknown:'上下文容量不可用',contextUnavailable:'此请求暂无可用上下文统计。',contextBasis:'宿主在最近请求开始时的估计值，非累计 Token，也非流式实时计数。',contextModel:'采样模型',contextLimit:'窗口容量',contextUsage:'已用 Token（估计）',contextSaved:'显示已保存的上下文统计（{time}）。',contextExceeded:'宿主估计值超过返回的窗口容量。',
@@ -59,6 +63,8 @@ module.exports = function createDashboardI18n(initialLanguage) {
       language:'语言',switchLanguage:'Switch to English',languageSaveFailed:'语言设置暂时无法保存，请重试。',reconnecting:'等待控件重新连接',panelUnavailable:'统计面板暂时无法连接',invalidData:'统计数据格式不兼容',
     },
     'zh-TW':{
+      collectionBackgroundFailed:'背景暫時無法完成，稍後會自動重試。',collectionProcessing:'正在補全統計',collectionProcessingReason:'背景處理中，可繼續使用。',collectionProgress:'查看進度',collectionProgressCounts:'已處理 {steps} 個步驟 · {requests} 筆請求記錄',collectionQueued:'等待處理',collectionSteps:'讀取步驟',collectionGenerators:'讀取請求記錄',collectionReducing:'計算統計',collectionPublishing:'儲存已驗證統計',
+      collectionLimited:'統計受限',collectionSaved:'上次完整統計',collectionSavedAt:'上次完整統計 · {time}',collectionReason:'此對話統計量超過採集限制。',collectionDetails:'查看原因',collectionDocs:'瞭解採集限制',collectionProjected:'序列化統計大小',collectionRetained:'解析保留量估算',collectionField:'統計欄位長度',collectionObserved:'已觀測至少 {observed} / 上限 {limit}',collectionCharacters:'{n} 字元',collectionUnavailable:'統計暫時無法取得',collectionNoPartial:'本次未完成的讀取未計入統計。',
       tokenPartial:'僅統計已記錄的 Token（≥）：{input} 次請求缺少輸入用量，{output} 次缺少輸出用量。輸出計算獨立於快取統計。',
       tokenLegacy:'已儲存的 Token 用量為下限（≥）；無法確認個別請求的統計涵蓋情況。',unknownCoverage:'未知',
       cacheZeroInput:'回報的總輸入為 0，快取命中率無有效的分母可供計算。',
@@ -66,7 +72,7 @@ module.exports = function createDashboardI18n(initialLanguage) {
       panelSpeed:'速率',panelCache:'快取',panelContext:'上下文',panelDetails:'統計詳細資料',panelUsed:'已用',panelSharedQuota:'共用配額',
       newConversationStats:'目前為新對話：傳送訊息或開啟既有對話後將顯示統計資料。帳號配額於下方單獨顯示。',
       subagentStats:'目前子代理 (Subagent) 統計',accountQuota:'帳號共用配額，供所有代理共用。',
-      taskOwn:'目前代理',taskSubagents:'子代理（{n}）',taskLoading:'正在彙總子代理…',taskPartial:'部分子代理暫時無法讀取',
+      taskOwn:'目前代理',taskSubagents:'子代理（{n}）',taskLoading:'正在彙總子代理…',taskPartial:'部分子代理暫時無法讀取',taskCurrentOnly:'僅目前代理；子代理統計暫時無法取得',
       transcriptTitle:'已記錄文字預估',transcriptUser:'使用者文字',transcriptAssistant:'回覆與思考過程',transcriptTool:'工具輸出',transcriptSystem:'系統文字',transcriptMarkers:'壓縮標記記錄',transcriptImages:'圖片生成步驟',transcriptPartial:'部分記錄',transcriptLoading:'載入中…',transcriptUnavailable:'無法提供',transcriptSaved:'已儲存',transcriptBasis:'依記錄文字推算之預估值，非作用中上下文或計費用量。不含隱藏提示詞、媒體檔案與工具呼叫引數。',
       contextHostLimit:'目前視窗容量（宿主環境）',contextProviderCapacity:'供應商規格容量參考',contextCompressionLimit:'觸發壓縮門檻',contextLimitUnknown:'未知',contextReferenceBasis:'模型供應商規格參考值，不代表目前對話的可用容量。',
       context:'上下文視窗',contextShort:'上下文',contextUsed:'{used}% 已使用（剩餘 {remaining}%）',contextTokens:'{used} / {max} tok',contextUnknown:'目前無法取得上下文容量',contextUnavailable:'此請求目前無法取得上下文統計資料。',contextBasis:'宿主環境於最近一次請求發起時的預估值，非累計 Token，亦非串流即時計數。',contextModel:'取樣模型',contextLimit:'視窗容量',contextUsage:'已用 Token（預估）',contextSaved:'顯示已儲存的上下文統計資料（{time}）。',contextExceeded:'宿主預估值已超過回傳的視窗容量。',

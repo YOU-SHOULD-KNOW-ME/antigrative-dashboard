@@ -1,5 +1,6 @@
 import hashlib
 import importlib.util
+import io
 import json
 from pathlib import Path
 import tempfile
@@ -25,6 +26,38 @@ publisher = module('ide_release_check', 'tools/publish-release.py')
 
 
 class IdeTests(unittest.TestCase):
+    def test_release_rejects_any_missing_large_conversation_module_in_either_package(self):
+        # Recompute each package checksum after removing one required file. The
+        # publisher must validate contents, not rely only on a matching digest.
+        with tempfile.TemporaryDirectory() as temporary:
+            fixture = Path(temporary)
+            package = json.loads((ROOT / 'plugin.json').read_text(encoding='utf-8'))
+            version = package['version']
+            (fixture / 'ide').mkdir()
+            (fixture / 'plugin.json').write_text(json.dumps(package), encoding='utf-8')
+            (fixture / 'ide/package.json').write_bytes((ROOT / 'ide/package.json').read_bytes())
+            desktop = fixture / 'dist' / f'antigrative-dashboard-{version}.zip'
+            ide = fixture / 'dist' / f'antigrative-dashboard-ide-{version}.vsix'
+            desktop_manager.package(desktop)
+            packager.build(ide)
+            for output, prefix in [(desktop, 'antigrative-dashboard/'), (ide, 'extension/')]:
+                pristine = output.read_bytes()
+                checksum = output.with_suffix(output.suffix + '.sha256')
+                original_checksum = checksum.read_bytes()
+                for name in publisher.LARGE_CONVERSATION_MODULES:
+                    with self.subTest(package=output.suffix, module=name):
+                        removed = prefix + name
+                        with zipfile.ZipFile(io.BytesIO(pristine)) as source, zipfile.ZipFile(output, 'w') as altered:
+                            for info in source.infolist():
+                                if info.filename != removed:
+                                    altered.writestr(info, source.read(info.filename))
+                        checksum.write_text(hashlib.sha256(output.read_bytes()).hexdigest() + '  ' + output.name + '\n', encoding='utf-8')
+                        with self.assertRaises(KeyError):
+                            publisher.checked_assets(fixture, 'v' + version)
+                        output.write_bytes(pristine)
+                        checksum.write_bytes(original_checksum)
+            self.assertEqual(len(publisher.checked_assets(fixture, 'v' + version)), 4)
+
     def test_release_requires_four_consistent_assets_and_rejects_tampered_vsix(self):
         with tempfile.TemporaryDirectory() as temporary:
             fixture = Path(temporary)

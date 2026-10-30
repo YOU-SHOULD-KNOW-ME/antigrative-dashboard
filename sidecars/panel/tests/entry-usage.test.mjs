@@ -9,9 +9,9 @@ async function entryFixture(host,url,selection=false){
   const {readFile}=await import('node:fs/promises');
   const state={owned:true,asyncChecks:0,diskReads:0,syncs:[],snapshots:[],predicates:[],ingests:0,metricsInputs:[]};
   const apis=new Map();let snapshot,http;
-  class Owner{token='fixture';startedAt=1;async claim(){return true;}owns(){return state.owned;}async isOwner(){state.asyncChecks++;return state.owned;}watch(){}stop(){state.owned=false;}}
+  class Owner{token='fixture';startedAt=1;async claim(){return true;}owns(){return state.owned;}async isOwner(){state.asyncChecks++;if(state.ownerGate)await state.ownerGate;return state.owned;}watch(){}stop(){state.owned=false;}}
   class Store{constructor(client,options){state.store=this;state.predicates.push(options.owns);}async snapshot(input){state.metricsInputs.push(input);return {connection:'live'};}dispose(){}}
-  class Usage{constructor(store,ledger,options){state.predicates.push(options.owns);}async snapshot(options){state.snapshots.push(options??null);return {};}async sync(force){state.syncs.push(force);}ingest(){state.ingests++;}dispose(){}}
+  class Usage{constructor(store,ledger,options){state.predicates.push(options.owns);}async snapshot(options){state.snapshots.push(options??null);return {};}async sync(force){state.syncs.push(force);}ingestLive(){state.ingests++;}dispose(){}}
   class Ui{health={};constructor(options){snapshot=options.snapshot;}start(){}async stop(){}}
   class App{api(path,handler){apis.set(path,handler);}page(){}run(){}}
   const source=await readFile(new URL(url),'utf8');
@@ -61,6 +61,12 @@ async function entryFixture(host,url,selection=false){
   const reads=state.diskReads;for(let i=0;i<1000;i++)for(const owns of state.predicates)owns();
   const hotPathReads=state.diskReads-reads;
   await state.store.onTrajectory('account','fixture',{});
+  // A backend can reconnect while asynchronous ownership verification waits.
+  // A previous session's raw data must not enter the new collector epoch.
+  let releaseGate,stillCurrent=true;
+  state.ownerGate=new Promise(resolve=>{releaseGate=resolve;});
+  const delayed=state.store.onTrajectory('account','fixture',{}, {isCurrent:()=>stillCurrent,guardKey:{}});
+  stillCurrent=false;releaseGate();await delayed;state.ownerGate=null;
   state.owned=false;
   const inactive=state.predicates.map(owns=>owns()===false);
   await state.store.onTrajectory('account','fixture',{});

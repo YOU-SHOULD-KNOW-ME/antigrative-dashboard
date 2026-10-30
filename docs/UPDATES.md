@@ -102,11 +102,11 @@ Current-conversation requests continue to be recorded during ordinary polling.
 The collector preserves existing usage records and settings. Usage is local
 observed consumption, not provider billing.
 
-Install **v0.8.14** through **Context details → ⋯ → Check for updates**, then fully
+Install **v0.8.15** through **Context details → ⋯ → Check for updates**, then fully
 quit and reopen the host once. A plugin-only restart cannot revoke old callbacks
 already recreated in the open page. If an older updater already fails installation,
-use `antigrative-dashboard-0.8.14.zip` for a one-time manual repair; standalone IDE
-users should install `antigrative-dashboard-ide-0.8.14.vsix` and reopen the IDE.
+use `antigrative-dashboard-0.8.15.zip` for a one-time manual repair; standalone IDE
+users should install `antigrative-dashboard-ide-0.8.15.vsix` and reopen the IDE.
 Existing release tags remain available. No statistics reset or manual deletion of
 checkpoint/ledger files is required for this upgrade.
 

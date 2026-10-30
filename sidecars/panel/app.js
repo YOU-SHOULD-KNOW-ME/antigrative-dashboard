@@ -99,7 +99,8 @@ function render() {
   $('latest-tps').textContent = speed?.latestRateStatus==='unreliable'?t('timingUnreliable'):speed?.latestRateStatus==='legacy'?t('ratePending'):rate(speed?.latestTps);
   $('request-count').textContent = t('sampleCount',{n:speed?.measuredRequests??0});
   $('session-steps').textContent = speed ? t('rounds',{rounds:speed.rounds,steps:speed.steps}) : '';
-  $('strip-model').textContent = speed?.model || t('waitingRequest');
+  const collectionLimited=snapshot.collection?.state==='limited',collectionProcessing=snapshot.collection?.state==='processing'&&snapshot.collection.code==='background-collection';
+  $('strip-model').textContent = collectionProcessing?t(speed?'collectionSaved':'collectionProcessing'):collectionLimited?t(speed?'collectionSaved':'collectionLimited'):speed?.model || t(snapshot.sessionError?'collectionUnavailable':'waitingRequest');
   $('strip-model').title=$('strip-model').textContent;
   $('model-time').textContent = language.elapsed(speed?.modelSeconds);
   $('tool-time').textContent = language.elapsed(speed?.toolSeconds);
@@ -110,6 +111,12 @@ function render() {
   $('speed-basis').textContent = language.rateNote(speed)+savedNote+saveWarning;
   const taskUsage=Number.isSafeInteger(speed?.taskUsage?.subagents)&&speed.taskUsage.subagents>0?speed.taskUsage:null;
   const usage=taskUsage||speed,cache=usage?.cache;
+  const currentOnly=!collectionLimited&&!collectionProcessing&&taskUsage?.state==='partial'&&taskUsage.loadedSubagents===0;
+  const cacheTab=$('cache-tab');
+  const cacheAttr=(name,value)=>{if(value===null){if(cacheTab.hasAttribute(name))cacheTab.removeAttribute(name);}else if(cacheTab.getAttribute(name)!==value)cacheTab.setAttribute(name,value);};
+  cacheAttr('data-task-current-only',currentOnly?'true':null);
+  cacheAttr('aria-label',currentOnly?t('taskCurrentOnly'):null);
+  cacheAttr('title',currentOnly?t('taskCurrentOnly'):null);
   const context=speed?.context,hasCapacity=typeof context?.usedFraction==='number';
   $('strip-context').textContent=hasCapacity?`${Math.round(context.usedFraction*100)}%`:'—';
   $('strip-context-size').textContent=context?`${compact(context.usedTokens)} / ${context.maxTokens===null?'—':compact(context.maxTokens)}`:'—';
@@ -139,13 +146,13 @@ function render() {
     const value=taskUsage?.[field],known=field!=='subagentTokens'||taskUsage?.loadedSubagents>0;
     text(id,known&&Number.isSafeInteger(value)&&value>=0?`${count(value)} tok`:'—');
   }
-  const taskNote=taskUsage?.state==='loading'?t('taskLoading'):taskUsage?.state==='partial'?t('taskPartial'):'';
+  const taskNote=taskUsage?.state==='loading'?t('taskLoading'):taskUsage?.state==='partial'?t(taskUsage.loadedSubagents===0?'taskCurrentOnly':'taskPartial'):'';
   text('cache-note',taskNote);hidden('cache-note',!taskNote);
   $('connection-dot').className = `connection-dot ${snapshot.connection}`;
   $('connection-dot').title = t(snapshot.connection === 'live'?'live':snapshot.connection === 'stale'?'stale':'offline');
   const timestamp = snapshot.quotaUpdatedAt ? new Date(snapshot.quotaUpdatedAt).toLocaleTimeString(language.language,{hour12:false}) : null;
-  $('health-note').textContent = language.errorMessage(snapshot.error||snapshot.sessionError) || (timestamp ? t('health',{time:timestamp}) : t('firstUpdate'));
-  $('health-note').classList.toggle('warning', snapshot.connection !== 'live' || !!snapshot.sessionError);
+  $('health-note').textContent = (collectionProcessing?t('collectionProcessingReason'):collectionLimited?t('collectionReason'):language.errorMessage(snapshot.error||snapshot.sessionError)) || (timestamp ? t('health',{time:timestamp}) : t('firstUpdate'));
+  $('health-note').classList.toggle('warning', snapshot.connection !== 'live' || !!snapshot.sessionError || collectionLimited);
   const integration = snapshot.integration;
   $('integration-note').textContent = integration && !['mounted','disabled'].includes(integration.state)
     ? (language.language === 'zh-TW' ? '內嵌狀態列正在自動重新連線；此面板仍可檢視統計資料。' : (language.language === 'zh-CN' ? '内嵌栏正在自动重连；此面板仍可查看统计。' : 'Inline widget is reconnecting automatically; statistics remain available in this panel.')) : '';

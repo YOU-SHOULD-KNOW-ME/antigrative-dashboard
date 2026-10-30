@@ -14,7 +14,7 @@ const preview=process.argv.includes('--preview');
 const html=panelPageSource();
 const code=panelAppSource(),requests=[],errors=[],results=[];
 const id='11111111-1111-1111-1111-111111111111';
-let prefs={language:'en',revision:1},metricsCalls=0,failMetrics=false,rate=38.7;
+let prefs={language:'en',revision:1},metricsCalls=0,failMetrics=false,rate=38.7,collectionFixture=null;
 const transcriptSample={version:1,status:'ready',complete:true,userTokens:100,assistantTokens:200,toolTokens:50,systemTokens:10,totalTokens:360,matchedSteps:4,compactionMarkers:1,imageSteps:0};
 const sample=()=>({connection:'live',serverTime:new Date().toISOString(),quotaUpdatedAt:new Date().toISOString(),preferences:prefs,groups:[{id:'gemini',name:'Gemini',windows:{'5h':{available:true,remaining:.8,resetAt:new Date(Date.now()+3600000).toISOString()},weekly:{available:true,remaining:.75,resetAt:new Date(Date.now()+86400000).toISOString()}}}],speed:{transcriptStats:transcriptSample,...trajectoryMetrics({trajectory:{cascadeId:id,steps:[{type:'USER_INPUT'}],generatorMetadata:Array.from({length:23},(_,i)=>({chatModel:{modelDisplayName:'Gemini 3.8 Flash',streamingDuration:(100/rate)+'s',timeToFirstToken:'1.2s',usage:{messageId:'fixture-'+i,inputTokens:100,cacheReadTokens:300,outputTokens:100,responseOutputTokens:100,cacheWriteTokens:0,apiProvider:'API_PROVIDER_GOOGLE_GEMINI'},chatStartMetadata:{contextWindowMetadata:{estimatedTokensUsed:20000,maxContextTokens:100000}}}}))}})}});
 const server=createServer(async(req,res)=>{
@@ -23,7 +23,7 @@ const server=createServer(async(req,res)=>{
   res.setHeader('Access-Control-Allow-Origin','*');res.setHeader('Access-Control-Allow-Headers','Content-Type');res.setHeader('Access-Control-Allow-Methods','GET,POST,OPTIONS');
   if(req.method==='OPTIONS'){res.end();return;}
   res.setHeader('Content-Type','application/json');
-  if(path==='/api/metrics'){metricsCalls++;res.statusCode=failMetrics?503:200;res.end(JSON.stringify(failMetrics?{error:'Fixture unavailable'}:sample()));return;}
+  if(path==='/api/metrics'){metricsCalls++;res.statusCode=failMetrics?503:200;const snapshot=sample();if(collectionFixture){snapshot.collection=collectionFixture;if(collectionFixture.freshness==='unavailable')snapshot.speed=null;}res.end(JSON.stringify(failMetrics?{error:'Fixture unavailable'}:snapshot));return;}
   if(req.method==='POST'){let text='';for await(const chunk of req)text+=chunk;prefs={...prefs,...JSON.parse(text),revision:prefs.revision+1};}
   res.end(JSON.stringify(prefs));return;
  }
@@ -95,6 +95,13 @@ try{
   await mkdir(join(repo,'.data/sidebar-design'),{recursive:true});
   for(const name of ['speed','cache','context']){await view.locator(`[data-card=${name}]`).click();await view.locator(`#${name}-card`).evaluate(e=>e.scrollTop=0);await page.waitForTimeout(180);await page.screenshot({path:join(repo,`.data/sidebar-design/${mode}-${name}-zh.png`)});}
   rate=51.2;await view.locator('#refresh-button').click();await view.locator('#strip-tps').filter({hasText:'51.2'}).waitFor();
+  collectionFixture={state:'limited',code:'budget-exceeded',kind:'projected-json',freshness:'unavailable'};
+  await view.locator('#refresh-button').click();await view.locator('#strip-model').filter({hasText:'统计受限'}).waitFor();
+  assert.equal(await view.locator('#strip-tps').textContent(),'—');assert.equal(await view.locator('#five-balance').textContent(),'80.0%');
+  assert.equal(await view.locator('#health-note').evaluate(e=>e.classList.contains('warning')),true);
+  collectionFixture={...collectionFixture,freshness:'saved'};await view.locator('#refresh-button').click();
+  await view.locator('#strip-model').filter({hasText:'上次完整统计'}).waitFor();assert.equal(await view.locator('#strip-tps').textContent(),'51.2');
+  collectionFixture=null;await view.locator('#refresh-button').click();await view.locator('#strip-model').filter({hasText:'Gemini'}).waitFor();
   const installed=await view.locator('html').evaluate(()=>window.__agPulsePanelInstalled);assert.equal(installed,true);
   results.push({mode,tokens:true,context:true,language:true,manualRefresh:true});await page.close();
  }

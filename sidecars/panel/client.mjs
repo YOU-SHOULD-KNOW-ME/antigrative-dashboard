@@ -1,5 +1,6 @@
 import { readFile } from 'node:fs/promises';
 import { request } from 'node:http';
+import {setImmediate as yieldStream} from 'node:timers/promises';
 import { platformPaths } from '../../compat/platform.mjs';
 import { discoverProcesses } from './discovery.mjs';
 import { TrajectoryJson } from './trajectory-json.mjs';
@@ -125,6 +126,49 @@ export class AntigravityClient {
       if(retry){await this.discover();return this.call(method,body,false);}
       throw error;
     }
+  }
+
+  // Background-only record stream. No complete page array is materialized and
+  // asynchronous consumers apply backpressure before the next record is parsed.
+  async streamTrajectoryPage(method,body,{onRecord,isCurrent=()=>true,wallMs=30000}={}) {
+    if(!['GetCascadeTrajectorySteps','GetCascadeTrajectoryGeneratorMetadata'].includes(method)||typeof onRecord!=='function')throw Error('Unsupported statistics stream');
+    if(!Number.isSafeInteger(wallMs)||wallMs<30000||wallMs>300000)throw Error('Invalid statistics stream deadline');
+    let streamError=null,rejectAbort;
+    const aborted=new Promise((_,reject)=>{rejectAbort=reject;});aborted.catch(()=>{});
+    const assertCurrent=()=>{if(streamError)throw streamError;if(isCurrent()!==true)throw Error('Statistics stream cancelled');};
+    assertCurrent();const server=await this.discover();assertCurrent();
+    const input=JSON.stringify(method==='GetCascadeTrajectoryGeneratorMetadata'?{...body,includeMessages:false}:body);
+    let pending=null;
+    const parser=new TrajectoryJson({onRecord:(kind,index,value)=>{if(pending)throw Error('Statistics stream consumer overflow');pending={kind,index,value};}});
+    const started=this.now();let bytes=0,peakRetained=0,req,res,deadline,watch;
+    const timeout=()=>Error('Antigravity 本地接口超时');
+    const abort=error=>{streamError||=error;rejectAbort(streamError);res?.destroy();req?.destroy(streamError);};
+    try {
+      res=await new Promise((resolve,reject)=>{
+        req=request({hostname:'127.0.0.1',port:server.port,method:'POST',path:SERVICE+method,agent:false,
+          headers:{'Content-Type':'application/json','Connect-Protocol-Version':'1','x-codeium-csrf-token':server.csrf,'Content-Length':Buffer.byteLength(input)}},resolve);
+        req.on('error',error=>{streamError||=error;rejectAbort(streamError);reject(error);});req.setTimeout(12000,()=>abort(timeout()));
+        deadline=setTimeout(()=>abort(timeout()),wallMs);deadline.unref();
+        watch=setInterval(()=>{if(isCurrent()!==true)abort(Error('Statistics stream cancelled'));},250);watch.unref();req.end(input);
+      });
+      if(res.statusCode!==200)throw Object.assign(Error('Statistics stream HTTP '+res.statusCode),{status:res.statusCode});
+      res.setEncoding('utf8');
+      for await(const chunk of res){
+        assertCurrent();bytes+=Buffer.byteLength(chunk);
+        // Even a huge text-only value yields regularly; retained text is skipped.
+        for(let offset=0;offset<chunk.length;){
+          assertCurrent();const slice=chunk.slice(offset,offset+8192);
+          const consumed=parser.write(slice,{stopAfterRecord:true});offset+=consumed;
+          peakRetained=Math.max(peakRetained,parser.retained);
+          if(pending){const item=pending;pending=null;await Promise.race([onRecord(item.kind,item.index,item.value),aborted]);assertCurrent();}
+          await yieldStream();
+        }
+      }
+      assertCurrent();const result=parser.end();
+      if(pending){const item=pending;pending=null;await Promise.race([onRecord(item.kind,item.index,item.value),aborted]);assertCurrent();}
+      try{this.onRpc?.({method,bytes,retainedBytes:peakRetained,ms:this.now()-started,streamed:true});}catch{}
+      return result;
+    } finally {clearTimeout(deadline);clearInterval(watch);res?.destroy();req?.destroy();}
   }
 
   resetTrajectories(){this.reader.reset();}

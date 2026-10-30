@@ -78,6 +78,11 @@ export function safeMetrics(value, conversationId) {
   result.context = safeContext(value.context) || null;
   const task=safeTaskUsage(value.taskUsage);
   if(task)result.taskUsage=task;
+  // Preserve the previous verified task snapshot for recovery when a large
+  // root is refreshed without yet re-reading all of its subagents. It is not
+  // displayed as current data or combined with the new root's requests.
+  const previousTask=safeTaskUsage(value.previousTaskUsage);
+  if(previousTask)result.previousTaskUsage=previousTask;
   if(Array.isArray(value.delegatedConversations))result.delegatedConversations=[...new Set(value.delegatedConversations.map(normalizeConversationId).filter(id=>id&&id!==conversationId.toLowerCase()))].slice(0,128);
   const transcript=safeTranscriptStats(value.transcriptStats);
   // Transient loading/I/O status must not churn history timestamps or revive

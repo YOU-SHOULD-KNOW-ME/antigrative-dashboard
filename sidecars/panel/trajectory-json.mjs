@@ -1,3 +1,4 @@
+import {budgetError} from './collection-state.mjs';
 // Incremental JSON projection for trajectory RPCs. Large prompts, tool results,
 // images and executor payloads are validated and skipped, never buffered.
 import {normalizeConversationId} from './delegation.mjs';
@@ -26,10 +27,10 @@ const schema={trajectory:{cascadeId:scalar,trajectoryId:scalar,steps,generatorMe
  trajectorySummaries:summaries};
 const DROP=Symbol('discard');
 export class TrajectoryJson {
- constructor({maxRetainedBytes=8*1024*1024,projection=schema}={}){this.maxRetainedBytes=maxRetainedBytes;this.projection=projection;}
+ constructor({maxRetainedBytes=8*1024*1024,projection=schema,onRecord=null,recordKeys=null}={}){this.maxRetainedBytes=maxRetainedBytes;this.projection=projection;this.onRecord=onRecord;this.recordCounts={steps:0,generatorMetadata:0};this.streamedKinds=new Set();this.recordKeys=recordKeys;this.emitted=0;if(recordKeys&&(!Array.isArray(recordKeys)||recordKeys.length>8||recordKeys.some(k=>typeof k!=='string'||!Object.hasOwn(projection,k))))throw Error('Invalid streamed record keys');}
  stack=[];token=null;result=undefined;done=false;retained=0;
  fail(){throw new Error('Antigravity 接口返回了无法解析的数据');}
- charge(n){if((this.retained+=n)>this.maxRetainedBytes)throw new Error('会话统计数据超过采集上限');}
+ charge(n){if((this.retained+=n)>this.maxRetainedBytes)throw budgetError('retained-fields',this.retained,this.maxRetainedBytes);}
  node(){
   const f=this.stack.at(-1);if(!f)return this.projection;
   if(f.node===summaries)return !f.array&&normalizeConversationId(f.key)?f.node[summaryEntry]:undefined;
@@ -41,7 +42,10 @@ export class TrajectoryJson {
   const f=this.stack.at(-1);
   if(!f){if(this.done)this.fail();this.result=value;this.done=true;return;}
   if(!['value','valueOrEnd'].includes(f.expect))this.fail();
-  if(value!==DROP&&f.out){this.charge(32+(f.node===summaries?f.key.length*2:0));if(f.array)f.out.push(value);else Object.defineProperty(f.out,f.key,{value,writable:true,enumerable:true,configurable:true});}
+  if(f.streamKind){
+   if(value===DROP||!value||typeof value!=='object'||Array.isArray(value))this.fail();
+   const index=this.recordCounts[f.streamKind]??0;this.recordCounts[f.streamKind]=index+1;this.emitted++;this.onRecord(f.streamKind,index,value);this.retained=f.baseRetained;
+  }else if(value!==DROP&&f.out){this.charge(32+(f.node===summaries?f.key.length*2:0));if(f.array)f.out.push(value);else Object.defineProperty(f.out,f.key,{value,writable:true,enumerable:true,configurable:true});}
   f.count++;f.expect='commaOrEnd';f.key=null;
  }
  punctuation(c){
@@ -49,7 +53,13 @@ export class TrajectoryJson {
   if(c==='{'||c==='['){
    if(!this.valueAllowed()||this.stack.length>=64)this.fail();const node=this.node(),array=c==='[';
    const out=typeof node==='object'&&(!objectOnly.has(node)||!array)&&(!arrayOnly.has(node)||array)?(array?[]:{}):null;if(out)this.charge(64);
-   this.stack.push({node,array,out,count:0,key:null,expect:array?'valueOrEnd':'keyOrEnd'});return;
+   let streamKind=null;
+   const customKind=this.recordKeys&&f?.node===this.projection&&this.recordKeys.includes(f.key)?f.key:null;
+   if(this.onRecord&&(this.recordKeys?customKind:node===steps||node===generators)){
+    if(!array)this.fail();streamKind=customKind||(node===steps?'steps':'generatorMetadata');
+    if(this.streamedKinds.has(streamKind))this.fail();this.streamedKinds.add(streamKind);
+   }
+   this.stack.push({node,array,out,count:0,key:null,expect:array?'valueOrEnd':'keyOrEnd',streamKind,baseRetained:this.retained});return;
   }
   if(c==='}'||c===']'){
    if(!f||f.array!==(c===']')||!['commaOrEnd',f.array?'valueOrEnd':'keyOrEnd'].includes(f.expect))this.fail();
@@ -76,7 +86,7 @@ export class TrajectoryJson {
   if(t.node===guid){if(!t.overflow){if(t.buffer.length+text.length>36){t.buffer='';t.overflow=true;}else t.buffer+=text;}return;}
   if(t.key||stringAllowed(t.node)){
    if(t.overflow)return;t.buffer+=text;
-   if(t.buffer.length>(t.key?1024:16384)){if(!t.key)throw new Error('会话统计字段超过采集上限');t.buffer='';t.overflow=true;}
+   if(t.buffer.length>(t.key?1024:16384)){if(!t.key)throw budgetError('field',t.buffer.length,16384);t.buffer='';t.overflow=true;}
   }
  }
  endString(){
@@ -95,9 +105,10 @@ export class TrajectoryJson {
   if(!/^(?:true|false|null|-?(?:0|[1-9]\d*)(?:\.\d+)?(?:[eE][+-]?\d+)?)$/.test(t.buffer))this.fail();
   const value=JSON.parse(t.buffer);this.finishValue(t.node&&t.node!==guid&&!structured(t.node)?value:DROP);
  }
- write(text){
-  let i=0;
+ write(text,{stopAfterRecord=false}={}){
+  let i=0;const before=this.emitted;
   while(i<text.length){
+   if(stopAfterRecord&&this.emitted!==before)return i;
    const t=this.token;
    if(t?.kind==='string'){
     if(t.escape===1){
@@ -119,6 +130,7 @@ export class TrajectoryJson {
    if('{}[]:,'.includes(c)){this.punctuation(c);continue;}
    if(!this.valueAllowed()||!/[tfn\d-]/.test(c))this.fail();this.token={kind:'literal',node:this.node(),buffer:c};
   }
+  return i;
  }
- end(){if(this.token?.kind==='literal')this.literalEnd();if(this.token||this.stack.length||!this.done||!this.result||typeof this.result!=='object')this.fail();return this.result;}
+ end(){if(this.token?.kind==='literal')this.literalEnd();if(this.token||this.stack.length||!this.done||!this.result||typeof this.result!=='object')this.fail();if(this.onRecord)this.result.recordCounts={...this.recordCounts};return this.result;}
 }

@@ -26,7 +26,12 @@ let settingsCache={},settingsAt=-Infinity;
 const owns=()=>(!ownership||ownership.owns())&&settingsCache.enabled!==false;
 const store = new MetricsStore(undefined,{owns});
 const usage=new DesktopUsage(store,undefined,{host:'app',owns});
-store.onTrajectory=async(scope,id,raw)=>{if(!ownership||await ownership.isOwner())await usage.ingest(scope,id,raw);};
+store.onTrajectory=async(scope,id,raw,options={})=>{
+  const {isCurrent=()=>true}=options;
+  if(isCurrent()!==true)return;
+  if((!ownership||await ownership.isOwner())&&isCurrent()===true)return usage.ingestLive(scope,id,raw,{...options,isCurrent});
+};
+store.onBackgroundResult=(scope,id,file,options)=>usage.ingestDisk(scope,id,file,options);
 const preferences=new PreferencesStore();
 const updater=new AppUpdater({pluginDir:join(HERE,'..','..'),dataDir:paths.data});
 const metrics = async input => {

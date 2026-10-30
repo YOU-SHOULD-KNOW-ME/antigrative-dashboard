@@ -7,7 +7,7 @@
 模型选择旁只显示生成速率、缓存和上下文占用；悬停上下文，一并查看上下文、5 小时和周额度详情。<br>
 缩略信息常驻；鼠标悬停，才展开详细统计。
 
-[![Version 0.8.14](https://img.shields.io/badge/version-0.8.14-91adff?style=flat-square&labelColor=252936)](CHANGELOG.md)
+[![Version 0.8.15](https://img.shields.io/badge/version-0.8.15-91adff?style=flat-square&labelColor=252936)](CHANGELOG.md)
 [![Platforms](https://img.shields.io/badge/host-Windows%20%7C%20Linux%20%7C%20macOS-83d8b9?style=flat-square&labelColor=252936)](COMPATIBILITY.md)
 [![Antigravity 2.21.1 / 2.22.0](https://img.shields.io/badge/Antigravity-2.21.1%20%2F%202.22.0-c5a0ff?style=flat-square&labelColor=252936)](COMPATIBILITY.md)
 [![MIT](https://img.shields.io/badge/license-MIT-d4d9e6?style=flat-square&labelColor=252936)](LICENSE)
@@ -16,7 +16,7 @@
 
 </div>
 
-**v0.8.14：** 修复 [#24](https://github.com/YOU-SHOULD-KNOW-ME/antigrative-dashboard/issues/24)：侧栏子代理正确显示自己的统计；焦点切换、Full View 和迟到响应保持会话隔离，身份未确认时不再额外读取最近主会话。[发布说明](https://github.com/YOU-SHOULD-KNOW-ME/antigrative-dashboard/releases/tag/v0.8.14)。
+**v0.8.15：** 针对 [#25](https://github.com/YOU-SHOULD-KNOW-ME/antigrative-dashboard/issues/25)，区分统计受限与无请求，并自动在资源受控的后台任务中补全支持的超长会话。保留上次完整统计和账号额度，不把未读完的数据冒充完整结果。[发布说明](https://github.com/YOU-SHOULD-KNOW-ME/antigrative-dashboard/releases/tag/v0.8.15) · [限制与恢复](docs/LONG_CONVERSATIONS.md)。
 
 ## 看看效果
 
@@ -64,7 +64,7 @@
 ## Antigravity IDE
 
 **v0.7.0** 新增反重力自己的独立 IDE 适配。下载发布页的
-`antigrative-dashboard-ide-0.8.14.vsix`，在 IDE 扩展页选择「从 VSIX 安装」。
+`antigrative-dashboard-ide-0.8.15.vsix`，在 IDE 扩展页选择「从 VSIX 安装」。
 仅安装 IDE 的用户也可以使用，无需先装桌面 App。
 
 完全退出 IDE 后，使用带

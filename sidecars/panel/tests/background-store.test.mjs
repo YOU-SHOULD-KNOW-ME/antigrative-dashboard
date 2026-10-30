@@ -1,0 +1,52 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {MetricsStore} from '../store.mjs';
+import {budgetError} from '../collection-state.mjs';
+import {trajectoryMetrics} from '../metrics.mjs';
+import {aggregateTaskUsage} from '../task-usage.mjs';
+import {safeMetrics} from '../history.mjs';
+const id='11111111-1111-1111-1111-111111111111',other='22222222-2222-2222-2222-222222222222';
+const raw=cid=>({trajectory:{cascadeId:cid,steps:[],generatorMetadata:[{chatModel:{streamingDuration:'2s',usage:{inputTokens:100,cacheReadTokens:100,outputTokens:100,responseOutputTokens:100,apiProvider:'API_PROVIDER_GOOGLE_GEMINI'},chatStartMetadata:{contextWindowMetadata:{estimatedTokensUsed:100,maxContextTokens:1000}}}}]}});
+const summary={stepCount:0,lastModifiedTime:'2026-10-30T00:00:00Z',status:'IDLE',lastUserInputStepIndex:0};
+const revision=JSON.stringify([summary.stepCount,summary.lastModifiedTime,summary.status,summary.lastUserInputStepIndex]);
+function setup(t){const state={email:'one@example.test',reads:[],quotas:0,saved:[],jobs:new Map(),requests:0,summaryReads:0};
+ const background={state:id=>state.jobs.get(id)?.state==='processing'?{state:'processing',code:'background-collection'}:null,request(scope,cid,endpoint,options){state.requests++;state.jobs.set(cid,{scope,id:cid,options,state:'processing'});return true;},reset(){state.jobs.clear();},dispose(){state.jobs.clear();}};
+ const client={server:{pid:1,port:1234,csrf:'test'},reader:{summaries:{[id]:summary},summary:async()=>{state.summaryReads++;return summary;}},discover:async()=>({pid:1}),call:async method=>{if(method==='GetUserStatus')return {userStatus:{email:state.email}};state.quotas++;return {};},trajectory:async cid=>{state.reads.push(cid);if(cid===id)throw budgetError('retained-fields',9000000,8388608);return raw(cid);},resetTrajectories(){}};
+ const store=new MetricsStore(client,{background,transcripts:null,history:{load:async()=>null,save:async(scope,cid,metrics,options)=>{if(options.isCurrent())state.saved.push({scope,cid,metrics});return {savedAt:'2026-10-30T01:00:00Z'};}}});
+ t.after(()=>store.dispose());return {state,store};}
+test('budget failure starts background without waiting, leaves quota and another conversation responsive',async t=>{const {state,store}=setup(t);const first=await Promise.race([store.snapshot({conversationId:id}),new Promise((_,reject)=>{const timer=setTimeout(()=>reject(Error('Foreground waited on background')),500);timer.unref();})]);assert.equal(first.collection.state,'processing');assert.equal(first.speed,null);assert.equal(first.connection,'live');assert.equal(state.requests,1);for(let i=0;i<3;i++)await store.snapshot({conversationId:id,force:true});assert.equal(state.requests,1);assert.deepEqual(state.reads,[id]);assert.ok(state.quotas>=4);const fresh=await store.snapshot({conversationId:other});assert.equal(fresh.speed.tps,50);assert.equal(fresh.speed.conversationId,other);});
+test('completion publishes full result then unchanged revision avoids immediate rereads',async t=>{const {state,store}=setup(t);await store.snapshot({conversationId:id});const job=state.jobs.get(id);await store.acceptBackground(job.scope,id,{metrics:trajectoryMetrics(raw(id)),delegatedIds:[]},{database:'fixture.sqlite',revision,isCurrent:job.options.isCurrent});job.state='ready';const result=await store.snapshot({conversationId:id,force:true});assert.equal(result.collection,null);assert.equal(result.speed.tps,50);assert.equal(state.summaryReads,0);assert.deepEqual(state.reads,[id]);assert.equal(state.saved.length,1);assert.equal(state.requests,1);});
+test('account change rejects late background publication and does not save its metrics',async t=>{const {state,store}=setup(t);await store.snapshot({conversationId:id});const old=state.jobs.get(id);state.email='two@example.test';await store.snapshot({conversationId:other,force:true});const saved=state.saved.length;await store.acceptBackground(old.scope,id,{metrics:trajectoryMetrics(raw(id)),delegatedIds:[]},{database:'fixture.sqlite',revision,isCurrent:old.options.isCurrent});assert.equal(state.saved.length,saved);assert.equal(store.sessions.has(id),false);assert.equal(old.options.isCurrent(),false);});
+test('background failure stays limited, never processing forever or clears reliable old data',async t=>{const {state,store}=setup(t);await store.snapshot({conversationId:id});const job=state.jobs.get(id);store.background.state=()=>({state:'limited',code:'budget-exceeded',reason:'disk-budget'});store.background.request=()=>false;store.sessions.get(id).data=trajectoryMetrics(raw(id));store.sessions.get(id).savedAt='2026-10-30T01:00:00Z';const result=await store.snapshot({conversationId:id,force:true});assert.equal(result.collection.state,'limited');assert.equal(result.collection.freshness,'saved');assert.equal(result.speed.tps,50);assert.equal(job.options.isCurrent(),true);});
+test('unchanged summaries still permit throttled late metadata and relationship revalidation',async t=>{
+ const {state,store}=setup(t);await store.snapshot({conversationId:id});let job=state.jobs.get(id);
+ await store.acceptBackground(job.scope,id,{metrics:trajectoryMetrics(raw(id)),delegatedIds:[]},{database:'fixture.sqlite',revision,isCurrent:job.options.isCurrent});job.state='ready';
+ for(let i=0;i<3;i++)await store.snapshot({conversationId:id,force:true});assert.equal(state.requests,1,'Repeated manual refresh respects cooldown');
+ const entry=store.sessions.get(id);entry.backgroundCompletedAt-=11000;
+ await store.snapshot({conversationId:id,force:true});assert.equal(state.requests,2,'Manual refresh revalidates unchanged summaries');
+ job=state.jobs.get(id);const changed=raw(id);changed.trajectory.generatorMetadata[0].chatModel.usage.outputTokens=300;changed.trajectory.generatorMetadata[0].chatModel.usage.responseOutputTokens=300;
+ await store.acceptBackground(job.scope,id,{metrics:trajectoryMetrics(changed),delegatedIds:[]},{database:'fixture.sqlite',revision,isCurrent:job.options.isCurrent});job.state='ready';
+ assert.equal((await store.snapshot({conversationId:id})).speed.tps,150);
+ entry.backgroundCompletedAt-=301000;entry.backgroundCheckedAt-=31000;entry.updatedAt=0;
+ await store.snapshot({conversationId:id});assert.equal(state.requests,3,'Automatic slow revalidation eventually sees later metadata');
+});
+test('failed background ledger import never claims completion and permits a later retry',async t=>{
+ const {state,store}=setup(t);await store.snapshot({conversationId:id});const job=state.jobs.get(id);
+ store.onBackgroundResult=async()=>{throw Error('disk full');};
+ await assert.rejects(store.acceptBackground(job.scope,id,{metrics:trajectoryMetrics(raw(id)),delegatedIds:[]},{database:'fixture.sqlite',revision,isCurrent:job.options.isCurrent}));
+ assert.equal(store.sessions.get(id).backgroundReady,false);assert.equal(store.sessions.get(id).backgroundUsageComplete,false);assert.equal(state.saved.length,0);
+ store.onBackgroundResult=async()=>{};
+ await store.acceptBackground(job.scope,id,{metrics:trajectoryMetrics(raw(id)),delegatedIds:[]},{database:'fixture.sqlite',revision,isCurrent:job.options.isCurrent});
+ assert.equal(store.sessions.get(id).backgroundReady,true);assert.equal(store.sessions.get(id).backgroundUsageComplete,true);assert.equal(state.saved.length,1);
+});
+test('large parent shows current root only while retaining previous task aggregate for recovery',async t=>{
+ const {state,store}=setup(t);await store.snapshot({conversationId:id});const job=state.jobs.get(id);
+ const record=(key,input,cache,output)=>({id:key.repeat(64),apiProvider:'API_PROVIDER_GOOGLE_GEMINI',inputTokens:input,cacheReadTokens:cache,cacheWriteTokens:0,outputTokens:output});
+ const oldTask=aggregateTaskUsage([record('a',100,100,100)],[[record('b',100,200,100)]],{subagents:1,loadedSubagents:1});
+ const entry=store.sessions.get(id);entry.data={...trajectoryMetrics(raw(id)),taskUsage:oldTask,delegatedConversations:[other]};
+ const changed=raw(id);changed.trajectory.generatorMetadata[0].chatModel.usage.inputTokens=600;changed.trajectory.generatorMetadata[0].chatModel.usage.cacheReadTokens=800;
+ const current=trajectoryMetrics(changed);
+ await store.acceptBackground(job.scope,id,{metrics:current,delegatedIds:[other],delegatedTruncated:false},{database:'fixture.sqlite',revision,isCurrent:job.options.isCurrent});
+ const data=entry.data;assert.equal(data.taskUsage.state,'partial');assert.equal(data.taskUsage.loadedSubagents,0);assert.equal(data.taskUsage.tokens.totalTokens,current.tokens.totalTokens);assert.equal(data.taskUsage.cache.hitRate,current.cache.hitRate);
+ assert.notEqual(data.taskUsage.tokens.totalTokens,oldTask.tokens.totalTokens);assert.deepEqual(safeMetrics(data,id).previousTaskUsage,oldTask);
+});

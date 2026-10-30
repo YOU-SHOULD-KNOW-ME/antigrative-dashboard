@@ -1,28 +1,29 @@
-# Antigrative Dashboard v0.8.14
+# Antigrative Dashboard v0.8.15
 
-Fix [#24](https://github.com/YOU-SHOULD-KNOW-ME/antigrative-dashboard/issues/24): a subagent opened in the App sidebar could display the main conversation's statistics even after the widget moved to the subagent input. Full View worked because it used a different conversation-owner layout.
+Address [#25](https://github.com/YOU-SHOULD-KNOW-ME/antigrative-dashboard/issues/25): an oversized conversation could appear to have no requests even though the collector had stopped at its safety budget. This release makes the state visible and adds automatic, resource-bounded background completion for supported long conversations.
 
-## Changes
+## What changes
 
-- Resolve the sidebar conversation from its local message area and input. Support presentation wrappers without searching other panes or message contents. Speed, cache and context now follow the selected subagent; account quotas remain shared.
-- Refresh promptly when focus moves between inputs. Keep delayed parent responses from overwriting child statistics, and preserve correct selection through subagent switches, Full View and sidebar closure.
-- Fail closed when the local identity is missing, invalid, ambiguous or beyond the bounded DOM search budget. Do not substitute the main page's conversation ID.
-- Keep unresolved inline requests quota-only instead of enumerating and reading the latest conversation. Standalone dashboard SDK/HTTP default selection remains unchanged.
-- Bound both DOM traversal and its pending queue; skip transcript contents even for long conversations.
+- The compact strip distinguishes **Completing statistics** and **Statistics limited** from an empty conversation. Details explain the affected budget on demand. Valid last-complete statistics are retained and labelled; an incomplete prefix is never presented as a complete total. Account quotas can continue updating independently.
+- On a supported host, ordinary per-conversation retained-field or serialized-statistics budget failures enqueue a background worker automatically. It streams projected records with backpressure, writes temporary statistics and indexes to local disk, and uses bounded SQLite storage for request deduplication, model-rate classification and overlapping tool times. It does not retain prompts or tool-result text. A completed, revision-checked result appears on the next normal poll without a manual refresh.
+- Rate/Token/cache data for the selected conversation and recorded usage are committed only after successful reading and validation. If child-agent statistics have not been verified, the UI explicitly identifies current-agent-only values rather than displaying an old aggregate as current. Previous verified task totals are retained for recovery.
+- Background work is limited to one acquisition worker per backend with bounded queues, per-record, memory and disk guards. Foreground metrics do not wait for another conversation's queued ledger import; actual responsiveness still depends on the host and disk. Failed acquisition or ledger writes preserve prior records and retry with backoff; account changes and lost ownership cancel stale work.
+- When a host summary does not change, occasional low-priority revalidation catches late request metadata; manual refresh has a cooldown. It does not start a full scan every poll.
+- Large usage ledgers are processed off the foreground thread. A new per-conversation SQLite ledger takes precedence for that conversation; the previous JSON file is retained. Keep the SQLite file if downgrading: older versions cannot read it and may show older totals.
 
-Existing statistics, settings and accounting rules are retained. The CLI behavior is unchanged. The shared widget's IDE path remains separate from App sidebar identity discovery.
+## Scope and limits
+
+The automatic disk-backed path requires a host runtime with `node:sqlite` (Node 22.13+ or equivalent; Node 24 recommended). Unsupported runtimes keep the original safeguards and show that background completion is unavailable. A permanently unavailable API, malformed records, a single over-budget field, continuously changing history or insufficient disk space can still prevent completion.
+
+Page checkpoints cover retries within a running task; unfinished work does **not** yet resume across a full App restart. Live usage observations still waiting in memory are not a durable journal: closing before they are written may require reading their source conversations again, and deleting those conversations first can make recovery impossible. A sudden termination can leave temporary files in the plugin's `collection-jobs` directory; a scratch-space guard stops unbounded repeated allocation. CPU, RSS and all filesystem use are not guaranteed by the JavaScript and SQLite cache limits. Existing user preferences, usage files and conversation records are not reset.
+
+Windows/Linux/macOS automated release gates cover the worker, UI and installation paths. Local synthetic tests include a page above 8 MiB, background completion while another conversation and quota requests remain responsive, mixed JSON/SQLite usage and cancellation. These tests do not establish signed-in GUI acceptance on every OS or reproduce the reporter's exact 11,846-step conversation.
+
+[Long-conversation details](https://github.com/YOU-SHOULD-KNOW-ME/antigrative-dashboard/blob/v0.8.15/docs/LONG_CONVERSATIONS.md) · [Compatibility](https://github.com/YOU-SHOULD-KNOW-ME/antigrative-dashboard/blob/v0.8.15/COMPATIBILITY.md)
 
 ## Install or update
 
-- **Antigravity App:** context details → **⋯ → Check for updates**, or extract `antigrative-dashboard-0.8.14.zip` and run `python manage.py install` (`python3` on Linux/macOS).
-- **Standalone Antigravity IDE:** install `antigrative-dashboard-ide-0.8.14.vsix` using **Install from VSIX…**.
-- Fully quit and reopen the corresponding host after updating. No statistics reset is needed.
-- If an older updater rejects a relocated `.gemini` junction before downloading, use the App ZIP for a one-time manual install. Keep the junction and saved data. Both packages include SHA-256 files.
-
-## Verification
-
-Local Node regression: **346 passed, 1 skipped**. English and Chinese sidebar browser fixtures use the production renderer and reproduce the original failure with the old source. They cover sibling/wrapped owners, focus changes, hidden/duplicate/invalid/missing owners, late responses, child switching, usage entry, Full View, initial loading and sidebar closure. Long-transcript and excessive-width/depth cases verify bounded ownership lookup. Existing Teamwork, subagent, widget-lifecycle and IDE browser regressions passed.
-
-Windows/Linux/macOS automated release gates and official App 2.28.2 resource checks run before publication. Synthetic browser fixtures do not establish acceptance in the reporter's original conversation or signed-in native GUIs on every platform. The separate general 2.28.x missing-widget report is not claimed fixed by this release.
-
-[Usage and subagent accounting](https://github.com/YOU-SHOULD-KNOW-ME/antigrative-dashboard/blob/v0.8.14/docs/USAGE.md) · [Compatibility](https://github.com/YOU-SHOULD-KNOW-ME/antigrative-dashboard/blob/v0.8.14/COMPATIBILITY.md)
+- **Antigravity App:** context details → **⋯ → Check for updates**, or extract `antigrative-dashboard-0.8.15.zip` and run `python manage.py install` (`python3` on Linux/macOS).
+- **Standalone Antigravity IDE:** install `antigrative-dashboard-ide-0.8.15.vsix` using **Install from VSIX…**.
+- Fully quit and reopen the corresponding host after updating. No statistics reset is needed. SHA-256 files accompany both packages.
+- If an older App updater rejects a relocated `.gemini` junction before downloading, use the release ZIP for a one-time manual install. Keep the junction and saved data.

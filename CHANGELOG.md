@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.8.15 — 2026-10-30
+
+- Automatically complete selected oversized conversations in a bounded disk-backed worker, retain foreground responsiveness, and publish verified statistics on the normal poll. Stream individual projected records, preserve exact deduplication/rate rules, and merge large usage ledgers off the foreground thread.
+
+- Distinguish collection-budget failures from empty conversations (Issue #25), retain and label last complete statistics, and expose bounded diagnostics on demand. Add budget-failure retry backoff without stopping account quota refresh.
+
 ## 0.8.14 — 2026-10-30
 
 - Fix [#24](https://github.com/YOU-SHOULD-KNOW-ME/antigrative-dashboard/issues/24): resolve a sidebar subagent from its local conversation area and composer instead of falling back to the main page's conversation. Focus changes refresh the selected agent promptly; unavailable or ambiguous local identities do not borrow the parent's statistics.

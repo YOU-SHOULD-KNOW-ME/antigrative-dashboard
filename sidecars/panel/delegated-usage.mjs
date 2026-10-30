@@ -103,7 +103,7 @@ export class DelegatedUsage {
           this.addChildren(task,this.links(id,raw));
           for(const child of task.children)if(!queued.has(child)){queued.add(child);queue.push(child);}
           if(!this.put(task,id,taskRecords(raw,id))){task.truncated=true;failed=true;break;}
-          await this.onSource(task.scope,id,raw);
+          await this.onSource(task.scope,id,raw,{isCurrent:current,guardKey:task});
           if(!current())return;
           task.failures.delete(id);
         }catch{

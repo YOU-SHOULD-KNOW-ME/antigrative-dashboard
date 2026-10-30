@@ -57,10 +57,10 @@ function unionSeconds(intervals) {
   return total / 1000;
 }
 
-export function trajectoryMetrics(response) {
+export function trajectoryMetrics(response, storage = null) {
   const trajectory = response.trajectory || {};
   const generators = trajectory.generatorMetadata || [];
-  const samples = [], ids = new Map();
+  const samples = storage?.samples || [], ids = storage?.ids || new Map();
   const steps = trajectory.steps || [];
   const counts = { input: 0, output: 0, responseOutput: 0, thinkingOutput: 0, cacheRead: 0, cacheWrite: 0 };
   let modelSeconds = 0, ttftSeconds = 0, ttftSamples = 0, missingTiming = 0;
@@ -84,6 +84,7 @@ export function trajectoryMetrics(response) {
     if (ids.has(id)) {
       const previous = ids.get(id);
       if (previous.signature !== signature && !previous.sample.reasons.includes('duplicate-scope')) previous.sample.reasons.push('duplicate-scope');
+      if(storage)ids.set(id,previous);
       continue;
     }
     const cached = requestCacheMetrics(usage);
@@ -145,7 +146,7 @@ export function trajectoryMetrics(response) {
     samples.push(sample);
     ids.set(id,{signature,sample});
   }
-  classifyRates(samples);
+  (storage?.classify || classifyRates)(samples);
   const accepted = samples.filter(sample=>sample.status === 'ok');
   missingTiming = samples.filter(sample=>sample.status === 'missing' && sample.responseTokens > 0).length;
   const excludedTiming = samples.filter(sample=>sample.status === 'unreliable').length;
@@ -155,9 +156,9 @@ export function trajectoryMetrics(response) {
   const sampledTokens = accepted.reduce((sum, s) => sum + s.responseTokens, 0);
   const basisSamples = accepted.length ? accepted : samples;
   const tools = steps.filter(s => /SEARCH_WEB|BROWSE|RUN_COMMAND|COMMAND|READ|WRITE|EDIT|CODE_ACTION|TOOL|MCP|LIST|GREP|VIEW|FIND|TERMINAL/i.test(String(s.type || '')) || s.metadata?.toolCall);
-  const toolSeconds = unionSeconds(tools.map(s => [Date.parse(s.metadata.startedAt || s.metadata.createdAt), Date.parse(s.metadata.completedAt)]));
+  const toolSeconds = storage ? storage.toolSeconds() : unionSeconds(tools.map(s => [Date.parse(s.metadata.startedAt || s.metadata.createdAt), Date.parse(s.metadata.completedAt)]));
   const latest = samples.at(-1) || null;
-  const lastChat = [...generators].reverse().find(g => g.chatModel)?.chatModel;
+  const lastChat = storage ? storage.lastChat() : [...generators].reverse().find(g => g.chatModel)?.chatModel;
   const inputParts=[tokens.uncachedTokens,tokens.cachedTokens,tokens.cacheWriteTokens];
   tokens.inputTokens = tokenCount(inputParts.reduce((sum,value)=>sum+(value??0),0));
   const totalTokens=tokenCount((tokens.inputTokens??0)+(tokens.outputTokens??0));

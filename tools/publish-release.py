@@ -8,6 +8,12 @@ import urllib.request
 import zipfile
 
 
+LARGE_CONVERSATION_MODULES = tuple('sidecars/panel/' + name + '.mjs' for name in (
+    'collection-state', 'background-statistics', 'background-worker',
+    'disk-statistics', 'usage-disk-worker',
+))
+
+
 def checked_assets(root, tag):
     version = json.loads((root / 'plugin.json').read_text(encoding='utf-8'))['version']
     if tag != f'v{version}':
@@ -24,6 +30,8 @@ def checked_assets(root, tag):
         for required in ['ide/package.json', 'ide/manage.py', 'ide/package.py', 'ide/README.md']:
             archive.getinfo(prefix + required)
         for required in ['compat/usage-ui.cjs', 'sidecars/panel/rate-quality.mjs', 'sidecars/panel/usage.mjs']:
+            archive.getinfo(prefix + required)
+        for required in LARGE_CONVERSATION_MODULES:
             archive.getinfo(prefix + required)
         archive.getinfo(prefix + 'sidecars/panel/panel-source.mjs')
         archive.getinfo(prefix + 'sidecars/panel/trajectory-json.mjs')
@@ -52,6 +60,8 @@ def checked_assets(root, tag):
                      'extension/README.md', 'extension/LICENSE']:
             archive.getinfo(name)
         for name in ['compat/usage-ui.cjs', 'sidecars/panel/rate-quality.mjs', 'sidecars/panel/usage.mjs']:
+            archive.getinfo('extension/' + name)
+        for name in LARGE_CONVERSATION_MODULES:
             archive.getinfo('extension/' + name)
         archive.getinfo('extension/sidecars/panel/trajectory-json.mjs')
         archive.getinfo('extension/sidecars/panel/trajectory-reader.mjs')

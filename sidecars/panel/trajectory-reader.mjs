@@ -1,3 +1,4 @@
+import {budgetError,collectionFailure} from './collection-state.mjs';
 // Statistics-only acquisition. Host schemas accept offsets, not page sizes.
 // Cached immutable prefixes are local numeric/structural projections only.
 const settled=s=>/IDLE|DONE|COMPLETED|CANCELLED|CANCELED|STOPPED|FAILED|ERROR/.test(String(s||''));
@@ -7,8 +8,9 @@ export class TrajectoryReader {
  // experiments cover 1K/8K/32K records; 8 MiB bounds retained objects well below
  // the 32K-record case (~100 MiB extra heap). See docs/LONG_CONVERSATIONS.md.
  constructor(client,{budgetBytes=8*1024*1024,idleRecheckMs=10000,maxSummaryEntries=4096,maxPages=4096}={}){this.client=client;this.budgetBytes=budgetBytes;this.idleRecheckMs=idleRecheckMs;this.maxSummaryEntries=maxSummaryEntries;this.maxPages=maxPages;}
+ failures=new Map();
  entries=new Map();epoch=0;endpoint=null;summaries=null;summaryAt=-Infinity;summaryPending=null;cachedBytes=0;
- reset(){this.epoch++;this.entries.clear();this.summaries=null;this.summaryAt=-Infinity;this.summaryPending=null;this.cachedBytes=0;}
+ reset(){this.epoch++;this.entries.clear();this.failures.clear();this.summaries=null;this.summaryAt=-Infinity;this.summaryPending=null;this.cachedBytes=0;}
  trim(keep){for(const [key,e]of this.entries){if(this.cachedBytes<=this.budgetBytes)break;if(key===keep||e.pending)continue;this.cachedBytes-=e.bytes;this.entries.delete(key);}}
  async summary(id,provided,force){
   if(provided)return provided;
@@ -31,19 +33,30 @@ export class TrajectoryReader {
  }
  async read(id,{summary:provided,force=false,isCurrent=()=>true}={}){
   if(!isCurrent())throw unavailable();
+  if(this.isBackgroundManaged?.(id))throw this.failures.get(id)?.error||new Error('会话统计正在后台处理');
   const endpoint=await this.client.discover();
   if(!this.endpoint||['pid','port','csrf'].some(k=>this.endpoint[k]!==endpoint[k])){this.reset();this.endpoint=endpoint;}
   let entry=this.entries.get(id);if(entry?.pending)return entry.pending;
   entry||={data:null,bytes:0};this.entries.set(id,entry);
   const epoch=this.epoch,current=()=>epoch===this.epoch&&this.entries.get(id)===entry&&isCurrent();
   const assertCurrent=()=>{if(!current())throw unavailable();};
+  let attempted=false,attemptMark=null;
   entry.pending=(async()=>{
+   const failure=this.failures.get(id),now=this.client.now();
+   if(failure&&now<(failure.mark===null&&!force?failure.retryAt:failure.at+10000))throw failure.error;
+   attempted=true;
    const summary=await this.summary(id,provided,force);assertCurrent();
    const count=summary.stepCount===undefined?null:Number(summary.stepCount);if(count!==null&&(!Number.isSafeInteger(count)||count<0))throw new Error('会话统计分页数量无效');
    const mark=JSON.stringify([count,summary.lastModifiedTime,summary.status,summary.lastUserInputStepIndex]);
+   attemptMark=mark;
+   if(failure){
+    const earliest=force?failure.at+10000:mark!==failure.mark?failure.at+30000:failure.retryAt;
+    if(now<earliest){attempted=false;throw failure.error;}
+   }
+   attempted=true;
    const old=entry.data;
    const same=old&&entry.mark===mark;
-   if(!force&&same&&settled(summary.status)&&summary.lastModifiedTime&&this.client.now()-entry.verifiedAt<this.idleRecheckMs){this.entries.delete(id);this.entries.set(id,entry);return old;}
+   if(!failure&&!force&&same&&settled(summary.status)&&summary.lastModifiedTime&&this.client.now()-entry.verifiedAt<this.idleRecheckMs){this.entries.delete(id);this.entries.set(id,entry);return old;}
    // A changed settled history with no append may have been edited/compacted.
    const incremental=old&&!force&&count!==null&&count>=old.trajectory.steps.length&&(count>old.trajectory.steps.length||!settled(entry.summary?.status)||same);
    let stepOffset=0,metadataOffset=0;
@@ -69,7 +82,7 @@ export class TrajectoryReader {
    const generators=incremental?old.trajectory.generatorMetadata.slice(0,metadataOffset):[];
    let bytes=Buffer.byteLength(JSON.stringify({steps,generatorMetadata:generators}));const deadline=this.client.now()+30000;
    const append=(target,items)=>{
-    for(const item of items){bytes+=Buffer.byteLength(JSON.stringify(item))+1;if(bytes>this.budgetBytes)throw new Error('会话统计数据超过内存预算');target.push(item);}
+    for(const item of items){bytes+=Buffer.byteLength(JSON.stringify(item))+1;if(bytes>this.budgetBytes)throw budgetError('projected-json',bytes,this.budgetBytes);target.push(item);}
    };
    const check=()=>{assertCurrent();if(this.client.now()>deadline)throw new Error('会话统计分页读取超时');};
    const stepPages=new Set(),metadataPages=new Set();let pageCount=0;
@@ -103,9 +116,20 @@ export class TrajectoryReader {
    const value={trajectory:{cascadeId:id,steps,generatorMetadata:generators},numTotalSteps:steps.length,numTotalGeneratorMetadata:generators.length,status:summary.status};
    assertCurrent();this.cachedBytes-=entry.bytes;entry.bytes=bytes;this.cachedBytes+=bytes;
    entry.data=value;entry.summary=summary;entry.mark=mark;entry.verifiedAt=this.client.now();this.entries.delete(id);this.entries.set(id,entry);
-   this.trim(id);
+   this.failures.delete(id);this.trim(id);
    return value;
-  })().finally(()=>{entry.pending=null;if(!entry.data&&current())this.entries.delete(id);if(current())this.trim(id);});
+  })().catch(error=>{
+   if(current()&&attempted&&collectionFailure(error)){
+    const previous=this.failures.get(id),attempts=Math.min(5,(previous?.attempts||0)+1),at=this.client.now();
+    const retryAt=at+Math.min(300000,30000*2**(attempts-1));
+    const value=collectionFailure(error),safe=budgetError(value.kind,value.observed,value.limit);
+    safe.collection.retryAt=new Date(retryAt).toISOString();
+    error=safe;
+    this.failures.delete(id);this.failures.set(id,{error:safe,attempts,at,retryAt,mark:attemptMark});
+    while(this.failures.size>256)this.failures.delete(this.failures.keys().next().value);
+   }
+   throw error;
+  }).finally(()=>{entry.pending=null;if(!entry.data&&current())this.entries.delete(id);if(current())this.trim(id);});
   return entry.pending;
  }
 }
