@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.8.13 — 2026-10-30
+
+- Fix [#23](https://github.com/YOU-SHOULD-KNOW-ME/antigrative-dashboard/issues/23): support relocated user directories such as a Windows `.gemini` junction, including the physical module path supplied by Node. Bind install and recovery operations to validated physical directories while continuing to reject linked plugin roots and runtime entries.
+- Distinguish local installation-path failures from package verification in English, Simplified Chinese and Traditional Chinese. Expired update plans request a fresh check, and an uncertain worker result no longer claims the previous version was retained.
+- Keep update backups outside the installed runtime when an older sidecar stores its data there, preventing recursive self-copy. Preserve private records and reject transaction/backup overlap or changed directory identities.
+- Add real process upgrade regressions for logical junction paths, physical paths and legacy runtime-local data to the cross-platform update gate.
+- Refresh the official desktop resource check to Antigravity 2.28.2. This does not establish signed-in GUI acceptance for all platforms or reproduce the separate report of a missing widget.
+- Existing updaters that reject a junction before downloading need a one-time manual install of this release. Keep the junction, settings and statistics, then fully restart the App.
+
 ## 0.8.12 — 2026-10-29
 
 - Fix [#22](https://github.com/YOU-SHOULD-KNOW-ME/antigrative-dashboard/issues/22): consume a stable, bounded history-import queue across slices so deleted, temporarily unlisted or evicted candidates cannot cause an endless 250 ms continuation loop. Retain failed imports for retry and preserve saved usage.

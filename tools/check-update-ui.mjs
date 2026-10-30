@@ -53,18 +53,32 @@ try{
  assert.equal(await page.locator('#update-title').textContent(),'外掛更新');assert.equal(await page.locator('#update-close').getAttribute('aria-label'),'關閉');
  // Safe, localized failure categories explain actionable causes without paths,
  // proxy secrets or raw Python tracebacks entering the dialog.
- for(const [language,detail,message]of [
-  ['zh-CN','permission','插件目录被占用或无写入权限，请关闭其他实例后重试'],
-  ['en','certificate','The download certificate could not be verified. Check proxy certificate trust.'],
-  ['zh-TW','python-version','需要 Python 3.10 或更新版本'],
+ for(const [language,code,detail,message]of [
+  ['zh-CN','install','permission','插件目录被占用或无写入权限，请关闭其他实例后重试'],
+  ['en','network','certificate','The download certificate could not be verified. Check proxy certificate trust.'],
+  ['zh-TW','python','python-version','需要 Python 3.10 或更新版本'],
+  ['zh-CN','location','install-location','无法确认插件安装目录，请检查目录位置或链接后重试'],
+  ['en','location','install-location','Plugin installation location could not be verified. Check its location or links and retry.'],
+  ['zh-TW','location',undefined,'無法確認外掛安裝目錄，請檢查目錄位置或連結後重試'],
+  ['en','install',undefined,'Installation could not be confirmed. Check for updates again.'],
+  ['zh-CN','verification','plan-expired','更新信息已变化或过期，请重新检查更新'],
+  ['en','verification','plan-expired','Update information changed or expired. Check for updates again.'],
+  ['zh-TW','verification','plan-expired','更新資訊已變更或過期，請重新檢查更新'],
  ]){
   await page.locator('#update-close').click();await page.locator('[data-card=context]').click();
   await page.locator(`[data-language-choice="${language}"]`).click();await page.locator('[data-card=context]').click();
-  await page.evaluate(detail=>{agPulseHost.updatePlugin=async()=>({state:'error',host:'app',currentVersion:'0.8.8',latestVersion:'0.8.9',error:detail==='certificate'?'network':'install',errorDetail:detail});},detail);
+  await page.evaluate(({code,detail})=>{agPulseHost.updatePlugin=async()=>({state:'error',host:'app',currentVersion:'0.8.8',latestVersion:'0.8.9',error:code,errorDetail:detail,privatePath:'C:\\private-user\\.gemini',traceback:'secret traceback'});},{code,detail});
   await page.locator('#plugin-menu-button').click();await page.locator('#check-update').click();
   await page.locator('#update-feedback').filter({hasText:message}).waitFor();
   assert.equal(await page.locator('#update-feedback').textContent(),message);
-  await page.screenshot({path:join(repo,`.data/update-ui/error-${detail}.png`)});
+  assert.equal(await page.locator('#plugin-update-dialog').evaluate(n=>n.textContent.includes('private-user')||n.textContent.includes('traceback')),false);
+  await page.screenshot({path:join(repo,`.data/update-ui/error-${language}-${detail||code}.png`)});
  }
- assert.deepEqual(errors,[]);console.log(JSON.stringify({manualOnly:true,currentVersion:true,bilingual:true,plainTextNotes:true,installationPolling:true,reload:true,retry:true,pageErrors:errors}));
+ // Retrying a stale plan requests fresh metadata; it must not reinstall the
+ // obsolete version or retain the earlier error once the check succeeds.
+ await page.evaluate(()=>{window.staleRetryCalls=[];agPulseHost.updatePlugin=async input=>{staleRetryCalls.push(input);return {state:'available',host:'app',currentVersion:'0.8.8',latestVersion:'0.8.10'};};});
+ await page.locator('#update-action').click();await page.locator('#update-status').filter({hasText:'發現新版本'}).waitFor();
+ assert.deepEqual(await page.evaluate(()=>staleRetryCalls),[{action:'check'}]);assert.equal(await page.locator('#update-latest').textContent(),'v0.8.10');
+ assert.equal(await page.locator('#update-feedback').textContent(),'現有設定與統計記錄將會保留');
+ assert.deepEqual(errors,[]);console.log(JSON.stringify({manualOnly:true,currentVersion:true,bilingual:true,plainTextNotes:true,installationPolling:true,reload:true,retry:true,localizedLocationErrors:true,stalePlanRecheck:true,pageErrors:errors}));
 }finally{await browser.close();await new Promise(r=>server.close(r));}

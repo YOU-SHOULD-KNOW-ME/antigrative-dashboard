@@ -7,7 +7,7 @@
 Token throughput, cache hits and context usage in the model selector row. Hover over context for five-hour and weekly quotas too.<br>
 Keep the summary visible. Hover for the details.
 
-[![Version 0.8.12](https://img.shields.io/badge/version-0.8.12-91adff?style=flat-square&labelColor=252936)](CHANGELOG.md)
+[![Version 0.8.13](https://img.shields.io/badge/version-0.8.13-91adff?style=flat-square&labelColor=252936)](CHANGELOG.md)
 [![Platforms](https://img.shields.io/badge/host-Windows%20%7C%20Linux%20%7C%20macOS-83d8b9?style=flat-square&labelColor=252936)](COMPATIBILITY.md)
 [![Antigravity 2.21.1 / 2.22.0](https://img.shields.io/badge/Antigravity-2.21.1%20%2F%202.22.0-c5a0ff?style=flat-square&labelColor=252936)](COMPATIBILITY.md)
 [![MIT](https://img.shields.io/badge/license-MIT-d4d9e6?style=flat-square&labelColor=252936)](LICENSE)
@@ -16,7 +16,7 @@ Keep the summary visible. Hover for the details.
 
 </div>
 
-**v0.8.12:** Fix [#22](https://github.com/YOU-SHOULD-KNOW-ME/antigrative-dashboard/issues/22): finite history-import queues, the missing IDE synchronization gate and synchronous ownership guards. Also cancel superseded writes, bound checkpoint persistence and prevent stale usage-cache revisions. Existing settings and statistics are retained. [Release notes](https://github.com/YOU-SHOULD-KNOW-ME/antigrative-dashboard/releases/tag/v0.8.12) · [Usage safety](docs/UPDATES.md#bounded-history-usage-import).
+**v0.8.13:** Fix [#23](https://github.com/YOU-SHOULD-KNOW-ME/antigrative-dashboard/issues/23): online updates now support relocated `.gemini` directories, distinguish local path errors from package failures and refresh expired update plans. Prevent recursive backups on older data layouts. Settings and statistics are retained. If the old updater already rejects a junction, install the release ZIP once manually. [Release notes](https://github.com/YOU-SHOULD-KNOW-ME/antigrative-dashboard/releases/tag/v0.8.13) · [Update details](docs/UPDATES.md#relocated-user-directories-issue-23).
 
 ## Preview
 
@@ -68,7 +68,7 @@ Keep the summary visible. Hover for the details.
 ## Antigravity IDE
 
 **v0.7.0** adds a separate VSIX for Google's own standalone IDE. Download
-`antigrative-dashboard-ide-0.8.12.vsix` from the release and choose **Install from VSIX…**
+`antigrative-dashboard-ide-0.8.13.vsix` from the release and choose **Install from VSIX…**
 in the IDE's Extensions view. No desktop App installation is required.
 
 Fully quit the IDE, then start it with

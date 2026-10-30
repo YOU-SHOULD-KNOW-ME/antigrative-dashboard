@@ -34,6 +34,62 @@ class RollbackError(RuntimeError):
     pass
 
 
+class LocationError(ValueError):
+    """A local installation/transaction path is unsafe, not a bad package."""
+    pass
+
+
+def canonical_directory(path):
+    """Resolve relocated ancestors once; the directory itself cannot be a link."""
+    path = Path(path)
+    try:
+        if linked(path):
+            raise LocationError('Linked operation directory is unsupported')
+        resolved = path.resolve(strict=True)
+        if not resolved.is_dir():
+            raise LocationError('Operation directory is missing')
+        return resolved
+    except (FileNotFoundError, NotADirectoryError, RuntimeError) as error:
+        raise LocationError('Operation directory is unavailable') from error
+
+
+class DirectoryAnchor:
+    """Keep transaction I/O on the physical directory captured before mutation."""
+    def __init__(self, path):
+        self.path = canonical_directory(path)
+        self.identity = self._identity(self.path)
+        self.parent_identity = self._identity(self.path.parent)
+
+    @staticmethod
+    def _identity(path):
+        info = path.stat()
+        return (info.st_dev, info.st_ino)
+
+    def check(self):
+        try:
+            if (canonical_directory(self.path) != self.path or
+                    self._identity(self.path) != self.identity or
+                    self._identity(self.path.parent) != self.parent_identity):
+                raise LocationError('Operation directory changed')
+        except (FileNotFoundError, NotADirectoryError) as error:
+            raise LocationError('Operation directory changed') from error
+
+    def record(self):
+        return {'path': str(self.path), 'identity': list(self.identity),
+                'parentIdentity': list(self.parent_identity)}
+
+
+def overlaps(first, second):
+    return first.is_relative_to(second) or second.is_relative_to(first)
+
+
+def transaction_roots(target, working):
+    target_anchor, working_anchor = DirectoryAnchor(target), DirectoryAnchor(working)
+    if working_anchor.path.parent != target_anchor.path.parent or overlaps(working_anchor.path, target_anchor.path):
+        raise LocationError('Transaction must be beside the installed plugin')
+    return target_anchor, working_anchor
+
+
 PRIVATE = {'data', 'history-v1', 'usage-v1', 'sdk'}
 REQUIRED = ('plugin.json', 'compat/inline-widget.cjs', 'compat/runtime-ui.mjs',
             'compat/i18n.cjs', 'compat/theme.cjs', 'sidecars/panel/main.mjs',
@@ -123,6 +179,9 @@ def fetch(url, limit, destination=None, metadata=False, method='GET', progress=N
 
 
 def _fetch(url, limit, destination, metadata, method, progress, deadline):
+    destination_anchor = DirectoryAnchor(destination.parent) if destination else None
+    if destination_anchor:
+        destination = destination_anchor.path / destination.name
     proxies = update_proxies()
     opener = urllib.request.build_opener(urllib.request.ProxyHandler(proxies), NoRedirect())
     deadline = min(deadline, time.monotonic() + 90) if deadline is not None else time.monotonic() + 90
@@ -167,6 +226,10 @@ def _fetch(url, limit, destination, metadata, method, progress, deadline):
             total = 0
             reported_at = time.monotonic()
             chunks = []
+            if destination_anchor:
+                destination_anchor.check()
+                if linked(destination):
+                    raise LocationError('Linked download destination is unsupported')
             handle = destination.open('wb') if destination else None
             try:
                 while True:
@@ -306,11 +369,16 @@ def digest(file):
 
 def reject_links(path):
     if linked(path) or path.is_dir() and any(linked(p) for p in path.rglob('*')):
-        raise ValueError('Linked runtime paths are unsupported')
+        raise LocationError('Linked runtime paths are unsupported')
 
 
 def stage_archive(archive, stage, expected_version):
+    parent_anchor = DirectoryAnchor(stage.parent)
+    if linked(stage):
+        raise LocationError('Linked stage is unsupported')
+    stage = parent_anchor.path / stage.name
     stage.mkdir(parents=True, exist_ok=False)
+    stage_anchor = DirectoryAnchor(stage)
     with zipfile.ZipFile(archive) as bundle:
         entries = bundle.infolist()
         if len(entries) > 8192 or sum(e.file_size for e in entries) > MAX_EXPANDED:
@@ -338,9 +406,11 @@ def stage_archive(archive, stage, expected_version):
             if any(part in PRIVATE for part in relative):
                 raise ValueError('Package must not contain private runtime data')
             target = stage.joinpath(*relative)
+            parent_anchor.check(); stage_anchor.check()
             if not target.resolve().is_relative_to(stage.resolve()):
                 raise ValueError('Archive path escaped staging')
             target.parent.mkdir(parents=True, exist_ok=True)
+            check_file_targets(stage, [PurePosixPath(*relative).as_posix()])
             with bundle.open(entry) as incoming, target.open('wb') as outgoing:
                 shutil.copyfileobj(incoming, outgoing, length=65536)
     manifest = json.loads((stage / 'plugin.json').read_text(encoding='utf-8-sig'))
@@ -352,15 +422,19 @@ def stage_archive(archive, stage, expected_version):
 
 def validate_location(target, home=None):
     expected = (home or Path.home()) / '.gemini/config/plugins/antigravity-pulse'
-    if linked(target) or target.resolve() != expected.resolve() or target.absolute() != expected.absolute():
-        raise ValueError('Not the native App plugin installation')
-    for path in (target.parent, target.parent.parent, target.parent.parent.parent):
-        if linked(path):
-            raise ValueError('Linked installation roots are unsupported')
+    # User-owned ancestors such as .gemini may be relocated. Node also resolves
+    # imported module filenames to their physical paths. Accept either spelling,
+    # but reject a linked plugin root even when supplied through its real alias.
+    if linked(expected) or linked(target):
+        raise LocationError('Linked plugin root is unsupported')
+    resolved = canonical_directory(target)
+    if resolved != canonical_directory(expected):
+        raise LocationError('Not the native App plugin installation')
+    return resolved
 
 
 def validate_target(target, home=None):
-    validate_location(target, home)
+    target = validate_location(target, home)
     manifest = json.loads((target / 'plugin.json').read_text(encoding='utf-8-sig'))
     if manifest.get('name') != 'antigravity-pulse':
         raise ValueError('Wrong installed plugin identity')
@@ -424,26 +498,34 @@ def public_files(root, names=RUNTIME):
 def check_file_targets(target, paths):
     for name in paths:
         path = target / name
+        if linked(path):
+            raise LocationError('Linked runtime file is unsupported')
         if path.exists() and not path.is_file():
             raise ValueError('Runtime file layout changed')
         parent = path.parent
         while parent != target:
+            if linked(parent):
+                raise LocationError('Linked runtime directory is unsupported')
             if parent.exists() and not parent.is_dir():
                 raise ValueError('Runtime directory layout changed')
             parent = parent.parent
 
 
-def restore_files(working, target, backup, original, new_files):
+def restore_files(working, target, backup, original, new_files, guard=lambda: None):
     # Validate the entire inventory and every backup before mutating anything.
     for name in RUNTIME:
         reject_links(target / name)
     old_files = public_files(backup, original)
     check_file_targets(target, [*old_files, *new_files])
     for name in old_files:
+        guard()
         source, destination = backup / name, target / name
+        check_file_targets(target, [name])
         destination.parent.mkdir(parents=True, exist_ok=True)
         temporary = working / 'restore-file'
         shutil.copy2(source, temporary)
+        guard()
+        check_file_targets(target, [name])
         os.replace(temporary, destination)
     old_keys = {name.casefold() for name in old_files}
     for name in new_files:
@@ -451,6 +533,8 @@ def restore_files(working, target, backup, original, new_files):
             continue
         path = target / name
         if path.exists():
+            guard()
+            check_file_targets(target, [name])
             path.unlink()
 
 
@@ -460,18 +544,26 @@ def recover_transaction(working, target):
     Called only while holding the lifecycle lock. Recovery snapshots stay outside
     every replaced tree. Never remove them if restoration itself fails.
     """
+    if linked(working):
+        raise LocationError('Linked recovery transaction is unsupported')
     if not working.exists():
         return False
+    target_anchor, working_anchor = transaction_roots(target, working)
+    target, working = target_anchor.path, working_anchor.path
+    def guard():
+        target_anchor.check(); working_anchor.check()
     reject_links(working)
     journal = working / 'journal.json'
     if not journal.exists():
         # No runtime mutation is allowed before the journal is durable.
-        shutil.rmtree(working)
+        guard(); shutil.rmtree(working)
         return False
     try:
         value = json.loads(journal.read_text(encoding='utf-8'))
         if value.get('schema') != 1 or value.get('phase') not in ('installing', 'committed', 'restored'):
             raise ValueError('Invalid recovery journal')
+        if 'target' in value and value['target'] != target_anchor.record():
+            raise LocationError('Recovery belongs to a different installation')
         original = value.get('original')
         if not isinstance(original, list) or len(original) != len(set(original)) or any(n not in RUNTIME for n in original):
             raise ValueError('Invalid recovery inventory')
@@ -481,6 +573,7 @@ def recover_transaction(working, target):
             raise ValueError('Invalid recovery strategy')
         new_files = file_inventory(value.get('newFiles')) if strategy == 'files' else []
         if value['phase'] in ('committed', 'restored'):
+            guard()
             try: shutil.rmtree(working)
             except OSError: pass  # Runtime is already valid; retry cleanup later.
             return False
@@ -491,16 +584,17 @@ def recover_transaction(working, target):
         if json.loads((backup / 'plugin.json').read_text(encoding='utf-8-sig')).get('version') != value['current']:
             raise ValueError('Recovery backup version mismatch')
         if strategy == 'files':
-            restore_files(working, target, backup, original, new_files)
+            restore_files(working, target, backup, original, new_files, guard=guard)
             if json.loads((target / 'plugin.json').read_text(encoding='utf-8-sig')).get('version') != value['current']:
                 raise ValueError('Recovered version mismatch')
-            write_journal(working, {**value, 'phase': 'restored'})
+            guard(); write_journal(working, {**value, 'phase': 'restored'})
             try: shutil.rmtree(working)
             except OSError: pass
             return True
         # Build each restore tree from an intact backup on every attempt. The
         # journal stays installing until every tree has been put back.
         for name in reversed(RUNTIME):
+            guard()
             reject_links(target / name)
             restore = working / ('restore-' + name)
             displaced = working / ('displaced-' + name)
@@ -511,13 +605,15 @@ def recover_transaction(working, target):
             if name in original:
                 if source.is_dir(): shutil.copytree(source, restore)
                 else: shutil.copy2(source, restore)
+            guard()
+            reject_links(target / name)
             if (target / name).exists():
                 os.replace(target / name, displaced)
             if restore.exists():
                 os.replace(restore, target / name)
         if json.loads((target / 'plugin.json').read_text(encoding='utf-8-sig')).get('version') != value['current']:
             raise ValueError('Recovered version mismatch')
-        write_journal(working, {**value, 'phase': 'restored'})
+        guard(); write_journal(working, {**value, 'phase': 'restored'})
     except Exception as error:
         raise RollbackError('Recovery requires the saved backup') from error
     try: shutil.rmtree(working)
@@ -531,10 +627,27 @@ def install_staged(stage, target, backup, current, expected, fault=None, progres
         if progress:
             try: progress({'phase': phase})
             except Exception: pass
+    target_anchor, working_anchor = transaction_roots(target, stage.parent)
+    target, working = target_anchor.path, working_anchor.path
+    stage_anchor = DirectoryAnchor(stage)
+    stage = stage_anchor.path
+    if stage.parent != working:
+        raise LocationError('Stage must belong to this transaction')
+    if linked(backup):
+        raise LocationError('Linked backup directory is unsupported')
+    backup = backup.resolve()
+    if overlaps(backup, target) or overlaps(backup, working):
+        raise LocationError('Backup overlaps installation or transaction')
+    backup.parent.mkdir(parents=True, exist_ok=True)
+    backup_parent = DirectoryAnchor(backup.parent)
+    backup = backup_parent.path / backup.name
+    def guard():
+        target_anchor.check(); working_anchor.check(); backup_parent.check()
+    for name in RUNTIME:
+        reject_links(target / name)
+    reject_links(stage)
     if json.loads((target / 'plugin.json').read_text(encoding='utf-8-sig'))['version'] != current or version(expected) <= version(current):
         raise ValueError('Installed version changed or update would downgrade')
-    if not stage.resolve().parent.is_relative_to(target.parent.resolve()):
-        raise ValueError('Stage must be on the target filesystem')
     if strategy not in ('trees', 'files'):
         raise ValueError('Unsupported update strategy')
     new_files = public_files(stage) if strategy == 'files' else []
@@ -542,8 +655,11 @@ def install_staged(stage, target, backup, current, expected, fault=None, progres
     if strategy == 'files':
         check_file_targets(target, new_files)
     report('backup')
+    guard(); stage_anchor.check()
     backup.mkdir(parents=True, exist_ok=False)
+    backup_anchor = DirectoryAnchor(backup)
     for name in RUNTIME:
+        guard(); backup_anchor.check(); reject_links(target / name)
         old = target / name
         if old.is_dir():
             shutil.copytree(old, backup / name)
@@ -551,14 +667,14 @@ def install_staged(stage, target, backup, current, expected, fault=None, progres
             shutil.copy2(old, backup / name)
     # Self-contained recovery helper remains available even if the App entry
     # point was interrupted while moving. It never relies on the new runtime.
-    working = stage.parent
+    guard(); backup_anchor.check()
     shutil.copy2(Path(__file__), working / 'recover.py')
     shutil.copy2(Path(__file__).with_name('update-lock.py'), working / 'update-lock.py')
     shutil.copytree(backup, working / 'recovery-backup')
     if strategy == 'files':
         journal = {'schema': 1, 'current': current, 'expected': expected,
                    'original': [name for name in RUNTIME if (target / name).exists()],
-                   'strategy': 'files', 'newFiles': new_files, 'phase': 'installing'}
+                   'strategy': 'files', 'newFiles': new_files, 'phase': 'installing', 'target': target_anchor.record()}
         write_journal(working, journal)
         try:
             report('install')
@@ -568,21 +684,28 @@ def install_staged(stage, target, backup, current, expected, fault=None, progres
             for name in RUNTIME:
                 if fault:
                     fault(name)
+                guard(); stage_anchor.check(); reject_links(target / name)
                 for item in new_files:
                     if PurePosixPath(item).parts[0] != name:
                         continue
                     destination = target / item
+                    guard()
+                    check_file_targets(target, [item])
+                    check_file_targets(stage, [item])
                     destination.parent.mkdir(parents=True, exist_ok=True)
+                    check_file_targets(target, [item])
                     os.replace(stage / item, destination)
                 new_keys = {item.casefold() for item in new_files}
                 for item in old_files:
                     if item.casefold() in new_keys:
                         continue
                     if PurePosixPath(item).parts[0] == name:
+                        guard()
+                        check_file_targets(target, [item])
                         (target / item).unlink()
             if json.loads((target / 'plugin.json').read_text(encoding='utf-8-sig'))['version'] != expected:
                 raise ValueError('Installed version verification failed')
-            write_journal(working, {**journal, 'phase': 'committed'})
+            guard(); write_journal(working, {**journal, 'phase': 'committed'})
         except BaseException:
             report('recover')
             recover_transaction(working, target)
@@ -602,29 +725,33 @@ def install_staged(stage, target, backup, current, expected, fault=None, progres
     holding = stage.parent / 'previous'
     holding.mkdir()
     journal = {'schema': 1, 'current': current, 'expected': expected,
-               'original': [name for name in RUNTIME if (target / name).exists()], 'phase': 'installing'}
+               'original': [name for name in RUNTIME if (target / name).exists()], 'phase': 'installing', 'target': target_anchor.record()}
     write_journal(working, journal)
     moved, inserted = [], []
     try:
         report('install')
         for name in RUNTIME:
+            guard(); reject_links(target / name)
             old, new = target / name, stage / name
             if old.exists():
                 os.replace(old, holding / name)
                 moved.append(name)
             if fault:
                 fault(name)
+            guard()
             if new.exists():
                 os.replace(new, old)
                 inserted.append(name)
         if json.loads((target / 'plugin.json').read_text(encoding='utf-8-sig'))['version'] != expected:
             raise ValueError('Installed version verification failed')
-        write_journal(working, {**journal, 'phase': 'committed'})
+        guard(); write_journal(working, {**journal, 'phase': 'committed'})
     except BaseException:
         try:
             for name in reversed(inserted):
+                guard(); reject_links(target / name)
                 os.replace(target / name, stage / name)
             for name in reversed(moved):
+                guard(); reject_links(target / name)
                 os.replace(holding / name, target / name)
             write_journal(working, {**journal, 'phase': 'restored'})
         except Exception as recovery:
@@ -638,6 +765,21 @@ def perform(plan, target, updates, progress=None):
             try: progress({'phase': phase, **fields})
             except Exception: pass
     current = validate_target(target)
+    target_anchor = DirectoryAnchor(target)
+    target = target_anchor.path
+    if linked(updates):
+        raise LocationError('Linked update directory is unsupported')
+    updates = updates.resolve()
+    working = target.parent / '.antigravity-pulse-update-transaction'
+    if updates.is_relative_to(target):
+        # Older SDKs keep data inside sidecars/panel/data. Backing up the runtime
+        # into that directory recursively copies the backup into itself. Keep
+        # only backups beside the installed plugin; private data stays in place.
+        updates = target.parent / '.antigravity-pulse-update-backups'
+        if linked(updates):
+            raise LocationError('Linked backup root is unsupported')
+    if overlaps(updates, working) or target.is_relative_to(updates):
+        raise LocationError('Update directory overlaps managed paths')
     # Reconstruct and validate the plan rather than trusting persisted URLs.
     latest = plan['latestVersion']
     name = f'antigrative-dashboard-{latest}.zip'
@@ -645,26 +787,35 @@ def perform(plan, target, updates, progress=None):
     if plan.get('host') != 'app' or plan.get('currentVersion') != current or plan.get('name') != name or plan.get('url') != base + name or plan.get('checksumUrl') != base + name + '.sha256' or version(latest) <= version(current):
         raise ValueError('Update plan is stale or invalid')
     updates.mkdir(parents=True, exist_ok=True)
+    updates_anchor = DirectoryAnchor(updates)
+    updates = updates_anchor.path
     with lifecycle_lock(target):
-        working = target.parent / '.antigravity-pulse-update-transaction'
+        target_anchor.check(); updates_anchor.check()
         recover_transaction(working, target)
         # Validate again under the cross-process lock, immediately before use.
         if validate_target(target) != current:
             raise ValueError('Installed version changed')
         working.mkdir()
+        working_anchor = DirectoryAnchor(working)
         try:
             archive = working / name
             report('verify')
+            working_anchor.check()
             expected_hash = checksum(fetch(plan['checksumUrl'], 8192).decode('utf-8'), name)
             report('download', received=0, total=plan.get('size'))
+            working_anchor.check()
             options = {'progress': lambda count: report('download', received=count, total=plan.get('size'))} if progress else {}
             received = fetch(plan['url'], MAX_ZIP, archive, **options)
             report('verify')
+            working_anchor.check()
             if received != plan.get('size') or digest(archive) != expected_hash:
                 raise ValueError('Archive checksum or size mismatch')
             stage = working / 'stage'
             report('extract')
+            target_anchor.check(); updates_anchor.check(); working_anchor.check()
             stage_archive(archive, stage, latest)
+            if validate_target(target) != current:
+                raise ValueError('Installed version changed')
             backup = updates / ('backup-' + str(uuid.uuid4()))
             install_staged(stage, target, backup, current, latest, progress=progress,
                            strategy='files' if os.name == 'nt' else 'trees')
@@ -696,11 +847,13 @@ def main():
     parser.add_argument('--updates', type=Path)
     args = parser.parse_args()
     try:
-        # Validate destination identity lexically even if an interrupted rename
-        # temporarily left the manifest absent. Recovery must not follow a link.
-        validate_location(args.target)
+        # Pin the verified native installation to its physical root. Relocated
+        # user-owned ancestors may be links; runtime/transaction roots may not.
+        args.target = validate_location(args.target)
         with lifecycle_lock(args.target):
             working = args.target.parent / '.antigravity-pulse-update-transaction'
+            if linked(working):
+                raise LocationError('Linked recovery transaction is unsupported')
             recovered = False
             if args.action == 'recover':
                 recovered = recover_transaction(working, args.target)
@@ -708,6 +861,7 @@ def main():
                 # Checks have a short cancellable subprocess timeout. Never
                 # restore files in that process; the durable helper can recover
                 # independently even when the host entry point is missing.
+                reject_links(working)
                 journal = json.loads((working / 'journal.json').read_text(encoding='utf-8'))
                 if journal.get('phase') not in ('committed', 'restored'):
                     raise RollbackError('Interrupted update requires recovery')
@@ -728,8 +882,8 @@ def main():
     except Exception as error:
         # Only static error categories cross into the renderer, never proxy
         # credentials, paths, HTTP response text or helper tracebacks.
-        detail = 'permission' if isinstance(error, PermissionError) else network_failure(error)
-        code = 'rollback' if isinstance(error, RollbackError) else 'network' if detail in NETWORK_DETAILS else 'busy' if isinstance(error, FileExistsError) else 'verification' if isinstance(error, ValueError) else 'install'
+        detail = 'install-location' if isinstance(error, LocationError) else 'permission' if isinstance(error, PermissionError) else network_failure(error)
+        code = 'location' if isinstance(error, LocationError) else 'rollback' if isinstance(error, RollbackError) else 'network' if detail in NETWORK_DETAILS else 'busy' if isinstance(error, FileExistsError) else 'verification' if isinstance(error, ValueError) else 'install'
         print(json.dumps({'ok': False, 'code': code, **({'detail': detail} if detail else {})}))
         return 1
     return 0

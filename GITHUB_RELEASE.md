@@ -1,42 +1,30 @@
-# Antigrative Dashboard v0.8.12
+# Antigrative Dashboard v0.8.13
 
-Fix the three runtime problems reported in [#22](https://github.com/YOU-SHOULD-KNOW-ME/antigrative-dashboard/issues/22), and harden the related usage-storage paths. This maintenance release keeps the existing UI, settings and recorded statistics.
+Fix [#23](https://github.com/YOU-SHOULD-KNOW-ME/antigrative-dashboard/issues/23): an App installed beneath a relocated user directory, such as a Windows `.gemini` NTFS junction, could not check for or install updates and incorrectly reported a package-verification failure.
 
-## Fixes for Issue #22
+## Update reliability
 
-- **Finite history-import queues.** A full import now consumes a stable, bounded candidate snapshot across slices. Deleting a queued conversation, temporarily losing a discovery source or moving an old candidate beyond the discovery cap cannot leave an unreachable ID that schedules a 250 ms continuation forever. Queue entries make progress even when a read fails; unavailable records remain partial and retryable. New top-level conversations created during an import wait for the next requested pass, while delegated children may join the current queue within its budget.
-- **The same explicit history gate in App and IDE.** Opening **View token usage**, or clicking its top-right circular-arrow **Refresh usage** button, requests historical synchronization. Ordinary metrics polling, ordinary card refreshes and automatic expired-quota refreshes do not start historical scans. The standalone IDE no longer bypasses this gate through `force` or a default snapshot option.
-- **Synchronous ownership guards.** Collection and pagination guards use a cached boolean instead of treating an asynchronous `isOwner()` Promise as true. Marker notifications invalidate the cache promptly; periodic verification remains a fallback. Runtime boundaries still verify ownership asynchronously, concurrent checks are coalesced, and per-page guards no longer trigger ownership/settings disk reads. Superseded collectors reject late results and stop accepting new work.
+- Accept both the configured installation path and Node's resolved physical module path when they identify the same native App plugin. Preserve checks against linked plugin roots and runtime entries; bind installation, locking and recovery to validated physical directories and recheck directory identity before filesystem changes.
+- Give local installation-path failures their own English, Simplified Chinese and Traditional Chinese messages instead of calling them invalid packages. Raw paths, proxy credentials and worker tracebacks are not exposed in the UI.
+- Ask for a fresh check when an update plan expires or another instance changes the installed version. Retry no longer repeatedly applies the old plan.
+- Do not automatically repeat an installation or claim the old version was retained when a worker result is missing or malformed. Recheck to establish the installed version.
+- Prevent recursive backup copying when older sidecars keep their data inside `sidecars/panel/data`. Store those backups beside the installed plugin, preserve the actual data directory and reject overlapping backup/transaction paths.
 
-## Related hardening
-
-- Recheck collector/account validity when queued usage and history writes begin, after asynchronous work and immediately before commit. Cancel superseded writes normally and remove their temporary files. An atomic rename already handed to the operating system cannot be recalled.
-- Save backfill checkpoints once per slice instead of rewriting the full journal after every conversation. Retain retry counters for histories without a local signature across restarts.
-- Limit checkpoint metadata to **4,096 entries** and an **8 MiB read/write budget**. An oversized legacy `backfill-v1.json` is retained as `backfill-v1.oversized-<uuid>.json` when bounded metadata is rebuilt. This does not delete usage-ledger records or settings.
-- Prevent a concurrent import from caching an older summary under a newer ledger revision. The next read can refresh the summary instead of keeping stale totals indefinitely.
-- Retain partial coverage when a discovery, queue, page, memory or time budget is reached; never treat an unread or over-budget history as complete.
-- Recheck file-marker generations before declaring ownership lost, avoiding false shutdown from overlapping notifications. Windows atomic marker replacement tolerates brief read locks with a bounded retry.
-
-Current-conversation requests continue to be recorded during ordinary polling. The CLI status-line behavior is unchanged. Historical usage remains local observed consumption, not provider billing.
+Official download-source, SHA-256, package-version and archive-path checks remain enabled. Existing settings and recorded statistics are preserved. IDE and CLI packages retain their existing runtime behavior; this release's updater fixes apply to the desktop App.
 
 ## Install or update
 
-- **Antigravity App:** open context details → **⋯ → Check for updates**. Alternatively, extract `antigrative-dashboard-0.8.12.zip` and run `python manage.py install` (`python3` on Linux/macOS).
-- **Standalone Antigravity IDE:** install `antigrative-dashboard-ide-0.8.12.vsix` using **Install from VSIX…**. This is separate from the App installer.
-- Fully quit and reopen the corresponding host after installation. Keep using the IDE's loopback debugging launch arguments when required.
-- Existing settings, language choices, `history-v1` and `usage-v1` are preserved. No manual deletion or statistics reset is required. SHA-256 files accompany both packages.
+- **Antigravity App:** context details → **⋯ → Check for updates**. Alternatively, extract `antigrative-dashboard-0.8.13.zip` and run `python manage.py install` (`python3` on Linux/macOS).
+- **Affected Junction installations:** the old updater can fail before downloading this fix. Install the release ZIP manually once, then fully quit and reopen Antigravity. Keep the `.gemini` junction, settings and statistics; no deletion or reset is needed. Subsequent updates use the repaired updater.
+- **Standalone Antigravity IDE:** install `antigrative-dashboard-ide-0.8.13.vsix` using **Install from VSIX…**, then reopen the IDE. This is separate from the App installer.
+- Both packages include SHA-256 files. Existing release tags remain available.
 
-If an older updater already fails before new files are installed, use the release ZIP for a one-time manual App install. The earlier release tags remain available.
+## Verification and compatibility
 
-## Verification and limits
+Local checks: **340 Node tests passed, 1 skipped; 93 Python tests passed, 1 skipped**. The Python suite includes 12 real-Junction regressions. Three-language update UI checks and three real-process upgrade scenarios passed: a normal path, a logical Junction path, and a physical path with legacy runtime-local data. Manual repair preserved the Junction, private statistics, language preferences and unrelated plugin settings in an isolated test installation.
 
-Local checks before publication:
+Windows, Linux and macOS release gates run the full test, UI and packaging checks before publication. The official host-resource gate now checks **Antigravity App 2.28.2** instead of 2.21.1.
 
-- **Node:** 334 passed, 1 skipped.
-- **Python:** 81 passed, 1 skipped (82 total).
-- **IDE unit tests:** 11 passed.
-- Related browser regressions passed, including the production App/IDE usage-entry refresh flow.
+The separate report that the widget disappears on 2.28.x has **not been reproduced**. Windows App 2.28.2 displayed the locally installed widget, and repository v0.8.12 collection code read live metrics; the installed widget manifest was v0.8.9, so this is not full v0.8.12 GUI acceptance. Official-resource checks do not establish signed-in GUI compatibility for every platform or the reporter's environment. Please include OS, App versus standalone IDE, the actual loaded plugin version and whether the widget is absent or merely missing data when reporting this symptom.
 
-Tests exercise disappearing/deleted candidates, interrupted discovery, candidate-cap churn, finite continuation, retry restart recovery, bounded checkpoint migration, summary-revision races, actual App/IDE entrypoint gating and ownership takeover during queued writes. Existing history recovery, privacy and request deduplication remain covered.
-
-Windows/Linux/macOS release gates run before assets are published. The local and browser results above do not establish signed-in native Linux/macOS GUI acceptance, every possible filesystem failure or the reporting user's exact environment. Marker notifications depend on filesystem support, so periodic verification remains necessary. The reporter's confirmation after upgrading is welcome.
+[Updater behavior and recovery](https://github.com/YOU-SHOULD-KNOW-ME/antigrative-dashboard/blob/v0.8.13/docs/UPDATES.md) · [Compatibility scope](https://github.com/YOU-SHOULD-KNOW-ME/antigrative-dashboard/blob/v0.8.13/COMPATIBILITY.md)

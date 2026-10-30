@@ -37,7 +37,7 @@ module.exports = function createUpdateMenu({root,row,language,setMarkup,request,
   renderProgress();
   $('update-current-label').textContent=w('当前版本','Installed','目前版本');$('update-latest-label').textContent=w('最新版本','Latest','最新版本');$('update-host-label').textContent=w('安装类型','Installation','安裝類型');$('update-current').textContent=state.currentVersion?'v'+state.currentVersion:'—';$('update-latest').textContent=state.latestVersion?'v'+state.latestVersion:'—';
   $('update-notes-wrap').hidden=state.state!=='available'||!state.notes;$('update-notes-label').textContent=w('更新内容','What’s new','更新內容');$('update-notes').textContent=(state.notes||'').split(/\r?\n/).map(line=>line.trim()).filter(line=>line&&!line.startsWith('#')).slice(0,3).join('\n');
-  const errors={network:w('连接失败，请稍后重试','Connection failed. Please retry.','連線失敗，請稍後重試'),python:w('未找到 Python','Python was not found.','找不到 Python'),verification:w('未通过安装包校验','Package verification failed.','安裝套件驗證未通過'),busy:w('已有更新正在进行','Another update is in progress.','已有更新正在進行中'),install:w('安装未完成，原版已保留','Installation incomplete; previous files retained.','安裝未完成，已保留原始檔案'),rollback:w('恢复失败，可从备份恢复','Recovery failed; a local backup is available.','還原失敗，可從本機備份還原')};
+  const errors={network:w('连接失败，请稍后重试','Connection failed. Please retry.','連線失敗，請稍後重試'),python:w('未找到 Python','Python was not found.','找不到 Python'),verification:w('未通过安装包校验','Package verification failed.','安裝套件驗證未通過'),location:w('无法确认插件安装目录，请检查目录位置或链接后重试','Plugin installation location could not be verified. Check its location or links and retry.','無法確認外掛安裝目錄，請檢查目錄位置或連結後重試'),busy:w('已有更新正在进行','Another update is in progress.','已有更新正在進行中'),install:w('未能确认安装完成，请重新检查更新','Installation could not be confirmed. Check for updates again.','未能確認安裝完成，請重新檢查更新'),rollback:w('恢复失败，可从备份恢复','Recovery failed; a local backup is available.','還原失敗，可從本機備份還原')};
   const details={
    timeout:w('连接超时，请检查网络后重试','Connection timed out. Check your network and retry.','連線逾時，請檢查網路後重試'),
    dns:w('无法解析 GitHub 地址，请检查网络','Could not resolve GitHub. Check your network.','無法解析 GitHub 位址，請檢查網路'),
@@ -48,6 +48,8 @@ module.exports = function createUpdateMenu({root,row,language,setMarkup,request,
    permission:w('插件目录被占用或无写入权限，请关闭其他实例后重试','Plugin files are locked or not writable. Close other instances and retry.','外掛目錄被占用或無寫入權限，請關閉其他執行個體後重試'),
    'python-version':w('需要 Python 3.10 或更新版本','Python 3.10 or newer is required.','需要 Python 3.10 或更新版本'),
    'python-missing':w('未找到可用的 Python，请安装 Python 3.10+','No working Python found. Install Python 3.10+.','找不到可用的 Python，請安裝 Python 3.10+'),
+   'install-location':errors.location,
+   'plan-expired':w('更新信息已变化或过期，请重新检查更新','Update information changed or expired. Check for updates again.','更新資訊已變更或過期，請重新檢查更新'),
   };
   $('update-feedback').textContent=state.state==='error'?(details[state.errorDetail]||errors[state.error]||errors.network):state.state==='available'?w('设置和统计记录将保留','Settings and statistics are retained','現有設定與統計記錄將會保留'):'';
   const actionable=['available','installed','error'].includes(state.state);$('update-action').hidden=!actionable;$('update-action').disabled=busy;

@@ -16,6 +16,40 @@ uses transform-only motion. A stage change does not animate a completed check
 backwards into a new download. Worker progress is optional, bounded, allowlisted
 metadata on stderr; the verified final result remains a separate stdout message.
 
+## Relocated user directories (Issue #23)
+
+A user-owned ancestor such as `%USERPROFILE%\.gemini` may be a Windows NTFS
+junction to another disk. The updater accepts both the configured path and the
+physical module path supplied by Node when they resolve to the native App plugin
+installation. The plugin directory itself, runtime entries, staging and recovery
+directories must still be real directories, with no redirected files inside the
+managed runtime. Installation, locking and recovery use the captured physical
+directory, and recheck directory identity before filesystem changes. Recovery
+journals bind to that installation; a changed destination is rejected.
+
+Older sidecars may store their data inside `sidecars/panel/data`. In that case,
+update backups are placed in `.antigravity-pulse-update-backups` beside the plugin
+directory, so a backup cannot recursively copy itself into its source. The actual
+data directory stays in place. Transaction and backup roots cannot overlap.
+
+Local installation-path errors now have their own localized message instead of
+appearing as an invalid package. A plan older than 15 minutes or superseded by
+another installation asks for a fresh check. A failed or malformed worker reply
+does not automatically rerun installation or promise that old files were kept;
+check again to establish the installed version before retrying.
+
+**Existing affected installations:** v0.8.12 and earlier can reject a junction
+before contacting GitHub, so a new release alone cannot repair their online
+updater. Install a package containing this fix once with `python manage.py install`
+(`python3` on Linux/macOS), then completely reopen Antigravity. Use the App ZIP
+from **v0.8.13** or later. Keep the `.gemini` junction and saved data; removing
+either is unnecessary.
+
+`npm run test:update-process` covers a real worker started through the Windows
+command launcher (or POSIX subprocess), both logical and physical relocated paths,
+and runtime-local data. Synthetic homes and packages keep these checks separate
+from installed software and personal records.
+
 ## Widget lifecycle after host updates
 
 A disposed widget could finish a delayed preference read and schedule a new
@@ -68,11 +102,11 @@ Current-conversation requests continue to be recorded during ordinary polling.
 The collector preserves existing usage records and settings. Usage is local
 observed consumption, not provider billing.
 
-Install **v0.8.12** through **Context details → ⋯ → Check for updates**, then fully
+Install **v0.8.13** through **Context details → ⋯ → Check for updates**, then fully
 quit and reopen the host once. A plugin-only restart cannot revoke old callbacks
 already recreated in the open page. If an older updater already fails installation,
-use `antigrative-dashboard-0.8.12.zip` for a one-time manual repair; standalone IDE
-users should install `antigrative-dashboard-ide-0.8.12.vsix` and reopen the IDE.
+use `antigrative-dashboard-0.8.13.zip` for a one-time manual repair; standalone IDE
+users should install `antigrative-dashboard-ide-0.8.13.vsix` and reopen the IDE.
 Existing release tags remain available. No statistics reset or manual deletion of
 checkpoint/ledger files is required for this upgrade.
 

@@ -21,7 +21,7 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '24'
-      - name: Inspect official desktop 2.21.1 resource layout
+      - name: Inspect official desktop 2.28.2 resource layout
         shell: bash
         env:
           HOST_ARTIFACT: ${{ matrix.artifact }}
@@ -29,7 +29,7 @@ jobs:
           set -euo pipefail
           root="$RUNNER_TEMP/antigravity-host"
           mkdir -p "$root"
-          curl --fail --location --retry 3 "https://storage.googleapis.com/antigravity-public/antigravity-hub/2.21.1-5614635819335680/$HOST_ARTIFACT" -o "$root/download"
+          curl --fail --location --retry 3 "https://storage.googleapis.com/antigravity-public/antigravity-hub/2.28.2-5937220255875072/$HOST_ARTIFACT" -o "$root/download"
           if [[ "$RUNNER_OS" == Linux ]]; then
             tar -xzf "$root/download" -C "$root"
             resources=$(find "$root" -path '*/resources/app.asar' -print -quit)

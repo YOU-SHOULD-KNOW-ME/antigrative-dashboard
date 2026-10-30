@@ -6,7 +6,7 @@
 | Linux | Python3 / POSIX shell，当前用户 `/proc` + TCP/TCP6 socket inode | Ubuntu CI 原生端口测试、安装生命周期、官方 2.21.1 资源与 SDK 检查；完整登录 App GUI 待用户实机验证 |
 | macOS | Python3 / POSIX shell，当前用户 `ps` + `lsof` PID 所属端口 | macOS CI 原生端口测试、安装生命周期、官方 2.21.1 资源与 SDK 检查；完整登录 App GUI 待用户实机验证 |
 
-上表面向 **Antigravity 桌面 App 2.21.1 / 2.22.0**。CLI 使用独立 statusLine 适配；v0.7.0 新增自带 IDE 的独立 VSIX。VS Code、Visual Studio、JetBrains、Zed、Xcode 中的 Antigravity 扩展以及 iOS 尚未兼容。Linux/macOS 官方资源检查固定为桌面 App 2.21.1，不等同于验证 IDE 或其 2.22.0 登录界面。
+上表面向 **Antigravity 桌面 App 2.21.1 / 2.22.0**。CLI 使用独立 statusLine 适配；v0.7.0 新增自带 IDE 的独立 VSIX。VS Code、Visual Studio、JetBrains、Zed、Xcode 中的 Antigravity 扩展以及 iOS 尚未兼容。表中保留早期桌面 App 2.21.1 的资源验证记录；v0.8.13 的资源检查目标更新为 2.28.2，仍不等同于 IDE 或登录后 GUI 验收。
 Python 3.10+ 仅用于生命周期，无 pip 依赖；后台使用宿主 Node，内嵌桥接需原生 WebSocket，建议 Node 24。Linux/macOS 架构跟随宿主，不分发平台二进制。官方系统要求见 [Antigravity 下载页](https://antigravity.google/download)。
 
 2026-10-28 补充：Windows 11 / 桌面 App **2.28.0** 已实机验证修复后的单份控件、历史会话速率／Token／上下文恢复、详情卡、用量窗口、额度和会话往返切换。延迟回调与重复挂载的浏览器回归纳入三系统 CI；这不等同于 Linux/macOS 2.28.0 或新版独立 IDE 的登录后实机验收。安装后需要完整退出并重开宿主一次。
@@ -15,9 +15,13 @@ Python 3.10+ 仅用于生命周期，无 pip 依赖；后台使用宿主 Node，
 
 本次本地验证：Node 334 项通过、1 项跳过；Python 81 项通过、1 项跳过（共 82 项）；IDE 11 项通过，相关浏览器回归通过。新版三系统发布 CI 会在发布流程中分别执行，不能将这些本地／浏览器结果视作 Linux/macOS 登录后原生 GUI 已验收。
 
+2026-10-30 / App **2.28.2** 排查：官方发行列表确认版本与构建号；对官方 Linux 发行包只读检查，SDK 能提取并加载，Electron 默认调试端口和主要输入框标记仍存在。Windows 本机 2.28.2 的现有控件可见速率、缓存与上下文，使用仓库 v0.8.12 采集代码只读取得相应统计。实机已安装插件清单仍为 v0.8.9，因此不能据此宣称完整的 v0.8.12 安装、所有平台和所有用户环境均已验收。尚未复现反馈者的「完全不生效」场景，需要区分控件缺失与数据未连接，并核对实际加载版本、宿主类型及集成状态。官方资源 CI 配置改查 2.28.2，历史 2.21.1 的验证记录保留。
+
+2026-10-30 / **v0.8.13**：修复 Windows 用户目录 Junction 导致的在线更新失败，支持逻辑路径与物理路径并保留运行时路径校验；补充旧数据布局的备份隔离、过期计划重查及三语言错误分类。本地 Node 340 项通过、1 项跳过；Python 93 项通过、1 项跳过（共 94 项）；三语言更新 UI 和三种真实进程升级场景通过。三系统完整回归及官方 2.28.2 资源检查作为发布前门禁。
+
 ## Antigravity 自带 IDE
 
-专用包为 `antigrative-dashboard-ide-0.8.12.vsix`，安装入口与桌面 App 独立。
+专用包为 `antigrative-dashboard-ide-0.8.13.vsix`，安装入口与桌面 App 独立。
 Windows 11 / IDE 2.5.5（VS Code base 1.107.0）已用真实对话验证速率、缓存、上下文、重启历史恢复和窄宽布局。
 Linux/macOS 的 IDE 进程筛选、端口归属、安装打包和 Trusted Types 浏览器 fixture 纳入 CI；登录后的 IDE GUI 仍待实机验收。
 当前仅支持默认用户 profile；私有 Preact/DOM 或 RPC 变化可能需要适配，不能保证未来 IDE 版本无需维护。

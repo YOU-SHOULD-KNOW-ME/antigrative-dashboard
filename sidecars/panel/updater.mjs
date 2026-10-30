@@ -6,7 +6,9 @@ import {randomUUID} from 'node:crypto';
 import {spawn} from 'node:child_process';
 
 const progressPhases=new Set(['check','download','verify','extract','backup','install','recover','complete']);
-const errorDetails=new Set(['timeout','dns','certificate','proxy','http','connection','permission','python-version','python-missing']);
+const errorCodes=new Set(['python','network','busy','verification','install','rollback','location']);
+const errorDetails=new Set(['timeout','dns','certificate','proxy','http','connection','permission','python-version','python-missing','install-location','plan-expired']);
+const safeCode=value=>errorCodes.has(value)?value:'install';
 const safeDetail=value=>errorDetails.has(value)?value:undefined;
 const errorDetail=error=>safeDetail(error.detail)||(['EACCES','EPERM'].includes(error.code)?'permission':undefined);
 const updateError=(code,detail)=>Object.assign(Error(code),{detail:safeDetail(detail)});
@@ -77,8 +79,8 @@ export async function runUpdateWorker(worker,args,{spawnImpl=spawn,platform=proc
    child.on('error',error=>finish(error));
    child.on('close',code=>{
     if(overflow){finish(Error('verification'));return;}
-    try{const response=JSON.parse(output.trim());if(response.ok!==true)throw updateError(['network','busy','verification','install','rollback'].includes(response.code)?response.code:'install',response.detail);if(code!==0)throw Error('install');finish(null,response.result);}
-    catch(error){finish(['network','busy','verification','rollback','install'].includes(error.message)?error:Error('install'));}
+    try{const response=JSON.parse(output.trim());if(response.ok!==true)throw updateError(safeCode(response.code),response.detail);if(code!==0)throw Error('install');finish(null,response.result);}
+    catch(error){finish(updateError(safeCode(error.message),error.detail));}
    });
   });
 }
@@ -101,7 +103,7 @@ export class AppUpdater{
     if(result.host!=='app'||result.currentVersion!==this.state.currentVersion)throw Error('verification');
     this.plan=result.hasUpdate?{...result,expires:this.now()+15*60*1000}:null;
     this.state={state:result.hasUpdate?'available':'current',host:'app',currentVersion:result.currentVersion,latestVersion:result.latestVersion,notes:typeof result.notes==='string'?result.notes.slice(0,1800):''};
-   }catch(error){this.state={...this.state,state:'error',error:['python','network','busy','verification','rollback'].includes(error.message)?error.message:'install',errorDetail:errorDetail(error)};}
+   }catch(error){this.state={...this.state,state:'error',error:safeCode(error.message),errorDetail:errorDetail(error)};}
    this.lastCheck=this.now();return this.publicState();
   })().finally(()=>{this.checkPending=null;});return this.checkPending;
  }
@@ -112,8 +114,17 @@ export class AppUpdater{
   try{return await this.applyPending;}finally{this.applyPending=null;}
  }
  async startApply(version){
-  if(!this.plan||this.state.state!=='available'||version!==this.plan.latestVersion||this.plan.expires<this.now()||await this.current()!==this.plan.currentVersion)throw Error('verification');
-  const plan=this.plan;this.plan=null;this.state={...this.state,state:'installing',progress:{phase:'verify'}};
+  const plan=this.plan;
+  if(!plan||this.state.state!=='available'||version!==plan.latestVersion)throw Error('verification');
+  // The dialog can outlive its plan, or another instance can finish an update.
+  // Return actionable state so the UI retries a check rather than claiming a
+  // network failure or attempting to install an obsolete plan.
+  try{
+   if(plan.expires<=this.now())throw updateError('verification','plan-expired');
+   const current=await this.current();this.state.currentVersion=current;
+   if(current!==plan.currentVersion)throw updateError('verification','plan-expired');
+  }catch(error){this.plan=null;this.state={...this.state,state:'error',error:safeCode(error.message),errorDetail:errorDetail(error),progress:undefined};return this.publicState();}
+  this.plan=null;this.state={...this.state,state:'installing',progress:{phase:'verify'}};
   this.job=(async()=>{
    let file;
    try{
@@ -128,7 +139,7 @@ export class AppUpdater{
     }});
     if(result.verified!==true||result.version!==version||await this.current()!==version)throw Error('verification');
     this.state={...this.state,state:'installed',currentVersion:version,progress:{phase:'complete'}};
-   }catch(error){this.state={...this.state,state:'error',error:['network','busy','verification','python','rollback'].includes(error.message)?error.message:'install',errorDetail:errorDetail(error)};}
+   }catch(error){this.state={...this.state,state:'error',error:safeCode(error.message),errorDetail:errorDetail(error)};}
    finally{if(file)await unlink(file).catch(()=>{});}
   })().finally(()=>{this.job=null;});return this.publicState();
  }

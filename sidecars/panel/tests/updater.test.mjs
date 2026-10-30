@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {mkdtemp,writeFile,readFile,rm,readdir} from 'node:fs/promises';
 import {join,resolve} from 'node:path';
+import {fileURLToPath} from 'node:url';
 import {tmpdir} from 'node:os';
 import {AppUpdater,runUpdateWorker,releaseRuntimeDirectory} from '../updater.mjs';
 import {EventEmitter} from 'node:events';
@@ -41,8 +42,8 @@ test('simultaneous apply clicks start one worker and check cannot replace instal
 
 test('expired or changed-install plans never start a download',async t=>{
  let calls=0,now=100;const {service,directory}=await setup(t,async()=>{calls++;return {host:'app',currentVersion:'0.8.6',latestVersion:'0.8.7',hasUpdate:true};});service.now=()=>now;
- await service.check();now+=15*60*1000+1;await assert.rejects(()=>service.apply('0.8.7'));assert.equal(calls,1);
- await service.check();await writeFile(join(directory,'plugin.json'),JSON.stringify({name:'antigravity-pulse',version:'0.8.8'}));await assert.rejects(()=>service.apply('0.8.7'));assert.equal(calls,2);
+ await service.check();now+=15*60*1000+1;assert.equal((await service.apply('0.8.7')).errorDetail,'plan-expired');assert.equal(calls,1);
+ await service.check();await writeFile(join(directory,'plugin.json'),JSON.stringify({name:'antigravity-pulse',version:'0.8.8'}));const state=await service.apply('0.8.7');assert.equal(state.errorDetail,'plan-expired');assert.equal(state.currentVersion,'0.8.8');assert.equal(calls,2);
 });
 
 test('missing installed manifest becomes a retryable static check error',async t=>{
@@ -180,4 +181,68 @@ test('permission failures retain a static detail without leaking filesystem mess
  const {service}=await setup(t,async()=>{throw Object.assign(Error('private filesystem path'),{code:'EACCES'});});
  const state=await service.check();assert.equal(state.error,'install');assert.equal(state.errorDetail,'permission');
  assert.equal(JSON.stringify(state).includes('private'),false);
+});
+
+test('worker location rejection remains distinct from package verification without exposing paths',async()=>{
+ let calls=0;
+ await assert.rejects(()=>runUpdateWorker('worker.py',['check'],{spawnImpl:scriptedSpawn(({args,respond})=>{
+  calls++;
+  respond(args.includes('-c')?{pulseUpdatePython:1,supported:true}:{ok:false,code:'location',detail:'install-location',message:'C:\\private-user\\.gemini',traceback:'private traceback'},args.includes('-c')?0:1);
+ })}),error=>error.message==='location'&&error.detail==='install-location'&&!JSON.stringify(error).includes('private'));
+ assert.equal(calls,2,'location failures do not try another interpreter');
+});
+
+test('location failures survive check and apply feedback and retry performs a fresh check',async t=>{
+ let checks=0,installs=0,locationFailure=true;
+ const {service}=await setup(t,async(_worker,args)=>{
+  if(args[0]==='check')checks++;else installs++;
+  if(locationFailure||args[0]==='apply')throw Object.assign(Error('location'),{detail:'install-location',path:'private path'});
+  return {host:'app',currentVersion:'0.8.6',latestVersion:'0.8.7',hasUpdate:true};
+ });
+ const failed=await service.check();assert.equal(failed.error,'location');assert.equal(failed.errorDetail,'install-location');assert.equal(JSON.stringify(failed).includes('private'),false);
+ locationFailure=false;assert.equal((await service.check()).state,'available');assert.equal(checks,2);
+ await service.apply('0.8.7');await service.job;
+ assert.equal(service.publicState().error,'location');assert.equal(service.publicState().errorDetail,'install-location');assert.equal(installs,1);assert.equal(service.plan,null);
+ assert.equal((await service.check()).state,'available');assert.equal(checks,3);assert.equal(service.publicState().errorDetail,undefined);
+});
+
+test('expired plan returns actionable state rather than a network-shaped rejection',async t=>{
+ let calls=0,clock=100;
+ const {service}=await setup(t,async()=>{calls++;return {host:'app',currentVersion:'0.8.6',latestVersion:'0.8.7',hasUpdate:true};});
+ service.now=()=>clock;await service.check();clock+=15*60*1000+1;
+ const state=await service.request({action:'apply',version:'0.8.7'});
+ assert.equal(state.state,'error');assert.equal(state.error,'verification');assert.equal(state.errorDetail,'plan-expired');assert.equal(service.plan,null);assert.equal(calls,1);
+ assert.equal((await service.check()).state,'available');assert.equal(calls,2,'retry refreshes the plan instead of resubmitting the old install');
+});
+
+test('unknown worker failure codes and details never expose diagnostics',async()=>{
+ const secret='C:\\private-user\\.gemini https://user:password@proxy.invalid';
+ await assert.rejects(()=>runUpdateWorker('worker.py',['check'],{spawnImpl:scriptedSpawn(({args,respond})=>{
+  respond(args.includes('-c')?{pulseUpdatePython:1,supported:true}:{ok:false,code:secret,detail:secret,message:secret},args.includes('-c')?0:1);
+ })}),error=>error.message==='install'&&error.detail===undefined&&!JSON.stringify(error).includes('private-user'));
+});
+
+test('real worker location failures pass through the Node protocol without network access',async t=>{
+ const {directory}=await setup(t,async()=>{});
+ const worker=fileURLToPath(new URL('../../../compat/update-worker.py',import.meta.url));
+ let failure;
+ try{await runUpdateWorker(worker,['check','--target',directory]);}
+ catch(error){failure=error;}
+ if(failure?.message==='python'){t.skip('Python 3.10+ is unavailable');return;}
+ assert.equal(failure?.message,'location');assert.equal(failure?.detail,'install-location');
+ assert.equal(JSON.stringify(failure).includes(directory),false);
+ assert.deepEqual(await readdir(directory),['plugin.json'],'An invalid installation must fail before creating a transaction or downloading');
+});
+
+test('an uncertain outcome after committing never reruns installation and a fresh check finds the new version',async t=>{
+ let installed=false,applies=0;
+ const fixture=await setup(t,async(_worker,args)=>{
+  if(args[0]==='check')return {host:'app',currentVersion:installed?'0.8.7':'0.8.6',latestVersion:'0.8.7',hasUpdate:!installed};
+  applies++;await writeFile(join(fixture.directory,'plugin.json'),JSON.stringify({name:'antigravity-pulse',version:'0.8.7'}));installed=true;
+  throw Error('install'); // A committed worker may exit without a valid result.
+ });
+ await fixture.service.check();await fixture.service.apply('0.8.7');await fixture.service.job;
+ assert.equal(fixture.service.publicState().error,'install');assert.equal(fixture.service.plan,null);assert.equal(applies,1);
+ const checked=await fixture.service.check();assert.equal(checked.state,'current');assert.equal(checked.currentVersion,'0.8.7');assert.equal(applies,1);
+ assert.deepEqual((await readdir(fixture.service.dataDir)).filter(name=>name.startsWith('plan-')),[]);
 });

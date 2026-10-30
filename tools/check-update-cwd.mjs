@@ -3,9 +3,9 @@
 // Every file and HOME value is isolated; GitHub/network functions are replaced
 // only inside the temporary Python harness. No installed plugin is touched.
 import assert from 'node:assert/strict';
-import {mkdtemp,mkdir,writeFile,readFile,rm} from 'node:fs/promises';
+import {mkdtemp,mkdir,writeFile,readFile,rm,symlink,realpath,lstat,unlink,rmdir} from 'node:fs/promises';
 import {tmpdir} from 'node:os';
-import {join,dirname,resolve} from 'node:path';
+import {join,dirname,resolve,basename} from 'node:path';
 import {fileURLToPath,pathToFileURL} from 'node:url';
 import {spawnSync,spawn} from 'node:child_process';
 import {AppUpdater} from '../sidecars/panel/updater.mjs';
@@ -36,13 +36,23 @@ if(process.argv[2]==='--child'){
  assert.equal(await readFile(join(target,'sidecars','panel','data','history-v1','record.json'),'utf8'),'saved private statistics');
  assert.equal(await readFile(join(target,'sidecars','panel','data','preferences.json'),'utf8'),'saved private preferences');
  assert.equal(await readFile(join(data,'usage-v1','ledger.json'),'utf8'),'saved external usage');
+ if(process.env.PULSE_CWD_RELOCATED==='1'){
+  assert.equal((await lstat(join(process.env.USERPROFILE,'.gemini'))).isSymbolicLink(),true,'The user-owned relocation must survive the update');
+  assert.equal(await realpath(target),process.env.PULSE_CWD_REAL_TARGET);
+  console.log('Passed: relocated user directory, logical/physical target identity and private records are preserved.');
+ }
 }else{
  const candidates=process.platform==='win32'?[['python'],['py','-3'],['python3']]:[['python3'],['python']];
  const python=candidates.find(([command,...prefix])=>spawnSync(command,[...prefix,'-c','import sys;sys.exit(0 if sys.version_info >= (3,10) else 1)'],{encoding:'utf8',windowsHide:true,timeout:4000}).status===0);
  assert.ok(python,'Python 3.10+ is required for the isolated updater regression');
- const home=await mkdtemp(join(tmpdir(),'ag-update-cwd-'));
+ const fixture=await mkdtemp(join(tmpdir(),'ag-update-cwd-')),home=join(fixture,'user home 中文');
+ const relocated=process.argv.includes('--junction'),physical=process.argv.includes('--physical-target'),runtimeData=process.argv.includes('--runtime-data');
+ const alias=join(home,'.gemini');
  try{
-  const target=join(home,'.gemini','config','plugins','antigravity-pulse'),panel=join(target,'sidecars','panel'),data=join(home,'data'),harness=join(home,'compat','update-worker.py'),archive=join(home,'fixture.zip'),shim=join(home,'agy-node.cmd'),launcher=join(home,'source space 中文 & safe','check-update-cwd.mjs');
+  await mkdir(home);
+  if(relocated){const storage=join(fixture,'relocated storage','.gemini');await mkdir(storage,{recursive:true});await symlink(storage,alias,process.platform==='win32'?'junction':'dir');}
+  const logical=join(alias,'config','plugins','antigravity-pulse');await mkdir(logical,{recursive:true});
+  const target=physical?await realpath(logical):logical,panel=join(target,'sidecars','panel'),data=runtimeData?join(panel,'data'):join(home,'data'),harness=join(home,'compat','update-worker.py'),archive=join(home,'fixture.zip'),shim=join(home,'agy-node.cmd'),launcher=join(home,'source space 中文 & safe','check-update-cwd.mjs');
   await mkdir(panel,{recursive:true});await mkdir(dirname(harness),{recursive:true});await mkdir(data);
   await mkdir(dirname(launcher));await writeFile(launcher,`import ${JSON.stringify(pathToFileURL(script).href)};\n`);
   await writeFile(join(target,'plugin.json'),manifest('0.8.11'));await writeFile(join(panel,'old.txt'),'old runtime');
@@ -51,7 +61,7 @@ if(process.argv[2]==='--child'){
   // The shim intentionally never changes directory: cmd keeps its cwd open
   // while waiting for Node, exactly as the real host launch shim does.
   await writeFile(shim,'@echo off\r\n"%PULSE_CWD_NODE%" %*\r\nexit /b %errorlevel%\r\n');
-  const env={...process.env,HOME:home,USERPROFILE:home,PYTHONDONTWRITEBYTECODE:'1',PULSE_CWD_TARGET:target,PULSE_CWD_HARNESS:harness,PULSE_CWD_DATA:data,PULSE_CWD_ARCHIVE:archive,PULSE_CWD_REAL_WORKER:join(root,'compat','update-worker.py'),PULSE_CWD_NODE:process.execPath,PULSE_CWD_SCRIPT:launcher,PULSE_CWD_SHIM:shim};
+  const env={...process.env,HOME:home,USERPROFILE:home,PYTHONDONTWRITEBYTECODE:'1',PULSE_CWD_TARGET:target,PULSE_CWD_HARNESS:harness,PULSE_CWD_DATA:data,PULSE_CWD_ARCHIVE:archive,PULSE_CWD_REAL_WORKER:join(root,'compat','update-worker.py'),PULSE_CWD_NODE:process.execPath,PULSE_CWD_SCRIPT:launcher,PULSE_CWD_SHIM:shim,PULSE_CWD_RELOCATED:relocated?'1':'0',PULSE_CWD_REAL_TARGET:await realpath(target)};
   const build=String.raw`import os,json,zipfile
 from pathlib import Path
 required=('plugin.json','compat/inline-widget.cjs','compat/runtime-ui.mjs','compat/i18n.cjs','compat/theme.cjs','sidecars/panel/main.mjs','sidecars/panel/metrics.mjs','sidecars/panel/history.mjs','assets/logo.svg')
@@ -98,7 +108,11 @@ raise SystemExit(w.main())
     child.on('close',code=>{clearTimeout(timer);if(code!==0)reject(Error(stdout+stderr));else{process.stdout.write(stdout);done();}});
    });
   }
-  if(process.platform==='win32')await child('baseline');
+  if(process.platform==='win32'&&!relocated&&!runtimeData)await child('baseline');
   await child('fixed');
- }finally{await rm(home,{recursive:true,force:true});}
+ }finally{
+  assert.equal(dirname(resolve(fixture)),resolve(tmpdir()));assert.ok(basename(fixture).startsWith('ag-update-cwd-'));
+  if(relocated){const link=await lstat(alias).catch(()=>null);if(link?.isSymbolicLink())await (process.platform==='win32'?rmdir(alias):unlink(alias));}
+  await rm(fixture,{recursive:true,force:true});
+ }
 }
