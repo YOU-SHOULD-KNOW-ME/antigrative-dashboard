@@ -55,7 +55,9 @@ const runtimeSettings = () => {
   settingsCache=settings;settingsAt=Date.now();return settings;
 };
 const integration = new RuntimeUi({
-  snapshot: input => metrics(input),
+  // Composer identity is authoritative. Unknown/new inline inputs request quota
+  // only; SDK/HTTP panels keep the store's automatic most-recent selection.
+  snapshot: input => metrics({...input,selectLatest:false}),
   preferences,
   updater,
   owner:ownership?.token,owns:()=>ownership?ownership.isOwner():true,

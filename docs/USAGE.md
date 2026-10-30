@@ -27,6 +27,16 @@ shows that subagent's own subtree. Speed, request/step counts, response/thinking
 sampled model and context still describe the selected agent. Account quota windows
 remain the host's account-level values.
 
+When the App shows a subagent in an auxiliary sidebar, its conversation ID can
+be attached to the message area beside the input rather than to an input ancestor.
+The inline widget resolves that local relationship before considering the main
+page route. With multiple composers open, focusing an input selects its widget
+statistics; Full View uses that conversation's enclosing owner. If a sidebar's
+identity is loading, invalid or ambiguous, conversation metrics stay unavailable
+instead of displaying the main agent's data. Account quotas remain shared. These
+unresolved inline requests do not enumerate or read the most recent conversation;
+the standalone dashboard panel keeps its existing automatic selection behavior.
+
 Relationships come only from the host's `parentConversationId` / `rootConversationId`
 metadata and structured `invokeSubagent` result IDs (including the legacy field).
 Ordinary conversation forks, matching titles, prompts and workspace paths are not

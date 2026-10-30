@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.8.14 — 2026-10-30
+
+- Fix [#24](https://github.com/YOU-SHOULD-KNOW-ME/antigrative-dashboard/issues/24): resolve a sidebar subagent from its local conversation area and composer instead of falling back to the main page's conversation. Focus changes refresh the selected agent promptly; unavailable or ambiguous local identities do not borrow the parent's statistics.
+- Keep inline requests with unresolved conversation identity quota-only, avoiding unnecessary reads of the latest conversation. Standalone panel selection and account-wide quotas retain their existing behavior.
+
 ## 0.8.13 — 2026-10-30
 
 - Fix [#23](https://github.com/YOU-SHOULD-KNOW-ME/antigrative-dashboard/issues/23): support relocated user directories such as a Windows `.gemini` junction, including the physical module path supplied by Node. Bind install and recovery operations to validated physical directories while continuing to reject linked plugin roots and runtime entries.

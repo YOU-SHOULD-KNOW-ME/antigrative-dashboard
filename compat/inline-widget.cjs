@@ -53,13 +53,60 @@ module.exports = function installAgPulseInlineWidget() {
   const style=(element,name,value)=>{if(element.style.getPropertyValue(name)!==value)element.style.setProperty(name,value);};
   const hidden=(element,value)=>{if(element.hidden!==value)element.hidden=value;};
   const GUID=/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+  const visibleHostElement=element=>element.isConnected&&!element.closest('[hidden],[inert]')&&element.getClientRects().length>0&&getComputedStyle(element).visibility!=='hidden';
+  const sidebarOwners=new WeakMap();
   const conversationId=()=>{
     if(surface)return surface.conversationId(composer);
-    // Nested agents need not change the main window route. Read only the
-    // nearest owner of this exact composer, never a sidebar/global chat ID.
-    const owner=(composer?.box||composer?.row)?.closest('[data-cascade-id]');
-    if(owner){const id=owner.getAttribute('data-cascade-id');return GUID.test(id||'')?id:null;}
-    return location.pathname.match(/\/c\/([0-9a-f-]{36})/i)?.[1]||null;
+    const anchor=composer?.box||composer?.row;
+    if(!anchor?.isConnected)return null;
+    const readId=element=>{const id=element.getAttribute('data-cascade-id');return GUID.test(id||'')?id.toLowerCase():null;};
+    // Full View encloses its input in the conversation owner. The auxiliary
+    // subagent tab instead puts the owner on a sibling message area. Search
+    // only siblings of this input's ancestor path, never other panes or the
+    // transcript. A small wrapper around the message area does not change its
+    // ownership; missing/ambiguous/over-budget evidence fails closed.
+    const paneBoundary='aside,[role="tabpanel"],[data-aux-pane-open],[data-pane-id]';
+    let budget=96,otherComposer=false;
+    const markersIn=(scope,branch)=>{
+      const markers=[],stack=[];let evidence=false;
+      if(scope.childElementCount-1>budget)return {markers,evidence,limited:true};
+      for(const element of scope.children)if(element!==branch)stack.push({element,depth:0});
+      while(stack.length){
+        if(--budget<0)return {markers,evidence,limited:true};
+        const {element,depth}=stack.pop();
+        if(element.matches('[data-testid="subagent-tab-conversation"]')){evidence=true;if(visibleHostElement(element))markers.push(element);continue;}
+        if(element===node||element.closest('[hidden],[inert]'))continue;
+        const css=getComputedStyle(element);if(css.display==='none'||css.visibility==='hidden')continue;
+        if(element.matches(paneBoundary+', [data-testid="conversation-view"]'))continue;
+        if(element.matches('[data-testid="agent-input-box"]')){if(visibleHostElement(element))otherComposer=true;continue;}
+        if(element.matches('script,style,template,svg'))continue;
+        if((element.childElementCount&&depth>=8)||element.childElementCount+stack.length>budget)return {markers,evidence,limited:true};
+        for(const child of element.children)stack.push({element:child,depth:depth+1});
+      }
+      return {markers,evidence,limited:false};
+    };
+    const previous=sidebarOwners.get(anchor);
+    if(previous&&!previous.contains(anchor))sidebarOwners.delete(anchor);
+    let branch=null,hops=0;
+    for(let scope=anchor;scope&&scope!==document.body&&scope!==document.documentElement;branch=scope,scope=scope.parentElement){
+      if(++hops>32)return null;
+      // The host may reuse the old sidebar content root for Full View.
+      if(scope.matches('[data-testid="conversation-view"]'))return readId(scope);
+      if(scope===anchor&&scope.hasAttribute('data-cascade-id'))return readId(scope);
+      if(branch&&composer.kind==='subagent'){
+        const {markers,evidence,limited}=markersIn(scope,branch);
+        if(limited)return null;
+        if(evidence){
+          if(!otherComposer)sidebarOwners.set(anchor,scope);
+          return !otherComposer&&markers.length===1?readId(markers[0]):null;
+        }
+      }
+      if(sidebarOwners.get(anchor)===scope)return null;
+      if(scope.hasAttribute('data-cascade-id'))return readId(scope);
+      if(scope.matches(paneBoundary))return null;
+    }
+    const id=location.pathname.match(/\/c\/([0-9a-f-]{36})/i)?.[1];
+    return GUID.test(id||'')?id.toLowerCase():null;
   };
   function syncConversation(){
     const id=conversationId();
@@ -413,7 +460,7 @@ module.exports = function installAgPulseInlineWidget() {
   }
   function findComposer(){
     if(surface)return surface.findComposer(composer);
-    const visible=element=>element.isConnected&&!element.closest('[hidden],[inert]')&&element.getClientRects().length>0&&getComputedStyle(element).visibility!=='hidden';
+    const visible=visibleHostElement;
     const semanticEditors=Array.from(document.querySelectorAll('[role="combobox"][contenteditable="true"],[role="textbox"][contenteditable="true"]')).filter(visible);
     const editors=Array.from(new Set([...semanticEditors,...Array.from(document.querySelectorAll('[aria-label="Message input"]')).filter(visible)]));
     const stableModels=Array.from(document.querySelectorAll('[data-testid="model-selector-trigger"]')).filter(visible);
@@ -730,14 +777,15 @@ module.exports = function installAgPulseInlineWidget() {
   }
   const observer=new MutationObserver(records=>{if(records.some(record=>record.target!==node&&!node?.contains(record.target)))scheduleLayout();});observer.observe(document.documentElement,{childList:true,subtree:true,attributes:true,attributeFilter:['style','class','hidden','inert','data-cascade-id','data-testid','data-tooltip-id','aria-label','role','contenteditable']});
   const onKey=e=>{if(e.key==='Escape')hide();}, onPointer=e=>{if(node&&!e.composedPath().includes(node))hide();};
-  document.addEventListener('keydown',onKey);document.addEventListener('pointerdown',onPointer);
+  const onFocus=e=>{if(!node||!e.composedPath().includes(node))scheduleLayout();};
+  document.addEventListener('keydown',onKey);document.addEventListener('pointerdown',onPointer);document.addEventListener('focusin',onFocus);
   window.addEventListener('resize',scheduleLayout);document.addEventListener('scroll',scheduleLayout,true);
   densityMedia.addEventListener('change',stopDensityMotion);
   const timerId=setInterval(()=>{mount();fit();tick();position();if(conversationId()!==lastConversation||Date.now()-lastFetch>(document.hidden?10000:2200))refresh();},1000);
   window.__agPulseDispose=()=>{
     disposed=true;requestEpoch++;pending=false;refreshRequest=null;stopDensityMotion();densityFrame=null;densityProbe=null;
     clearInterval(timerId);clearTimeout(hoverTimer);clearTimeout(openTimer);if(layoutFrame!==null)cancelAnimationFrame(layoutFrame);observer.disconnect();resizeObserver?.disconnect();themeController?.dispose();preferences.dispose();hide();usageDashboard?.dispose();updateMenu?.dispose();node?.remove();
-    document.removeEventListener('keydown',onKey);document.removeEventListener('pointerdown',onPointer);
+    document.removeEventListener('keydown',onKey);document.removeEventListener('pointerdown',onPointer);document.removeEventListener('focusin',onFocus);
     document.removeEventListener('scroll',scheduleLayout,true);window.removeEventListener('resize',scheduleLayout);
     densityMedia.removeEventListener('change',stopDensityMotion);
     document.removeEventListener('DOMContentLoaded',mount);node=null;root=null;composer=null;

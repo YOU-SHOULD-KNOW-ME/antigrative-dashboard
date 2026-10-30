@@ -4,24 +4,24 @@ import {spawnSync} from 'node:child_process';
 
 // Execute the real App/IDE entrypoints with inert host, disk and transport
 // adapters. No installed application or personal statistics are touched.
-async function entryFixture(host,url){
+async function entryFixture(host,url,selection=false){
   const {SourceTextModule,SyntheticModule,createContext}=await import('node:vm');
   const {readFile}=await import('node:fs/promises');
-  const state={owned:true,asyncChecks:0,diskReads:0,syncs:[],snapshots:[],predicates:[],ingests:0};
-  let snapshot;
+  const state={owned:true,asyncChecks:0,diskReads:0,syncs:[],snapshots:[],predicates:[],ingests:0,metricsInputs:[]};
+  const apis=new Map();let snapshot,http;
   class Owner{token='fixture';startedAt=1;async claim(){return true;}owns(){return state.owned;}async isOwner(){state.asyncChecks++;return state.owned;}watch(){}stop(){state.owned=false;}}
-  class Store{constructor(client,options){state.store=this;state.predicates.push(options.owns);}async snapshot(){return {connection:'live'};}dispose(){}}
+  class Store{constructor(client,options){state.store=this;state.predicates.push(options.owns);}async snapshot(input){state.metricsInputs.push(input);return {connection:'live'};}dispose(){}}
   class Usage{constructor(store,ledger,options){state.predicates.push(options.owns);}async snapshot(options){state.snapshots.push(options??null);return {};}async sync(force){state.syncs.push(force);}ingest(){state.ingests++;}dispose(){}}
   class Ui{health={};constructor(options){snapshot=options.snapshot;}start(){}async stop(){}}
-  class App{api(){}page(){}run(){}}
+  class App{api(path,handler){apis.set(path,handler);}page(){}run(){}}
   const source=await readFile(new URL(url),'utf8');
   const native=Object.fromEntries(await Promise.all(['node:path','node:url','node:os'].map(async name=>[name,await import(name)])));
-  const fakeProcess={env:host==='ide'?{AG_PULSE_IDE_PROFILE:'fixture'}:{ANTIGRAVITY_SIDECAR_WEB_PORT:'1'},exit(){throw Error('Unexpected exit');},on(){},once(){}};
-  const context=createContext({process:fakeProcess,console,setInterval:()=>({unref(){}}),clearInterval(){},setTimeout:()=>({unref(){}}),clearTimeout(){}});
+  const fakeProcess={env:host==='ide'?{AG_PULSE_IDE_PROFILE:'fixture'}:host==='app'?{ANTIGRAVITY_SIDECAR_WEB_PORT:'1'}:{},exit(){throw Error('Unexpected exit');},on(){},once(){}};
+  const context=createContext({process:fakeProcess,console,URL,URLSearchParams,setInterval:()=>({unref(){}}),clearInterval(){},setTimeout:()=>({unref(){}}),clearTimeout(){}});
   const modules={
     'node:fs':{readFileSync(file){state.diskReads++;return String(file).endsWith('.cjs')?'module.exports = function() {};':'{}';}},
     'node:fs/promises':{readFile:async()=> 'module.exports = function() {};',mkdir:async()=>{},writeFile:async()=>{}},
-    'node:http':{createServer(){throw Error('Unexpected preview server');}},
+    'node:http':{createServer(handler){if(host!=='preview')throw Error('Unexpected preview server');http=handler;return {listen(){}};}},
     'node:module':{createRequire:()=>()=>()=>({css:()=>''})},
     'store.mjs':{MetricsStore:Store},'usage.mjs':{DesktopUsage:Usage,UsageLedger:class{}},
     'sdk.mjs':{loadSidecarSdk:async()=>({SidecarApp:App,Response:class{}})},
@@ -41,6 +41,19 @@ async function entryFixture(host,url){
     return new SyntheticModule(Object.keys(values),function(){for(const [name,value]of Object.entries(values))this.setExport(name,value);},{context});
   });
   await entry.evaluate();
+  if(selection){
+    const child='22222222-2222-2222-2222-222222222222';
+    for(const input of [{},{conversationId:null},{conversationId:undefined},{conversationId:child,force:true,selectLatest:true}])await snapshot(input);
+    const inlineInputs=state.metricsInputs.splice(0),statuses=[];
+    if(host==='app'){
+      for(const input of [{},{conversationId:null},{conversationId:child,force:'1',selectLatest:false}])await apis.get('/api/metrics')(input);
+    }else{
+      for(const query of ['', '?conversationId=', '?conversationId='+child+'&force=1&selectLatest=false']){
+        await http({method:'GET',url:'/api/metrics'+query,headers:{host:'127.0.0.1:17891'}},{setHeader(){},writeHead(status){statuses.push(status);},end(){}});
+      }
+    }
+    return {inlineInputs,panelInputs:state.metricsInputs,statuses};
+  }
   for(const input of [{conversationId:'fixture'}, {force:true}, {conversationId:'fixture',force:true}, {conversationId:'fixture',force:true,usageSync:'true'}])await snapshot(input);
   const ordinarySyncs=state.syncs.length,ordinarySnapshots=[...state.snapshots];
   await snapshot({conversationId:'fixture',force:true,usageSync:true});
@@ -69,4 +82,19 @@ for(const host of ['app','ide'])test(`${host} real entrypoint gates history and 
   assert.equal(value.hotPathReads,0,'ownership callbacks must not read settings from disk');
   assert.equal(value.refused,true,'superseded entrypoint must refuse new metrics/import requests');
   assert.equal(value.ingests,1,'superseded trajectory callbacks must not write usage');
+});
+
+for(const host of ['app','preview'])test(`${host} real entrypoint keeps unknown inline selection separate from panel defaults`,()=>{
+  const url=new URL('../main.mjs',import.meta.url).href;
+  const script=`(${entryFixture.toString()})(${JSON.stringify(host)},${JSON.stringify(url)},true).then(value=>console.log(JSON.stringify(value)))`;
+  const result=spawnSync(process.execPath,['--experimental-vm-modules','--input-type=module','-e',script],{encoding:'utf8',timeout:15000,windowsHide:true});
+  assert.equal(result.status,0,result.stderr);
+  const value=JSON.parse(result.stdout.trim());
+  assert.equal(value.inlineInputs.length,4);assert.ok(value.inlineInputs.every(input=>input.selectLatest===false));
+  assert.equal(value.inlineInputs.at(-1).conversationId,'22222222-2222-2222-2222-222222222222');
+  assert.equal(value.inlineInputs.at(-1).force,true);
+  assert.equal(value.panelInputs.length,3);assert.ok(value.panelInputs.every(input=>!Object.hasOwn(input,'selectLatest')));
+  assert.equal(value.panelInputs.at(-1).conversationId,'22222222-2222-2222-2222-222222222222');
+  assert.equal(value.panelInputs.at(-1).force,true);
+  if(host==='preview')assert.deepEqual(value.statuses,[200,200,200]);
 });

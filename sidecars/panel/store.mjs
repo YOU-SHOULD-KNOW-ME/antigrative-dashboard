@@ -120,7 +120,7 @@ export class MetricsStore {
     return entry.pending;
   }
 
-  async snapshot({ conversationId, force = false } = {}) {
+  async snapshot({ conversationId, force = false, selectLatest = true } = {}) {
     let connection = 'live', error = null, speed = null, sessionError = null;
     try {
       if (!this.owned()) throw new Error('后台已重新连接，请等待刷新');
@@ -134,11 +134,13 @@ export class MetricsStore {
       let summaries = this.summaries;
       // The inline composer already supplies its exact ID. Enumerating every
       // conversation first adds unrelated RPC latency to a route transition.
-      if (!conversationId) {
+      // An unresolved inline composer must not read an unrelated recent chat.
+      // Standalone panels retain their default automatic conversation selection.
+      if (!conversationId && selectLatest !== false) {
         try { summaries = await this.listConversations(force); }
         catch (e) { connection = this.quota ? 'stale' : 'offline'; error ||= e.message; }
       }
-      const selected = conversationId || summaries[0]?.id;
+      const selected = conversationId || (selectLatest !== false ? summaries[0]?.id : null);
       if (selected) {
         try { speed = await this.session(selected, force); }
         catch (e) { sessionError = e.message; }

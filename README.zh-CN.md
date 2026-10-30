@@ -7,7 +7,7 @@
 模型选择旁只显示生成速率、缓存和上下文占用；悬停上下文，一并查看上下文、5 小时和周额度详情。<br>
 缩略信息常驻；鼠标悬停，才展开详细统计。
 
-[![Version 0.8.13](https://img.shields.io/badge/version-0.8.13-91adff?style=flat-square&labelColor=252936)](CHANGELOG.md)
+[![Version 0.8.14](https://img.shields.io/badge/version-0.8.14-91adff?style=flat-square&labelColor=252936)](CHANGELOG.md)
 [![Platforms](https://img.shields.io/badge/host-Windows%20%7C%20Linux%20%7C%20macOS-83d8b9?style=flat-square&labelColor=252936)](COMPATIBILITY.md)
 [![Antigravity 2.21.1 / 2.22.0](https://img.shields.io/badge/Antigravity-2.21.1%20%2F%202.22.0-c5a0ff?style=flat-square&labelColor=252936)](COMPATIBILITY.md)
 [![MIT](https://img.shields.io/badge/license-MIT-d4d9e6?style=flat-square&labelColor=252936)](LICENSE)
@@ -16,7 +16,7 @@
 
 </div>
 
-**v0.8.13：** 修复 [#23](https://github.com/YOU-SHOULD-KNOW-ME/antigrative-dashboard/issues/23)：在线更新支持迁移后的 `.gemini` 目录，区分本地路径与安装包错误，过期更新计划会重新检查，并防止旧数据目录布局下的备份递归复制。保留设置与统计。若旧更新器已因目录联接报错，请先用发布 ZIP 手动覆盖安装一次。[发布说明](https://github.com/YOU-SHOULD-KNOW-ME/antigrative-dashboard/releases/tag/v0.8.13) · [更新详情](docs/UPDATES.md#relocated-user-directories-issue-23)。
+**v0.8.14：** 修复 [#24](https://github.com/YOU-SHOULD-KNOW-ME/antigrative-dashboard/issues/24)：侧栏子代理正确显示自己的统计；焦点切换、Full View 和迟到响应保持会话隔离，身份未确认时不再额外读取最近主会话。[发布说明](https://github.com/YOU-SHOULD-KNOW-ME/antigrative-dashboard/releases/tag/v0.8.14)。
 
 ## 看看效果
 
@@ -64,7 +64,7 @@
 ## Antigravity IDE
 
 **v0.7.0** 新增反重力自己的独立 IDE 适配。下载发布页的
-`antigrative-dashboard-ide-0.8.13.vsix`，在 IDE 扩展页选择「从 VSIX 安装」。
+`antigrative-dashboard-ide-0.8.14.vsix`，在 IDE 扩展页选择「从 VSIX 安装」。
 仅安装 IDE 的用户也可以使用，无需先装桌面 App。
 
 完全退出 IDE 后，使用带
