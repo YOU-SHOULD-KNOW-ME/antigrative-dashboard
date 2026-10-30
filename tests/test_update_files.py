@@ -37,7 +37,9 @@ class FileUpdateTests(unittest.TestCase):
     def setUp(self):
         temporary = tempfile.TemporaryDirectory(prefix='ag-file-update-')
         self.addCleanup(temporary.cleanup)
-        self.home = Path(temporary.name)
+        # Fault hooks compare paths emitted by the canonicalized updater. macOS
+        # /var aliases and Windows 8.3 TEMP names must use the same spelling.
+        self.home = Path(temporary.name).resolve()
         self.target = self.home / '.gemini/config/plugins/antigravity-pulse'
         for name in worker.REQUIRED:
             self.write(self.target / name, self.content(name, '0.8.8'))

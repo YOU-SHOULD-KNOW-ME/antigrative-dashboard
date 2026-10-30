@@ -20,7 +20,9 @@ class UpdateWorkerTests(unittest.TestCase):
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory()
         self.addCleanup(self.temp.cleanup)
-        self.home = Path(self.temp.name)
+        # Keep process-kill hooks aligned with canonicalized filesystem writes,
+        # including macOS /var aliases and Windows 8.3 TEMP names.
+        self.home = Path(self.temp.name).resolve()
         self.target = self.home / '.gemini/config/plugins/antigravity-pulse'
         self.target.mkdir(parents=True)
         (self.target / 'plugin.json').write_text(json.dumps({'name': 'antigravity-pulse', 'version': '0.8.6'}))
