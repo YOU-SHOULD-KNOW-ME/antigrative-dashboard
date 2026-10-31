@@ -98,15 +98,24 @@ problems reported in [#22](https://github.com/YOU-SHOULD-KNOW-ME/antigrative-das
   ledger revision. Candidate, page and memory/time limits retain partial coverage
   instead of implying that every historical record was read.
 
+## IDE 2.6.0 compatibility (Issue #26)
+
+Antigravity IDE 2.6.0 uses `agy --hub` for its language-service backend. The
+IDE adapter recognizes that form and the older `language_server_*` form while
+keeping the renderer port tied to the real IDE root. Renderer attachment does
+not wait for metrics discovery, so the composer controls stay mounted during a
+temporary metrics outage. Ordinary `agy`, LSP and ambiguous multi-instance
+processes are rejected.
+
 Current-conversation requests continue to be recorded during ordinary polling.
 The collector preserves existing usage records and settings. Usage is local
 observed consumption, not provider billing.
 
-Install **v0.8.15** through **Context details → ⋯ → Check for updates**, then fully
+Install **v0.8.16** through **Context details → ⋯ → Check for updates**, then fully
 quit and reopen the host once. A plugin-only restart cannot revoke old callbacks
 already recreated in the open page. If an older updater already fails installation,
-use `antigrative-dashboard-0.8.15.zip` for a one-time manual repair; standalone IDE
-users should install `antigrative-dashboard-ide-0.8.15.vsix` and reopen the IDE.
+use `antigrative-dashboard-0.8.16.zip` for a one-time manual repair; standalone IDE
+users should install `antigrative-dashboard-ide-0.8.16.vsix` and reopen the IDE.
 Existing release tags remain available. No statistics reset or manual deletion of
 checkpoint/ledger files is required for this upgrade.
 

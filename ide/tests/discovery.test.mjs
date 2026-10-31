@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {selectIdeServer,ideServer,ideRoot,discoverIdeLog,discoverIdeProcesses} from '../discovery.mjs';
+import {selectIdeServer,ideServer,agyServer,ideRoot,discoverIdeLog,discoverIdeProcesses} from '../discovery.mjs';
 import {validIdeTarget} from '../runtime.mjs';
 import {IdeClient} from '../client.mjs';
 const rows=[
@@ -11,6 +11,57 @@ const rows=[
  {ProcessId:50,ParentProcessId:2,Name:'Antigravity IDE.exe',CommandLine:'second IDE'},
  {ProcessId:60,ParentProcessId:50,Name:'language_server_windows_x64.exe',CommandLine:'LS --subclient_type ide --csrf_token other-test'},
 ];
+test('agy hub is a strict language-server candidate, never a renderer root',()=>{
+ const hub={ProcessId:120,ParentProcessId:110,Name:'agy.exe',CommandLine:'C:\\Antigravity\\agy.exe --hub'};
+ const ancestry=[{ProcessId:100,ParentProcessId:1,Name:'Antigravity IDE.exe',CommandLine:'Antigravity IDE'},
+   {ProcessId:110,ParentProcessId:100,Name:'electron-helper.exe',CommandLine:'helper'},hub];
+ assert.equal(agyServer(hub),true);
+ for(const row of [
+   {...hub,CommandLine:'agy.exe'},
+   {...hub,CommandLine:'agy.exe --hubble'},
+   {...hub,CommandLine:'agy.exe --hub=true'},
+   {...hub,CommandLine:'agy.exe --hub --enable_lsp'},
+   {...hub,Name:'other.exe'}
+ ])assert.equal(agyServer(row),false);
+ assert.equal(ideRoot(hub),false);
+ assert.equal(selectIdeServer(ancestry,new Map([[9000,100]]),9000).ProcessId,120);
+ assert.throws(()=>selectIdeServer([{...hub,ParentProcessId:999},...ancestry.slice(0,2)],new Map([[9000,100]]),9000),/Waiting/);
+ assert.throws(()=>selectIdeServer(ancestry,new Map([[9000,120]]),9000),/does not belong/);
+});
+test('Windows discovery selects an agy hub through a bounded helper lineage',async()=>{
+ const processRows=[
+  {ProcessId:100,ParentProcessId:1,Name:'Antigravity IDE.exe',CommandLine:'Antigravity IDE.exe'},
+  {ProcessId:110,ParentProcessId:100,Name:'electron-helper.exe',CommandLine:'helper'},
+  {ProcessId:120,ParentProcessId:110,Name:'agy.exe',CommandLine:'C:\\Antigravity\\agy.exe --hub'},
+  {ProcessId:130,ParentProcessId:100,Name:'agy.exe',CommandLine:'agy.exe'},
+ ];
+ const run=async file=>file==='powershell.exe'
+   ?{stdout:JSON.stringify(processRows)}
+   :{stdout:'TCP 127.0.0.1:9000 0.0.0.0:0 LISTENING 100\nTCP 127.0.0.1:8000 0.0.0.0:0 LISTENING 120'};
+ const result=await discoverIdeProcesses(9000,{platform:'win32',run});
+ assert.equal(result.ProcessId,120);assert.equal(result.rootPid,100);assert.deepEqual(result.Ports,[8000]);
+});
+test('shared renderer ports across two real IDE roots remain ambiguous',()=>{
+ const roots=[
+  {ProcessId:100,ParentProcessId:1,Name:'Antigravity IDE.exe',CommandLine:'Antigravity IDE.exe'},
+  {ProcessId:200,ParentProcessId:2,Name:'antigravity-ide',CommandLine:'antigravity-ide'},
+  {ProcessId:120,ParentProcessId:100,Name:'agy.exe',CommandLine:'agy.exe --hub'},
+  {ProcessId:220,ParentProcessId:200,Name:'agy',CommandLine:'/opt/agy --hub'},
+ ];
+ assert.throws(()=>selectIdeServer(roots,new Map([[9000,new Set([100,200])]]),9000),/Multiple/);
+ assert.equal(selectIdeServer(roots,new Map([[9000,100]]),9000).ProcessId,120);
+});
+test('POSIX parsing recognizes agy hub and excludes ordinary agy',async()=>{
+ const ps=[
+  '100 1 501 /usr/share/antigravity-ide/antigravity-ide',
+  '110 100 501 /usr/lib/electron-helper',
+  '120 110 501 /opt/agy --hub',
+  '130 100 501 /opt/agy',
+  '140 100 502 /opt/agy --hub',
+ ].join('\n');
+ const result=await discoverIdeProcesses(9000,{platform:'linux',uid:501,run:async()=>({stdout:ps}),linuxPort:async pid=>pid===100?[9000]:pid===120?[8000]:[]});
+ assert.equal(result.ProcessId,120);assert.deepEqual(result.Ports,[8000]);
+});
 test('bind the exact IDE root to its main server, excluding LSP/desktop/other profiles',()=>{
  assert.equal(selectIdeServer(rows,new Map([[9000,10]]),9000).ProcessId,20);
  assert.equal(selectIdeServer(rows,new Map([[9001,50]]),9001).ProcessId,60);
@@ -29,6 +80,7 @@ test('IDE renderer discovery rejects desktop pages, subframes, remote/debug port
  assert.ok(validIdeTarget(t,9000));
  for(const changed of [{type:'iframe'},{url:'http://127.0.0.1:9000/'},{url:t.url.replace('workbench.html','other.html')},{webSocketDebuggerUrl:'ws://example.com:9000/x'},{webSocketDebuggerUrl:'ws://127.0.0.1:9001/x'}])assert.equal(validIdeTarget({...t,...changed},9000),false);
 });
+
 test('Windows discovery retains only exact main process and its listening ports',async()=>{
  const run=async file=>file==='powershell.exe'?{stdout:JSON.stringify(rows)}:{stdout:'TCP 127.0.0.1:9000 0.0.0.0:0 LISTENING 10\nTCP 127.0.0.1:8000 0.0.0.0:0 LISTENING 20'};
  const r=await discoverIdeProcesses(9000,{platform:'win32',run});assert.equal(r.ProcessId,20);assert.deepEqual(r.Ports,[8000]);

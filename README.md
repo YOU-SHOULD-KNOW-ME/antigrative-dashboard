@@ -7,7 +7,7 @@
 Token throughput, cache hits and context usage in the model selector row. Hover over context for five-hour and weekly quotas too.<br>
 Keep the summary visible. Hover for the details.
 
-[![Version 0.8.15](https://img.shields.io/badge/version-0.8.15-91adff?style=flat-square&labelColor=252936)](CHANGELOG.md)
+[![Version 0.8.16](https://img.shields.io/badge/version-0.8.16-91adff?style=flat-square&labelColor=252936)](CHANGELOG.md)
 [![Platforms](https://img.shields.io/badge/host-Windows%20%7C%20Linux%20%7C%20macOS-83d8b9?style=flat-square&labelColor=252936)](COMPATIBILITY.md)
 [![Antigravity 2.21.1 / 2.22.0](https://img.shields.io/badge/Antigravity-2.21.1%20%2F%202.22.0-c5a0ff?style=flat-square&labelColor=252936)](COMPATIBILITY.md)
 [![MIT](https://img.shields.io/badge/license-MIT-d4d9e6?style=flat-square&labelColor=252936)](LICENSE)
@@ -16,7 +16,7 @@ Keep the summary visible. Hover for the details.
 
 </div>
 
-**v0.8.15:** [#25](https://github.com/YOU-SHOULD-KNOW-ME/antigrative-dashboard/issues/25): distinguish a collection limit from an empty conversation and automatically complete supported oversized sessions in a bounded background worker. Last complete statistics and account quotas remain available; invalid or unreadable data is never presented as a complete result. [Release notes](https://github.com/YOU-SHOULD-KNOW-ME/antigrative-dashboard/releases/tag/v0.8.15) · [Limits and recovery](docs/LONG_CONVERSATIONS.md).
+**v0.8.16:** [#26](https://github.com/YOU-SHOULD-KNOW-ME/antigrative-dashboard/issues/26): support Antigravity IDE 2.6.0's `agy --hub` backend and keep the composer controls mounted while metrics reconnect. [Release notes](https://github.com/YOU-SHOULD-KNOW-ME/antigrative-dashboard/releases/tag/v0.8.16) · [Compatibility](COMPATIBILITY.md).
 
 ## Preview
 
@@ -68,7 +68,7 @@ Keep the summary visible. Hover for the details.
 ## Antigravity IDE
 
 **v0.7.0** adds a separate VSIX for Google's own standalone IDE. Download
-`antigrative-dashboard-ide-0.8.15.vsix` from the release and choose **Install from VSIX…**
+`antigrative-dashboard-ide-0.8.16.vsix` from the release and choose **Install from VSIX…**
 in the IDE's Extensions view. No desktop App installation is required.
 
 Fully quit the IDE, then start it with

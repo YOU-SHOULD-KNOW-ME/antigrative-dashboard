@@ -1,6 +1,16 @@
-# Antigrative Dashboard v0.8.15
+# Antigrative Dashboard v0.8.16
 
-Address [#25](https://github.com/YOU-SHOULD-KNOW-ME/antigrative-dashboard/issues/25): an oversized conversation could appear to have no requests even though the collector had stopped at its safety budget. This release makes the state visible and adds automatic, resource-bounded background completion for supported long conversations.
+Address [#26](https://github.com/YOU-SHOULD-KNOW-ME/antigrative-dashboard/issues/26): Antigravity IDE 2.6.0 changed its backend process from the older `language_server_* --subclient_type ide` form to the `agy --hub` form. The old adapter entered reconnecting state before it could attach the composer controls.
+
+## What changes
+
+- The standalone IDE adapter recognizes both the 2.5.5 language-server form and the 2.6.0 `agy --hub` form. Process selection remains tied to the renderer-owned IDE root, uses a bounded lineage check, and rejects ordinary `agy`, LSP, stale and ambiguous multi-instance candidates.
+- Renderer CDP discovery and metrics discovery are independent. The three composer controls can mount while the local metrics service is temporarily unavailable; metric requests return an offline state and retry with the existing backoff.
+- Windows and POSIX process discovery, helper lineage, renderer ownership, metrics failure and mount recovery now have regression coverage.
+
+The 2.6.0 signed-in GUI still needs confirmation on a real installation after updating the VSIX.
+
+The v0.8.15 long-conversation safeguards remain included: an oversized conversation can be distinguished from an empty conversation, supported sessions can complete in a bounded background worker, and incomplete data is never presented as a complete total.
 
 ## What changes
 
@@ -19,11 +29,11 @@ Page checkpoints cover retries within a running task; unfinished work does **not
 
 Windows/Linux/macOS automated release gates cover the worker, UI and installation paths. Local synthetic tests include a page above 8 MiB, background completion while another conversation and quota requests remain responsive, mixed JSON/SQLite usage and cancellation. These tests do not establish signed-in GUI acceptance on every OS or reproduce the reporter's exact 11,846-step conversation.
 
-[Long-conversation details](https://github.com/YOU-SHOULD-KNOW-ME/antigrative-dashboard/blob/v0.8.15/docs/LONG_CONVERSATIONS.md) · [Compatibility](https://github.com/YOU-SHOULD-KNOW-ME/antigrative-dashboard/blob/v0.8.15/COMPATIBILITY.md)
+[Long-conversation details](https://github.com/YOU-SHOULD-KNOW-ME/antigrative-dashboard/blob/v0.8.16/docs/LONG_CONVERSATIONS.md) · [Compatibility](https://github.com/YOU-SHOULD-KNOW-ME/antigrative-dashboard/blob/v0.8.16/COMPATIBILITY.md)
 
 ## Install or update
 
-- **Antigravity App:** context details → **⋯ → Check for updates**, or extract `antigrative-dashboard-0.8.15.zip` and run `python manage.py install` (`python3` on Linux/macOS).
-- **Standalone Antigravity IDE:** install `antigrative-dashboard-ide-0.8.15.vsix` using **Install from VSIX…**.
+- **Antigravity App:** context details → **⋯ → Check for updates**, or extract `antigrative-dashboard-0.8.16.zip` and run `python manage.py install` (`python3` on Linux/macOS).
+- **Standalone Antigravity IDE:** install `antigrative-dashboard-ide-0.8.16.vsix` using **Install from VSIX…**.
 - Fully quit and reopen the corresponding host after updating. No statistics reset is needed. SHA-256 files accompany both packages.
 - If an older App updater rejects a relocated `.gemini` junction before downloading, use the release ZIP for a one-time manual install. Keep the junction and saved data.

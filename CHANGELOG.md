@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.8.16 — 2026-10-31
+
+- Fix [#26](https://github.com/YOU-SHOULD-KNOW-ME/antigrative-dashboard/issues/26): support Antigravity IDE 2.6.0's `agy --hub` backend while retaining the 2.5.5 language-server path. Renderer attachment no longer waits for metrics discovery, so temporary backend failures keep the composer controls mounted and return offline metrics.
+- Bound process lineage and renderer-port ownership checks, reject ordinary `agy`, LSP and ambiguous multi-instance matches, and add Windows/POSIX discovery and mount regressions.
+
 ## 0.8.15 — 2026-10-30
 
 - Automatically complete selected oversized conversations in a bounded disk-backed worker, retain foreground responsiveness, and publish verified statistics on the normal poll. Stream individual projected records, preserve exact deduplication/rate rules, and merge large usage ledgers off the foreground thread.

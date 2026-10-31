@@ -23,9 +23,11 @@ Python 3.10+ 仅用于生命周期，无 pip 依赖；后台使用宿主 Node，
 
 2026-10-30 / **v0.8.15**：超长会话可使用资源受控的后台任务补全，完成前保留上次完整数据；无法继续时显示原因。此路径需要可用的 `node:sqlite`（Node 22.13+ 或等效宿主），推荐 Node 24；不支持时维持原保护。Windows 的合成真实进程实验不等同于反馈者原始会话或 Linux/macOS 登录后的实机验收；子代理覆盖未完成时标记为部分。详见 [超长会话限制与验证](docs/LONG_CONVERSATIONS.md)。
 
+2026-10-31 / **Issue #26 本地修复**：Antigravity IDE 2.6.0 的后台从 `language_server_* --subclient_type ide` 迁移到严格的 `agy --hub` 形式。进程发现现在同时支持两种形式，并限制在拥有当前 renderer 调试端口的 IDE 根进程的有界进程链内。renderer 的 CDP 挂载不再等待指标服务发现；指标服务暂不可用时，控件仍可挂载并返回离线状态。新增 Windows/POSIX、普通 `agy`、LSP、多实例、helper lineage 和挂载失败回归。真实登录后的 IDE 2.6.0 GUI 仍需实机验收。
+
 ## Antigravity 自带 IDE
 
-专用包为 `antigrative-dashboard-ide-0.8.15.vsix`，安装入口与桌面 App 独立。
+专用包为 `antigrative-dashboard-ide-0.8.16.vsix`，安装入口与桌面 App 独立。
 Windows 11 / IDE 2.5.5（VS Code base 1.107.0）已用真实对话验证速率、缓存、上下文、重启历史恢复和窄宽布局。
 Linux/macOS 的 IDE 进程筛选、端口归属、安装打包和 Trusted Types 浏览器 fixture 纳入 CI；登录后的 IDE GUI 仍待实机验收。
 当前仅支持默认用户 profile；私有 Preact/DOM 或 RPC 变化可能需要适配，不能保证未来 IDE 版本无需维护。
